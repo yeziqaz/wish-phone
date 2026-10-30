@@ -43,12 +43,11 @@ startRouter();
 // 顺序很重要：先把桌面渲染好（此时它被锁屏盖住），再盖上锁屏。
 // 反过来的话，上滑解锁的那一瞬间底下还是空的，会闪一下白。
 // 将来「要不要锁屏」的开关只影响这一行。
-mountLockscreen(() => {});
-
-// 存储自检条：只在开发模式（npm run dev）加载。
-// 正式构建时 import.meta.env.DEV 是 false，动态 import 会被整段摇掉，
-// 产物里根本不含这段代码 —— 所以它不算「发出去的东西」。
-// ⚠️ T4 做完设置页后，连同 src/features/debug/ 一起删掉。
-if (import.meta.env.DEV) {
-  void import('./features/debug/db-probe').then((m) => m.mountDbProbe());
-}
+mountLockscreen(() => {
+  // 存储自检条：只在开发模式（npm run dev）、并且解锁之后才出现。
+  // 正式构建时 import.meta.env.DEV 是 false，动态 import 会被整段摇掉。
+  // ⚠️ 设置页的「数据管理」做完后，连同 src/features/debug/ 一起删掉。
+  if (import.meta.env.DEV) {
+    void import('./features/debug/db-probe').then((m) => m.mountDbProbe());
+  }
+});
