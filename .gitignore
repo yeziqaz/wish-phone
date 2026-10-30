@@ -39,6 +39,9 @@ npm-debug.log*
 # 我们自己开源发布，不适合把它们打包进仓库。本地保留作设计参考即可，
 # 设计规则已经提炼进 design/STYLE.md，索引在 design/moodboard/README.md。
 design/moodboard/*.png
+design/moodboard/*.jpg
+design/moodboard/*.jpeg
+design/moodboard/*.webp
 
 # 调研过程的原始数据（GitHub API 响应、HTML 抓取等）。
 # 提炼后的三份报告在 docs/research/*.md，已经进仓库。
