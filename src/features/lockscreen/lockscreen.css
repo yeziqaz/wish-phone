@@ -1,0 +1,106 @@
+/* ==========================================================================
+   锁屏样式
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+.lock {
+  position: fixed;
+  inset: 0;
+  /* 盖在所有页面之上，但低于 toast —— 启动时若有提示气泡应当可见 */
+  z-index: var(--z-dialog);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding:
+    calc(env(safe-area-inset-top) + 20vh)
+    var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-8));
+
+  background: var(--bg);
+  color: var(--ink);
+
+  /* 手势自己处理，别让浏览器去做滚动或下拉刷新 */
+  touch-action: none;
+  cursor: grab;
+
+  /* 解锁飞出：减速曲线 */
+  transition: transform 360ms var(--ease-out);
+}
+
+/* 手指按着的时候不要过渡，否则跟手会有延迟感 */
+.lock--dragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+/* 解锁时飞出去的这一段 */
+.lock--leaving {
+  transition: transform 360ms var(--ease-out);
+}
+
+/* 没拖够、弹回来：用果冻曲线，手感是「吸」回去的 */
+.lock--snapback {
+  transition: transform 520ms var(--ease-jelly);
+}
+
+/* ---------- 时钟 ---------- */
+
+.lock__time {
+  /* 锁屏最该看清的就是这个数字，所以它比 --fs-display 还大 */
+  font-size: clamp(56px, 21vw, 92px);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  /* 等宽数字：分钟跳动时整行不会左右晃 */
+  font-variant-numeric: tabular-nums;
+}
+
+.lock__date {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-base);
+  color: var(--ink-3);
+}
+
+/* ---------- 底部提示 ---------- */
+
+.lock__hint {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+
+.lock__arrow {
+  display: grid;
+  place-items: center;
+  animation: lock-breathe 2.2s var(--ease-out) infinite;
+}
+
+@keyframes lock-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* 尊重系统的「减弱动态效果」设置 */
+@media (prefers-reduced-motion: reduce) {
+  .lock,
+  .lock--leaving,
+  .lock--snapback {
+    transition-duration: 1ms;
+  }
+  .lock__arrow {
+    animation: none;
+    opacity: 0.8;
+  }
+}

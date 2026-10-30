@@ -1,6 +1,7 @@
 import './app.css';
 import { HOME, navigate, route, startRouter } from './core/router';
 import { mountDesktop } from './features/desktop/desktop';
+import { mountLockscreen } from './features/lockscreen/lockscreen';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
@@ -38,3 +39,8 @@ app.addEventListener('click', (e) => {
 
 if (!location.hash) navigate(HOME);
 startRouter();
+
+// 顺序很重要：先把桌面渲染好（此时它被锁屏盖住），再盖上锁屏。
+// 反过来的话，上滑解锁的那一瞬间底下还是空的，会闪一下白。
+// 将来「要不要锁屏」的开关只影响这一行。
+mountLockscreen(() => {});

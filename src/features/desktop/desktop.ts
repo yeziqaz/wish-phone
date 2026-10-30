@@ -3,8 +3,11 @@ import type { IconName } from '../../ui/icons';
 import './desktop.css';
 
 /* ==========================================================================
-   桌面：状态栏（时间 / 日期）+ 图标网格 + Dock
-   第一版桌面是固定的，不做拖拽、不做多页 —— 那些属于后面的版本。
+   桌面：顶部状态栏 + 图标网格 + Dock
+
+   大时钟搬去锁屏了（features/lockscreen），这一屏只留一行很淡的小字，
+   像真手机的状态栏那样尽量不抢注意力。
+   第一版桌面固定，不做拖拽、不做多页 —— 那些属于后面的版本。
    ========================================================================== */
 
 interface AppDef {
@@ -45,9 +48,9 @@ function paint(el: HTMLElement | null, text: string): void {
 export function mountDesktop(root: HTMLElement): () => void {
   root.innerHTML = `
     <div class="desktop">
-      <header class="desktop__status">
-        <div class="desktop__time" id="clock">--:--</div>
-        <div class="desktop__date" id="today"></div>
+      <header class="desktop__bar">
+        <span class="desktop__clock" id="clock">--:--</span>
+        <span class="desktop__date" id="today"></span>
       </header>
 
       <main class="desktop__grid">

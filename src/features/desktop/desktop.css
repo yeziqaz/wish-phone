@@ -10,30 +10,27 @@
   min-height: 100dvh;
   /* 顶到刘海下面，底让开手势条 */
   padding:
-    calc(env(safe-area-inset-top) + var(--sp-8))
+    calc(env(safe-area-inset-top) + var(--sp-4))
     var(--sp-5)
     calc(env(safe-area-inset-bottom) + var(--sp-5));
 }
 
-/* ---------- 状态栏 ---------- */
+/* ---------- 顶部状态栏 ----------
+   大号时钟已经搬到锁屏，这里只留一行小字，
+   存在感越低越好 —— 它是「状态栏」，不是主角 */
 
-.desktop__status {
-  text-align: center;
-}
-
-.desktop__time {
-  font-size: var(--fs-display);
-  font-weight: var(--fw-semibold);
-  line-height: var(--lh-tight);
-  /* 等宽数字：分钟跳动时不会左右晃 */
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
-}
-
-.desktop__date {
-  margin-top: var(--sp-1);
+.desktop__bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
   font-size: var(--fs-sm);
   color: var(--ink-3);
+}
+
+.desktop__clock {
+  /* 等宽数字：分钟跳动时整行不会左右晃 */
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 图标网格 ---------- */
