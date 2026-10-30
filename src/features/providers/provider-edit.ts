@@ -310,9 +310,20 @@ function bind(root: HTMLElement, provider: Provider): void {
         <div class="model-row">
           <input type="checkbox" data-model-toggle="${index}"
                  ${model.enabled ? 'checked' : ''} aria-label="启用">
-          <input class="input model-row__id" type="text" autocomplete="off"
-                 spellcheck="false" data-model-id="${index}"
-                 value="${esc(model.id)}" placeholder="模型 ID">
+          <div class="model-row__fields">
+            <input class="input model-row__id" type="text" autocomplete="off"
+                   spellcheck="false" data-model-field="id" data-index="${index}"
+                   value="${esc(model.id)}" placeholder="模型 ID（发请求用）">
+            <div class="model-row__sub">
+              <input class="input" type="text" autocomplete="off" spellcheck="false"
+                     data-model-field="displayName" data-index="${index}"
+                     value="${esc(model.displayName === model.id ? '' : model.displayName)}"
+                     placeholder="显示名称（可不填）">
+              <input class="input model-row__ctx" type="text" inputmode="numeric"
+                     autocomplete="off" data-model-field="contextLength" data-index="${index}"
+                     value="${model.contextLength ?? ''}" placeholder="上下文">
+            </div>
+          </div>
           <button class="mini jelly" type="button" data-model-remove="${index}"
                   aria-label="删除这个模型">${line('trash', 18)}</button>
         </div>`,
@@ -323,11 +334,17 @@ function bind(root: HTMLElement, provider: Provider): void {
   renderModels();
 
   must(root, '#p-models').addEventListener('input', (e) => {
-    const input = (e.target as HTMLElement).closest<HTMLInputElement>('[data-model-id]');
+    const input = (e.target as HTMLElement).closest<HTMLInputElement>('[data-model-field]');
     if (!input) return;
-    const index = Number(input.dataset.modelId ?? '-1');
-    const model = provider.models[index];
-    if (model) model.id = input.value;
+    const model = provider.models[Number(input.dataset.index ?? '-1')];
+    if (!model) return;
+    const field = input.dataset.modelField;
+    if (field === 'id') model.id = input.value;
+    else if (field === 'displayName') model.displayName = input.value;
+    else if (field === 'contextLength') {
+      const n = Number(input.value.trim());
+      model.contextLength = input.value.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    }
   });
 
   must(root, '#p-models').addEventListener('change', (e) => {
@@ -358,7 +375,7 @@ function bind(root: HTMLElement, provider: Provider): void {
     });
     renderModels();
     // 加了就把光标送到新那行的输入框
-    const inputs = root.querySelectorAll<HTMLInputElement>('[data-model-id]');
+    const inputs = root.querySelectorAll<HTMLInputElement>('[data-model-field="id"]');
     inputs[inputs.length - 1]?.focus();
   });
 
@@ -390,7 +407,7 @@ function bind(root: HTMLElement, provider: Provider): void {
           provider.models.push({
             id: item.id,
             displayName: item.id,
-            contextLength: null,
+            contextLength: item.contextLength ?? null,
             enabled: true,
             source: 'fetched',
           });

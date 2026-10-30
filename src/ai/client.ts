@@ -105,11 +105,18 @@ export async function listModels(config: ApiConfig): Promise<ModelInfo[]> {
   const url = buildUrl(config.baseUrl, '/models');
   const response = await request(url, config, { method: 'GET' });
 
-  const data = (await response.json()) as { data?: Array<{ id: string }>; models?: Array<{ id: string }> };
+  type RawModel = { id: string } & Record<string, unknown>;
+  const data = (await response.json()) as { data?: RawModel[]; models?: RawModel[] };
   // OpenAI 格式是 { data: [{id}] }，有些服务返回 { models: [{id}] }
   const list = data.data ?? data.models ?? [];
   return list
-    .map((m) => ({ id: m.id }))
+    .map((m) => {
+      // 上下文长度没有统一字段名，常见的几种都试一下；都没有就不填
+      const ctx = [m.context_length, m.context_window, m.max_context_length, m.max_model_len].find(
+        (v): v is number => typeof v === 'number' && v > 0,
+      );
+      return ctx ? { id: m.id, contextLength: ctx } : { id: m.id };
+    })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 

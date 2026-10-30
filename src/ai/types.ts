@@ -38,4 +38,6 @@ export interface ModelInfo {
   id: string;
   /** 有些服务会带，有些不带 */
   label?: string;
+  /** 上下文长度。只有部分服务在 /models 里返回 */
+  contextLength?: number;
 }
