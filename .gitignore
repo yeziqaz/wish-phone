@@ -1,0 +1,45 @@
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+dist-ssr/
+
+# 环境变量
+# ⚠️ 注意：Vite 的 VITE_* 变量会被【内联进构建产物】，等于公开。
+#    任何密钥都不许放这里，见 AGENTS.md §5。
+.env
+.env.*
+!.env.example
+
+# 编辑器与系统
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Capacitor / Android（T9 才会生成）
+android/app/release.keystore
+*.keystore
+*.jks
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+# 日志
+*.log
+npm-debug.log*
+
+# ---------------------------------------------------------------------------
+# 不随开源仓库分发的内容
+# ---------------------------------------------------------------------------
+
+# 第三方 UI 参考图：来源是各路设计网站，版权不明确。
+# 我们自己开源发布，不适合把它们打包进仓库。本地保留作设计参考即可，
+# 设计规则已经提炼进 design/STYLE.md，索引在 design/moodboard/README.md。
+design/moodboard/*.png
+
+# 调研过程的原始数据（GitHub API 响应、HTML 抓取等）。
+# 提炼后的三份报告在 docs/research/*.md，已经进仓库。
+docs/research/raw/

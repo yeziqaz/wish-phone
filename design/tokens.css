@@ -1,0 +1,267 @@
+/* ==========================================================================
+   愿望机 · 设计令牌 (Design Tokens)
+   基调：多级灰 + 描边线框 ｜ 图标：桌面实心 / 内页线性
+   色彩：黑白灰 + 预留一个可替换强调色 ｜ 纹理：少量点缀
+   --------------------------------------------------------------------------
+   规矩：组件里禁止出现裸色值，一律引用本文件的 CSS 变量。
+   将来换色卡时，只改下面语义层的值，其他地方一个字都不用动。
+   ========================================================================== */
+
+:root {
+  /* ---------- 语义色：浅色（默认） ---------- */
+  --bg:            #fafafa;  /* 页面底 */
+  --surface:       #ffffff;  /* 卡片 / 面板 / 输入框 */
+  --surface-2:     #f4f4f5;  /* 次级面：凹槽、hover、分组底 */
+  --line:          #e8e8ea;  /* 常规描边 1px */
+  --line-strong:   #d0d0d5;  /* 强调描边、可点击控件的边界 */
+  --ink:           #111114;  /* 主文字、标题 */
+  --ink-2:         #55555e;  /* 次要文字 */
+  --ink-3:         #8e8e97;  /* 弱化文字、占位符、禁用 */
+  --inverse-bg:    #111114;  /* 反色块底 */
+  --inverse-ink:   #ffffff;  /* 反色块上的文字 */
+  --accent:        #111114;  /* 强调色：默认等同 ink，换色卡只改这一个 */
+  --accent-ink:    #ffffff;  /* 强调色上的文字 */
+  --danger:        #d64545;  /* 危险：仅删除 / 错误 */
+
+  /* 半透明（遮罩、纹理用） */
+  --ink-a04:  rgb(17 17 20 / 0.04);
+  --ink-a06:  rgb(17 17 20 / 0.06);
+  --ink-a08:  rgb(17 17 20 / 0.08);
+  --mask:     rgb(17 17 20 / 0.32);
+
+  /* ---------- 圆角：描边线框路线，适中偏小 ---------- */
+  --radius-xs:   4px;    /* 徽标、小方块 */
+  --radius-sm:   6px;    /* 标签、小按钮 */
+  --radius-md:  10px;    /* 按钮、输入框 */
+  --radius-lg:  14px;    /* 卡片、列表分组 */
+  --radius-xl:  20px;    /* 弹窗、抽屉、大面板 */
+  --radius-full: 999px;  /* 胶囊、头像、开关 */
+
+  /* ---------- 描边 ---------- */
+  --border-w:        1px;
+  --border-w-strong: 1.5px;
+
+  /* ---------- 间距（4 的倍数） ---------- */
+  --sp-1:  4px;   --sp-2:  8px;   --sp-3: 12px;   --sp-4: 16px;
+  --sp-5: 20px;   --sp-6: 24px;   --sp-8: 32px;   --sp-10: 40px;
+
+  /* ---------- 字号 ---------- */
+  --fs-caption: 11px;  /* 角标、时间戳 */
+  --fs-sm:      13px;  /* 辅助说明 */
+  --fs-base:    15px;  /* 正文 */
+  --fs-lg:      17px;  /* 列表标题、按钮 */
+  --fs-title:   20px;  /* 页面标题 */
+  --fs-display: 28px;  /* 桌面大时钟、数字展示 */
+
+  --fw-normal:   400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+
+  /* ---------- 行高 ---------- */
+  --lh-tight: 1.25;
+  --lh-base:  1.55;
+
+  /* ---------- 阴影：靠描边分层，阴影只给"浮起来"的东西 ---------- */
+  --shadow-none: none;
+  --shadow-pop:  0 12px 32px -12px rgb(17 17 20 / 0.18);  /* 弹窗 / 抽屉 / 浮层 */
+  --shadow-lift: 0 4px 14px -6px rgb(17 17 20 / 0.14);    /* 轻浮起：开关旋钮、悬浮按钮 */
+
+  /* ---------- 层级 ---------- */
+  --z-base:     1;
+  --z-nav:     10;   /* 底部导航 / 顶栏 */
+  --z-sticky:  20;
+  --z-mask:    50;
+  --z-drawer:  60;
+  --z-dialog:  70;
+  --z-toast:   80;
+
+  /* ---------- 动效：果冻反馈 ---------- */
+  --ease-out:   cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-jelly: cubic-bezier(0.34, 1.9, 0.4, 1);   /* 回弹带过冲 */
+  --dur-press:  80ms;    /* 按下：快 */
+  --dur-release: 650ms;  /* 松开：慢弹回 */
+  --dur-normal: 250ms;   /* 常规过渡：颜色、透明度 */
+
+  /* ---------- 纹理：只在白名单位置使用 ---------- */
+  --tex-hatch: repeating-linear-gradient(
+                 45deg, transparent 0 3px, var(--ink-a06) 3px 4px);
+  --tex-dots:  radial-gradient(var(--ink-a08) 1px, transparent 1px) 0 0 / 6px 6px;
+  --tex-grid:  repeating-linear-gradient(
+                 var(--ink-a04) 0 1px, transparent 1px 8px),
+               repeating-linear-gradient(
+                 90deg, var(--ink-a04) 0 1px, transparent 1px 8px);
+
+  /* ---------- 触控 ---------- */
+  --tap-min: 44px;   /* 最小点击区，低于这个值不许做 */
+  --icon-desktop: 46px;  /* 桌面图标容器（实心图标） */
+  --icon-inline:  22px;  /* 内页线性图标 */
+}
+
+/* ==========================================================================
+   深色模式：不是简单反相，而是重新分配灰阶
+   ========================================================================== */
+[data-theme="dark"], .theme-dark {
+  --bg:          #0e0e10;
+  --surface:     #17171a;
+  --surface-2:   #202024;
+  --line:        #2a2a2f;
+  --line-strong: #3a3a41;
+  --ink:         #f2f2f4;
+  --ink-2:       #a8a8b0;
+  --ink-3:       #6e6e77;
+  --inverse-bg:  #fafafa;
+  --inverse-ink: #111114;
+  --accent:      #f2f2f4;
+  --accent-ink:  #111114;
+  --danger:      #ff6b6b;
+
+  --ink-a04: rgb(255 255 255 / 0.04);
+  --ink-a06: rgb(255 255 255 / 0.06);
+  --ink-a08: rgb(255 255 255 / 0.08);
+  --mask:    rgb(0 0 0 / 0.55);
+
+  --shadow-pop:  0 12px 32px -12px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 4px 14px -6px rgb(0 0 0 / 0.5);
+}
+
+/* ==========================================================================
+   基础重置 + 常用原子类（够用就好，不做完整 UI 框架）
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;   /* 防止整页橡皮筋，像个 App */
+}
+
+/* 手机外壳：桌面与 App 都装在这个容器里 */
+.phone {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 卡片：描边为主，阴影只留给浮层 */
+.card {
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+}
+
+.card--flat { border-radius: var(--radius-md); box-shadow: var(--shadow-none); }
+
+/* 反色块：主行动、选中态、强调 Header —— 禁止用于大面积正文 */
+.inverse {
+  background: var(--inverse-bg);
+  color: var(--inverse-ink);
+  border-color: var(--inverse-bg);
+}
+
+/* 按钮 */
+.btn {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  border-radius: var(--radius-md);
+  border: var(--border-w-strong) solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.btn--ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn--danger { color: var(--danger); border-color: var(--danger); }
+
+.btn[disabled], .btn[aria-disabled="true"] {
+  color: var(--ink-3);
+  border-color: var(--line);
+  background: var(--surface-2);
+  pointer-events: none;
+}
+
+/* 果冻反馈：只碰 transform / box-shadow，绝不和美化层抢属性 */
+.jelly {
+  transform: scale(1);
+  transition:
+    transform   var(--dur-release) var(--ease-jelly),
+    box-shadow  var(--dur-release) var(--ease-jelly);
+}
+.jelly:active {
+  transform: scale(0.94);
+  transition:
+    transform   var(--dur-press) var(--ease-out),
+    box-shadow  var(--dur-press) var(--ease-out);
+}
+
+/* 列表项：靠描边和间距分隔，不靠色块 */
+.list { background: var(--surface); border: var(--border-w) solid var(--line);
+        border-radius: var(--radius-lg); overflow: hidden; }
+.list__item {
+  min-height: var(--tap-min);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-3);
+  border-bottom: var(--border-w) solid var(--line);
+}
+.list__item:last-child { border-bottom: 0; }
+.list__item:active { background: var(--surface-2); }
+
+/* 输入 */
+.input {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+.input::placeholder { color: var(--ink-3); }
+.input:focus { border-color: var(--accent); }
+
+/* 标签 / 徽标 */
+.tag {
+  display: inline-flex; align-items: center;
+  height: 24px; padding: 0 var(--sp-2);
+  font-size: var(--fs-caption);
+  border-radius: var(--radius-sm);
+  border: var(--border-w) solid var(--line-strong);
+  color: var(--ink-2);
+}
+.tag--solid { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+/* 分隔线 */
+.hr { height: var(--border-w); background: var(--line); border: 0; margin: 0; }
+
+/* 纹理：只在白名单位置使用（桌面壁纸 / 空状态 / 角色卡封面 / 反色块装饰） */
+.tex-hatch { background-image: var(--tex-hatch); }
+.tex-dots  { background-image: var(--tex-dots); }
+.tex-grid  { background-image: var(--tex-grid); }
+
+/* 无障碍：尊重系统"减弱动态效果" */
+@media (prefers-reduced-motion: reduce) {
+  .jelly, .jelly:active { transition-duration: 1ms; transform: none; }
+}

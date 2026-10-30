@@ -1,0 +1,20 @@
+{
+  "name": "wish-phone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "愿望机 · 纯前端零后端的 AI 小手机",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "idb": "^8.0.4"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

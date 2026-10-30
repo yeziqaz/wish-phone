@@ -1,0 +1,81 @@
+/* 设计令牌是唯一真源，直接引用 design/ 下那一份，
+   不在 src/ 里复制第二份 —— 两份迟早会不同步 */
+@import '../design/tokens.css';
+
+/* ==========================================================================
+   T1 · 骨架验证页（临时样式，T2 会被真正的桌面替换）
+   ========================================================================== */
+
+#app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* 让内容避开刘海和底部手势区 */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.bar__title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+
+.bar__page {
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  text-align: center;
+}
+
+.body__hint {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+}
+
+.body__meta {
+  margin: 0;
+  max-width: 22em;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 420px;
+  margin-top: var(--sp-6);
+}
+
+.nav__item {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
