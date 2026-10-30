@@ -1,6 +1,6 @@
 import { deleteProviderRecord, getProvider, newId, putProvider } from '../../core/db';
-import type { ApiProtocol, Provider } from '../../core/types';
-import { esc, find, must } from '../../core/dom';
+import type { ApiProtocol, Provider, ProviderModel } from '../../core/types';
+import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
@@ -31,6 +31,19 @@ function describe(error: unknown): string {
 
 function firstKey(provider: Provider): string {
   return provider.keys.find((k) => k.enabled && k.value)?.value ?? provider.keys[0]?.value ?? '';
+}
+
+function modelName(model: ProviderModel): string {
+  const name = model.displayName.trim();
+  return name && name !== model.id ? name : model.id || '未填写模型 ID';
+}
+
+function modelMeta(model: ProviderModel): string {
+  const parts: string[] = [];
+  if (model.displayName.trim() && model.displayName !== model.id) parts.push(model.id);
+  if (model.contextLength) parts.push(`${Math.round(model.contextLength / 1000)}K`);
+  if (!model.enabled) parts.push('已停用');
+  return parts.join(' · ');
 }
 
 function numberOrNull(value: string): number | null {
@@ -86,13 +99,13 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           基础配置<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body">
-          <label class="field">
+          <label class="field field--row">
             <span class="field__label">服务商名称</span>
             <input class="input" id="p-name" type="text" autocomplete="off"
-                   spellcheck="false" value="${esc(p.name)}" placeholder="随便起，只给自己看">
+                   spellcheck="false" value="${esc(p.name)}" placeholder="只给自己看">
           </label>
 
-          <label class="field">
+          <label class="field field--row">
             <span class="field__label">API 协议</span>
             <select class="input" id="p-protocol">
               ${ALL_PROTOCOLS.map((proto) => {
@@ -105,8 +118,8 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           </label>
           <p class="field__note" id="protocol-note"></p>
 
-          <label class="field">
-            <span class="field__label">API Base URL</span>
+          <label class="field field--row">
+            <span class="field__label">Base URL</span>
             <input class="input" id="p-url" type="text" inputmode="url" autocomplete="off"
                    spellcheck="false" value="${esc(p.baseUrl)}"
                    placeholder="https://api.example.com/v1">
@@ -123,16 +136,17 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
             <div id="p-keys"></div>
           </div>
 
-          <label class="field">
+          <label class="field field--row">
             <span class="field__label">API 路径</span>
             <input class="input" id="p-path" type="text" autocomplete="off" spellcheck="false"
                    value="${esc(p.apiPath)}" placeholder="/chat/completions">
           </label>
 
+          ${quick ? '' : `
           <div class="row-actions">
             <button class="btn jelly" type="button" id="p-test">测试连接</button>
           </div>
-          <p class="field__note" id="p-test-result"></p>
+          <p class="field__note" id="p-test-result"></p>`}
         </div>
       </section>
 
@@ -142,12 +156,14 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           模型<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body">
-          <div id="p-models"></div>
-          <div class="row-actions">
-            <button class="btn jelly" type="button" id="p-fetch">拉取模型</button>
-            <button class="btn jelly" type="button" id="p-addmodel">手动添加</button>
+          <div class="model-tools">
+            <button class="mini jelly" type="button" id="p-fetch">拉取</button>
+            <button class="mini jelly" type="button" id="p-addmodel">+ 手动</button>
+            <input class="input model-tools__search" id="p-model-search" type="search"
+                   autocomplete="off" spellcheck="false" placeholder="搜索模型">
           </div>
           <p class="field__note" id="p-model-note"></p>
+          <div class="model-list" id="p-models"></div>
         </div>
       </section>
 
@@ -166,16 +182,16 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
             <span class="field__hint">0 = 刻板精确，2 = 天马行空。一般 0.7~1.0。</span>
           </label>
 
-          <label class="field">
+          <label class="field field--row">
             <span class="field__label">最大输出长度</span>
             <input class="input" id="p-maxtokens" type="text" inputmode="numeric"
-                   autocomplete="off" value="${p.generation.maxTokens ?? ''}" placeholder="留空 = 用接口默认">
+                   autocomplete="off" value="${p.generation.maxTokens ?? ''}" placeholder="留空用默认">
           </label>
 
-          <label class="field">
+          <label class="field field--row">
             <span class="field__label">Top P</span>
             <input class="input" id="p-topp" type="text" inputmode="decimal"
-                   autocomplete="off" value="${p.generation.topP ?? ''}" placeholder="留空 = 用接口默认">
+                   autocomplete="off" value="${p.generation.topP ?? ''}" placeholder="留空用默认">
           </label>
         </div>
       </section>`}
@@ -305,22 +321,36 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   /* ---------- 模型列表 ---------- */
 
+  // 默认每个模型只占一行；点名字才展开编辑框
+  const openModels = new Set<number>();
+  let query = '';
+  const matches = (model: ProviderModel): boolean =>
+    !query ||
+    model.id.toLowerCase().includes(query) ||
+    model.displayName.toLowerCase().includes(query);
+
   const renderModels = (): void => {
     const box = find<HTMLElement>(root, '#p-models');
     if (!box) return;
     if (provider.models.length === 0) {
       box.innerHTML =
-        '<p class="field__note">还没有模型。点下面的「拉取模型」自动获取，或「手动添加」。</p>';
+        '<p class="field__note">还没有模型。点上面的「拉取」自动获取，或「+ 手动」添加。</p>';
       return;
     }
     box.innerHTML = provider.models
       .map(
         (model, index) => `
-        <div class="model-row">
+        <div class="model-row" data-index="${index}"${matches(model) ? '' : ' hidden'}>
           <input type="checkbox" data-model-toggle="${index}"
                  ${model.enabled ? 'checked' : ''} aria-label="启用">
-          <div class="model-row__fields">
-            <input class="input model-row__id" type="text" autocomplete="off"
+          <button class="model-row__main" type="button" data-model-edit="${index}">
+            <span class="model-row__name">${esc(modelName(model))}</span>
+            <span class="model-row__meta">${esc(modelMeta(model))}</span>
+          </button>
+          <button class="model-row__del" type="button" data-model-remove="${index}"
+                  aria-label="删除这个模型">${line('trash', 16)}</button>
+          <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
+            <input class="input" type="text" autocomplete="off"
                    spellcheck="false" data-model-field="id" data-index="${index}"
                    value="${esc(model.id)}" placeholder="模型 ID（发请求用）">
             <div class="model-row__sub">
@@ -333,8 +363,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                      value="${model.contextLength ?? ''}" placeholder="上下文">
             </div>
           </div>
-          <button class="mini jelly" type="button" data-model-remove="${index}"
-                  aria-label="删除这个模型">${line('trash', 18)}</button>
         </div>`,
       )
       .join('');
@@ -354,6 +382,12 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       const n = Number(input.value.trim());
       model.contextLength = input.value.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
     }
+    // 只改这一行的文字，不重建输入框
+    const row = input.closest<HTMLElement>('.model-row');
+    if (row) {
+      setText(row.querySelector('.model-row__name'), modelName(model));
+      setText(row.querySelector('.model-row__meta'), modelMeta(model));
+    }
   });
 
   find(root, '#p-models')?.addEventListener('change', (e) => {
@@ -361,17 +395,40 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     if (!box) return;
     const index = Number(box.dataset.modelToggle ?? '-1');
     const model = provider.models[index];
-    if (model) model.enabled = box.checked;
+    if (!model) return;
+    model.enabled = box.checked;
+    setText(box.closest('.model-row')?.querySelector('.model-row__meta') ?? null, modelMeta(model));
   });
 
   find(root, '#p-models')?.addEventListener('click', (e) => {
-    const button = (e.target as HTMLElement).closest<HTMLElement>('[data-model-remove]');
+    const target = e.target as HTMLElement;
+    const edit = target.closest<HTMLElement>('[data-model-edit]');
+    if (edit) {
+      const index = Number(edit.dataset.modelEdit ?? '-1');
+      const panel = edit.parentElement?.querySelector<HTMLElement>('.model-row__edit');
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      if (panel.hidden) openModels.delete(index);
+      else openModels.add(index);
+      return;
+    }
+    const button = target.closest<HTMLElement>('[data-model-remove]');
     if (!button) return;
     const index = Number(button.dataset.modelRemove ?? '-1');
     if (index >= 0) {
       provider.models.splice(index, 1);
+      // 序号变了，展开状态作废
+      openModels.clear();
       renderModels();
     }
+  });
+
+  find<HTMLInputElement>(root, '#p-model-search')?.addEventListener('input', (e) => {
+    query = (e.target as HTMLInputElement).value.trim().toLowerCase();
+    root.querySelectorAll<HTMLElement>('.model-row').forEach((row) => {
+      const model = provider.models[Number(row.dataset.index ?? '-1')];
+      row.hidden = model ? !matches(model) : true;
+    });
   });
 
   find(root, '#p-addmodel')?.addEventListener('click', () => {
@@ -382,6 +439,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       enabled: true,
       source: 'manual',
     });
+    openModels.add(provider.models.length - 1);
     renderModels();
     // 加了就把光标送到新那行的输入框
     const inputs = root.querySelectorAll<HTMLInputElement>('[data-model-field="id"]');
@@ -441,7 +499,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   /* ---------- 测试连接 ---------- */
 
-  must(root, '#p-test').addEventListener('click', () => {
+  find(root, '#p-test')?.addEventListener('click', () => {
     void (async () => {
       const result = must<HTMLElement>(root, '#p-test-result');
       const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
@@ -513,6 +571,8 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         result.textContent = '已保存。';
         result.className = 'field__note is-ok';
         renderKeys();
+        // 保存时会丢掉空行，序号可能变了
+        openModels.clear();
         renderModels();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
