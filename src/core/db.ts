@@ -1,0 +1,248 @@
+/**
+ * IndexedDB 封装（用 idb，ISC 许可，gzip 约 3.4KB）。
+ *
+ * 为什么不用 Dexie：我们只需要「几张表 + 简单查询」，
+ * 30KB 的 ORM 换不来什么，而且它会把 IndexedDB 的语义藏起来 ——
+ * 对这个项目「让零基础用户看得懂」的目标是减分项。
+ *
+ * ⚠️ 三条铁律：
+ *   1. 数据库是异步打开的，openDB 完成前不许读写；
+ *      所有操作都必须先 await db()，不要在模块顶层直接调 store。
+ *   2. 版本升级必须写迁移分支，**任何情况下不许 deleteObjectStore**（那等于删用户数据）。
+ *   3. 删除要用事务把关联数据一起带走，别留孤儿记录。
+ */
+import { openDB } from 'idb';
+import type { DBSchema, IDBPDatabase } from 'idb';
+import type { Character, Conversation, Message, SettingRecord } from './types';
+
+const DB_NAME = 'wish-phone';
+const DB_VERSION = 1;
+
+interface WishDB extends DBSchema {
+  characters: {
+    key: string;
+    value: Character;
+    indexes: { byUpdatedAt: number };
+  };
+  conversations: {
+    key: string;
+    value: Conversation;
+    indexes: { byCharacter: string; byUpdatedAt: number };
+  };
+  messages: {
+    key: string;
+    value: Message;
+    /** 复合索引：同一会话内按时间顺序取出 */
+    indexes: { byConversation: [string, string] };
+  };
+  settings: {
+    key: string;
+    value: SettingRecord;
+  };
+}
+
+let handle: Promise<IDBPDatabase<WishDB>> | null = null;
+
+/** 拿到数据库连接。第一次调用时才真正打开 */
+export function db(): Promise<IDBPDatabase<WishDB>> {
+  handle ??= openDB<WishDB>(DB_NAME, DB_VERSION, {
+    upgrade(database, oldVersion) {
+      // v0 → v1：建全部表
+      if (oldVersion < 1) {
+        const characters = database.createObjectStore('characters', { keyPath: 'id' });
+        characters.createIndex('byUpdatedAt', 'updatedAt');
+
+        const conversations = database.createObjectStore('conversations', { keyPath: 'id' });
+        conversations.createIndex('byCharacter', 'characterId');
+        conversations.createIndex('byUpdatedAt', 'updatedAt');
+
+        const messages = database.createObjectStore('messages', { keyPath: 'id' });
+        messages.createIndex('byConversation', ['conversationId', 'createdAt']);
+
+        database.createObjectStore('settings', { keyPath: 'key' });
+      }
+
+      // 将来加字段时在这里续写，例如：
+      // if (oldVersion < 2) {
+      //   tx.objectStore('characters').createIndex('byName', 'name');
+      // }
+      // ⛔ 永远不要 deleteObjectStore —— 那是直接抹掉用户的数据。
+    },
+  });
+  return handle;
+}
+
+/**
+ * 本地唯一 id。
+ *
+ * ⚠️ crypto.randomUUID 只在「安全上下文」里存在 —— https 或 localhost。
+ *    如果用局域网 IP（http://192.168.x.x:5173）在手机上打开，它会是 undefined，
+ *    直接调用就当场崩掉。所以必须有回退。
+ */
+export function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // 回退方案：时间戳 + 随机数。本地单用户、不会高并发，够用了
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** 复合索引的范围：某个会话的全部消息 */
+function conversationRange(conversationId: string): IDBKeyRange {
+  // \uffff 是安全的字符串上界，能覆盖所有正常内容
+  return IDBKeyRange.bound([conversationId, ''], [conversationId, '\uffff']);
+}
+
+/* ============================ 角色 ============================ */
+
+export async function listCharacters(): Promise<Character[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('characters', 'byUpdatedAt');
+  // 最近改过的排在前面
+  return all.reverse();
+}
+
+export function getCharacter(id: string): Promise<Character | undefined> {
+  return db().then((database) => database.get('characters', id));
+}
+
+export async function putCharacter(character: Character): Promise<void> {
+  const database = await db();
+  await database.put('characters', character);
+}
+
+/**
+ * 删除角色，连同它的所有会话和消息。
+ * 没用一个大事务把三步包起来：事务里 await 循环很容易踩「事务提前提交」的坑，
+ * 而这是本地单用户场景，不需要那种原子性。
+ */
+export async function deleteCharacter(id: string): Promise<void> {
+  const database = await db();
+  const conversations = await database.getAllFromIndex('conversations', 'byCharacter', id);
+  for (const conversation of conversations) {
+    await deleteConversation(conversation.id);
+  }
+  await database.delete('characters', id);
+}
+
+/* ============================ 会话 ============================ */
+
+export async function listConversations(characterId?: string): Promise<Conversation[]> {
+  const database = await db();
+  const all = characterId
+    ? await database.getAllFromIndex('conversations', 'byCharacter', characterId)
+    : await database.getAll('conversations');
+  return all.sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export function getConversation(id: string): Promise<Conversation | undefined> {
+  return db().then((database) => database.get('conversations', id));
+}
+
+export async function putConversation(conversation: Conversation): Promise<void> {
+  const database = await db();
+  await database.put('conversations', conversation);
+}
+
+/** 删除会话，连同它的所有消息 */
+export async function deleteConversation(id: string): Promise<void> {
+  const database = await db();
+  const messages = await database.getAllFromIndex('messages', 'byConversation', conversationRange(id));
+
+  const tx = database.transaction('messages', 'readwrite');
+  for (const message of messages) void tx.store.delete(message.id);
+  await tx.done;
+
+  await database.delete('conversations', id);
+}
+
+/* ============================ 消息 ============================ */
+
+export async function listMessages(conversationId: string): Promise<Message[]> {
+  const database = await db();
+  // 复合索引 [conversationId, createdAt]，所以拿到的天然就是时间顺序
+  return database.getAllFromIndex('messages', 'byConversation', conversationRange(conversationId));
+}
+
+export function getMessage(id: string): Promise<Message | undefined> {
+  return db().then((database) => database.get('messages', id));
+}
+
+export async function putMessage(message: Message): Promise<void> {
+  const database = await db();
+  await database.put('messages', message);
+}
+
+export async function deleteMessage(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('messages', id);
+}
+
+/* ============================ 设置 ============================ */
+
+export async function getSetting<T>(key: string): Promise<T | undefined> {
+  const database = await db();
+  const record = await database.get('settings', key);
+  return record?.value as T | undefined;
+}
+
+export async function setSetting(key: string, value: unknown): Promise<void> {
+  const database = await db();
+  await database.put('settings', { key, value });
+}
+
+export async function deleteSetting(key: string): Promise<void> {
+  const database = await db();
+  await database.delete('settings', key);
+}
+
+/* ============================ 概览与清空 ============================ */
+
+export interface StorageStats {
+  characters: number;
+  conversations: number;
+  messages: number;
+  settings: number;
+  /** 浏览器报告的已用空间（字节），拿不到时为 null */
+  usageBytes: number | null;
+}
+
+/** 看一眼现在存了多少东西。设置页的「存储」区块和调试自检都用它 */
+export async function stats(): Promise<StorageStats> {
+  const database = await db();
+  const [characters, conversations, messages, settings] = await Promise.all([
+    database.count('characters'),
+    database.count('conversations'),
+    database.count('messages'),
+    database.count('settings'),
+  ]);
+
+  let usageBytes: number | null = null;
+  try {
+    const estimate = await navigator.storage?.estimate?.();
+    usageBytes = estimate?.usage ?? null;
+  } catch {
+    // 拿不到就算了，不是错误
+  }
+
+  return { characters, conversations, messages, settings, usageBytes };
+}
+
+/**
+ * 清空全部数据（设置页的「清空数据」用它）。
+ * 只清空对象仓库，不删数据库本身 —— 删库再重建会让连接句柄失效。
+ */
+export async function clearAll(): Promise<void> {
+  const database = await db();
+  const tx = database.transaction(
+    ['characters', 'conversations', 'messages', 'settings'],
+    'readwrite',
+  );
+  await Promise.all([
+    tx.objectStore('characters').clear(),
+    tx.objectStore('conversations').clear(),
+    tx.objectStore('messages').clear(),
+    tx.objectStore('settings').clear(),
+  ]);
+  await tx.done;
+}

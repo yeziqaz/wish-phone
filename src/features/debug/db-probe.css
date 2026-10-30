@@ -1,0 +1,74 @@
+/* 存储自检条的样式。虚线粗边是刻意的 —— 一眼能看出它不属于正式界面 */
+
+.dbg {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + var(--sp-3));
+  translate: -50% 0;
+  z-index: var(--z-toast);
+
+  width: min(92vw, 420px);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+
+  background: var(--surface);
+  border: var(--border-w-strong) dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+}
+
+.dbg__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.dbg__title {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+}
+
+.dbg__close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.dbg__row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+}
+
+.dbg__btn {
+  min-height: 36px;
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-caption);
+}
+
+.dbg__out {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.dbg__out.is-ok {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+.dbg__out.is-bad {
+  color: var(--danger);
+}
