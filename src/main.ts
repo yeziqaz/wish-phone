@@ -2,6 +2,7 @@ import './app.css';
 import { HOME, navigate, route, startRouter } from './core/router';
 import { mountDesktop } from './features/desktop/desktop';
 import { mountLockscreen } from './features/lockscreen/lockscreen';
+import { mountSettings } from './features/settings/settings';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
@@ -27,7 +28,7 @@ function mountPlaceholder(title: string): void {
 route('/desktop', () => mountDesktop(app));
 route('/character', () => mountPlaceholder('角色'));
 route('/chat', () => mountPlaceholder('聊天'));
-route('/settings', () => mountPlaceholder('设置'));
+route('/settings', () => void mountSettings(app));
 route('/help', () => mountPlaceholder('帮助'));
 
 // 全局事件委托：绑在挂载点上，页面怎么换都不用重新绑

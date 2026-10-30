@@ -1,0 +1,231 @@
+/* ==========================================================================
+   设置页样式
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+.settings {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding:
+    calc(env(safe-area-inset-top) + var(--sp-4))
+    var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-6));
+}
+
+/* ---------- 顶栏 ---------- */
+
+.settings__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.settings__back {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  /* ‹ 这个字符本身偏小，放大到 display 号才够显眼 */
+  font-size: var(--fs-display);
+  line-height: 1;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+}
+
+/* ---------- 分区 ---------- */
+
+.settings__section {
+  margin-bottom: var(--sp-6);
+}
+
+.settings__label {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.settings__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+
+.settings__hint--warn {
+  color: var(--ink-2);
+}
+
+/* ---------- 输入行 ---------- */
+
+.settings__input {
+  font-size: var(--fs-base);
+}
+
+.settings__key-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.settings__key-row .input {
+  flex: 1;
+}
+
+.settings__eye {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+/* ---------- 记住密钥 ---------- */
+
+.settings__check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.settings__check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+/* ---------- 模型列表 ---------- */
+
+.settings__models {
+  margin-top: var(--sp-2);
+}
+
+.settings__model {
+  display: block;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  margin-bottom: var(--sp-1);
+  text-align: left;
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings__model.is-selected {
+  border-color: var(--accent);
+  font-weight: var(--fw-medium);
+}
+
+/* ---------- 滑块 ---------- */
+
+.settings__slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.settings__slider {
+  flex: 1;
+  height: var(--tap-min);
+  accent-color: var(--accent);
+}
+
+.settings__temp-val {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  min-width: 2.5em;
+  text-align: right;
+}
+
+/* ---------- 操作按钮 ---------- */
+
+.settings__actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.settings__actions .btn {
+  flex: 1;
+  min-height: var(--tap-min);
+}
+
+/* ---------- 结果 ---------- */
+
+.settings__result {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--ink-2);
+  min-height: 1.5em;
+}
+
+.settings__result--ok {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+.settings__result--warn {
+  color: var(--ink-2);
+}
+
+.settings__result--error {
+  color: var(--danger);
+  font-weight: var(--fw-medium);
+}
+
+.settings__result-detail {
+  font-weight: var(--fw-normal);
+  color: var(--ink-2);
+}
+
+/* ---------- 原始错误折叠 ---------- */
+
+.settings__raw {
+  margin-top: var(--sp-3);
+}
+
+.settings__raw-toggle {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+}
+
+.settings__raw-body {
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  max-height: 200px;
+  overflow-y: auto;
+}
