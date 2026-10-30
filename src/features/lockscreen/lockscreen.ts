@@ -22,7 +22,7 @@ const UNLOCK_MIN_PX = 72;
  * 盖上锁屏。onUnlock 在滑出动画结束后调用。
  * 返回一个函数，可以直接把锁屏收掉（外部强制解锁用）。
  */
-export function mountLockscreen(onUnlock: () => void): () => void {
+export function mountLockscreen(onUnlock: () => void = () => {}): () => void {
   const el = document.createElement('div');
   el.className = 'lock';
   el.innerHTML = `

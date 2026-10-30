@@ -1,14 +1,25 @@
 import './app.css';
+import { migrateLegacyApiConfig } from './core/db';
+import { loadPrefs } from './core/prefs';
 import { HOME, navigate, route, startRouter } from './core/router';
 import { mountDesktop } from './features/desktop/desktop';
 import { mountLockscreen } from './features/lockscreen/lockscreen';
+import { mountProviderEdit } from './features/providers/provider-edit';
+import { mountProviderList } from './features/providers/provider-list';
+import { mountDataStore } from './features/settings/data-store';
 import { mountSettings } from './features/settings/settings';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
 
-   T2 起桌面是真的了，其余四屏仍是占位 ——
-   它们会在 T4~T8 里被逐个替换掉，谁做出来就把对应的 route 换掉。
+   设置页现在是**目录式**的（见 AGENTS.md §3.7）：
+     /settings                      目录
+     /settings/data                 数据储存
+     /settings/providers            服务商列表
+     /settings/providers/new        新建
+     /settings/providers/:id        编辑
+
+   角色和聊天仍是占位，会在 T5 / T6 里替换掉。
    ========================================================================== */
 
 const found = document.querySelector<HTMLDivElement>('#app');
@@ -28,8 +39,14 @@ function mountPlaceholder(title: string): void {
 route('/desktop', () => mountDesktop(app));
 route('/character', () => mountPlaceholder('角色'));
 route('/chat', () => mountPlaceholder('聊天'));
-route('/settings', () => void mountSettings(app));
 route('/help', () => mountPlaceholder('帮助'));
+
+route('/settings', () => void mountSettings(app));
+route('/settings/data', () => void mountDataStore(app));
+route('/settings/providers', () => void mountProviderList(app));
+// ⚠️ 'new' 必须注册在 ':id' 前面 —— 路由匹配按注册顺序走
+route('/settings/providers/new', () => void mountProviderEdit(app, 'new'));
+route('/settings/providers/:id', ({ params }) => void mountProviderEdit(app, params.id ?? ''));
 
 // 全局事件委托：绑在挂载点上，页面怎么换都不用重新绑
 app.addEventListener('click', (e) => {
@@ -38,17 +55,17 @@ app.addEventListener('click', (e) => {
   if (go) navigate(go);
 });
 
+// 老版本把 API 配置存在 settings 表里，这里把它升级成一个「服务商」。
+// 不 await：它只在第一次启动、且确实有老数据时才做事，
+// 而用户从解锁到点进设置至少也要一两秒，撞不上。
+void migrateLegacyApiConfig();
+// 偏好读进内存，桌面才知道顶部状态栏该不该显示
+void loadPrefs();
+
 if (!location.hash) navigate(HOME);
 startRouter();
 
 // 顺序很重要：先把桌面渲染好（此时它被锁屏盖住），再盖上锁屏。
 // 反过来的话，上滑解锁的那一瞬间底下还是空的，会闪一下白。
 // 将来「要不要锁屏」的开关只影响这一行。
-mountLockscreen(() => {
-  // 存储自检条：只在开发模式（npm run dev）、并且解锁之后才出现。
-  // 正式构建时 import.meta.env.DEV 是 false，动态 import 会被整段摇掉。
-  // ⚠️ 设置页的「数据管理」做完后，连同 src/features/debug/ 一起删掉。
-  if (import.meta.env.DEV) {
-    void import('./features/debug/db-probe').then((m) => m.mountDbProbe());
-  }
-});
+mountLockscreen();

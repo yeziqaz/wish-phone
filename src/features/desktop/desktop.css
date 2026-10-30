@@ -30,6 +30,14 @@
   color: var(--ink);
 }
 
+/* ⚠️ 必须显式写这一条：
+   hidden 属性靠浏览器的 `[hidden] { display: none }` 生效，
+   那是**标签选择器级别**的优先级，打不过上面 .statusbar 的 display: flex。
+   少了这一句，设置里的「顶部状态栏」开关就会按了没反应。 */
+.statusbar[hidden] {
+  display: none;
+}
+
 .statusbar__clock {
   /* 等宽数字：分钟跳动时整行不会左右晃 */
   font-variant-numeric: tabular-nums;

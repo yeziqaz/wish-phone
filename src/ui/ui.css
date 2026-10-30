@@ -1,0 +1,279 @@
+/* ==========================================================================
+   跨页面复用的 UI 原子
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+/* ---------- 头像 ----------
+   四档灰阶，是「灰阶四段法」的直接应用。
+   换主题时只改这张表即可。 */
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: var(--avatar-size, 40px);
+  height: var(--avatar-size, 40px);
+  flex-shrink: 0;
+  font-size: calc(var(--avatar-size, 40px) * 0.42);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+  border-radius: var(--radius-full);
+  border: var(--border-w) solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  user-select: none;
+}
+
+.avatar--tone1 {
+  background: var(--ink-a08);
+}
+
+.avatar--tone2 {
+  background: var(--inverse-bg);
+  color: var(--inverse-ink);
+  border-color: var(--inverse-bg);
+}
+
+.avatar--tone3 {
+  background: var(--surface);
+}
+
+/* ---------- 页面顶栏：返回 + 标题 ----------
+   所有子页面共用这一套，不许各写各的（见 AGENTS.md §3.7） */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.topbar__back {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topbar__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 顶栏右侧的动作位（如「+」） */
+.topbar__action {
+  margin-left: auto;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- 目录条目：左边图标/头像 + 中间标题副标题 + 右边箭头或开关 ---------- */
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: 0;
+  border-bottom: var(--border-w) solid var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item:last-child {
+  border-bottom: 0;
+}
+
+.nav-item:active {
+  background: var(--surface-2);
+}
+
+.nav-item__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.nav-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-item__title {
+  display: block;
+  font-size: var(--fs-base);
+  line-height: 1.3;
+}
+
+.nav-item__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-item__tail {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+/* 卡片容器：把若干条目框在一起 */
+.nav-group {
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--sp-5);
+}
+
+.nav-group__label {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+/* ---------- 开关 ----------
+   纯 CSS 做，不用 checkbox hack 之外的任何东西 */
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line-strong);
+  transition: background-color var(--dur-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  border-radius: var(--radius-full);
+  background: var(--ink-3);
+  transition:
+    transform var(--dur-normal) var(--ease-out),
+    background-color var(--dur-normal) var(--ease-out);
+}
+
+.switch input:checked + .switch__track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.switch input:checked + .switch__track::after {
+  transform: translateX(18px);
+  background: var(--accent-ink);
+}
+
+/* ---------- 折叠卡片 ----------
+   服务商详情页大量使用：高频在前，低频默认收起 */
+
+.fold {
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  margin-bottom: var(--sp-3);
+}
+
+.fold__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fold__chevron {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  transition: transform var(--dur-normal) var(--ease-out);
+}
+
+.fold__head[aria-expanded='true'] .fold__chevron {
+  transform: rotate(90deg);
+}
+
+.fold__body {
+  padding: 0 var(--sp-4) var(--sp-4);
+}
+
+.fold__body[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__track,
+  .switch__track::after,
+  .fold__chevron {
+    transition-duration: 1ms;
+  }
+}

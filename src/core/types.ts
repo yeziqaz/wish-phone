@@ -133,8 +133,88 @@ export interface Message {
 
 /* ---------- 设置 ---------- */
 
-/** settings 表是一个简单的键值表，具体形状由使用方决定（见 T4） */
+/** settings 表是一个简单的键值表，具体形状由使用方决定 */
 export interface SettingRecord {
   key: string;
   value: unknown;
+}
+
+/* ============================ API 服务商 ============================ */
+
+/**
+ * 接口协议。
+ * 第一版只有 openai 真正实现（含自定义路径）；gemini / claude 的原生格式
+ * 是两套完全不同的请求与响应结构，排在后面的批次。
+ */
+export type ApiProtocol = 'openai' | 'gemini' | 'claude' | 'custom';
+
+/**
+ * 一个 Key。
+ * 支持多条是为了「多 Key 轮询」——第一版先把结构和 UI 做好，
+ * 调用统计与自动轮询在后面的批次里接上。
+ */
+export interface ProviderKey {
+  id: string;
+  value: string;
+  enabled: boolean;
+  /** 轮询权重，数字越大被选中越多 */
+  weight: number;
+  callCount: number;
+  failCount: number;
+}
+
+export interface ProviderModel {
+  /** 真实模型 ID，发请求时用它 */
+  id: string;
+  /** 显示名称 / 备注（例如真实是 gpt-5-mini，显示成「小助手」） */
+  displayName: string;
+  /** 上下文长度，拿不到就是 null */
+  contextLength: number | null;
+  enabled: boolean;
+  /** 来自自动拉取还是手动添加 */
+  source: 'fetched' | 'manual';
+}
+
+export interface ProviderGeneration {
+  temperature: number;
+  /** null = 不发送这个参数，用服务端默认 */
+  maxTokens: number | null;
+  topP: number | null;
+}
+
+export interface ProviderAdvanced {
+  stream: boolean;
+  rateLimit: { enabled: boolean; perMinute: number };
+  breaker: { enabled: boolean; failCount: number; cooldownSec: number };
+}
+
+export interface Provider {
+  id: string;
+  name: string;
+  protocol: ApiProtocol;
+  baseUrl: string;
+  /** 默认 '/chat/completions'，非标准接口可以改 */
+  apiPath: string;
+  keys: ProviderKey[];
+  models: ProviderModel[];
+  generation: ProviderGeneration;
+  advanced: ProviderAdvanced;
+
+  /* 低频管理项，放在详情页最后 */
+  vendor: string;
+  group: string;
+  enabled: boolean;
+
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 默认绑定：全局 / 按 APP / 按角色 */
+export interface Bindings {
+  defaultProviderId: string | null;
+  defaultModelId: string | null;
+  /** key 是 APP 名（如 'chat'） */
+  apps: Record<string, { providerId: string; modelId: string }>;
+  /** key 是角色 id */
+  characters: Record<string, { providerId: string; modelId: string }>;
 }

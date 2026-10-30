@@ -13,10 +13,16 @@
  */
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
-import type { Character, Conversation, Message, SettingRecord } from './types';
+import type {
+  Character,
+  Conversation,
+  Message,
+  Provider,
+  SettingRecord,
+} from './types';
 
 const DB_NAME = 'wish-phone';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 interface WishDB extends DBSchema {
   characters: {
@@ -38,6 +44,11 @@ interface WishDB extends DBSchema {
   settings: {
     key: string;
     value: SettingRecord;
+  };
+  providers: {
+    key: string;
+    value: Provider;
+    indexes: { byUpdatedAt: number };
   };
 }
 
@@ -62,8 +73,16 @@ export function db(): Promise<IDBPDatabase<WishDB>> {
         database.createObjectStore('settings', { keyPath: 'key' });
       }
 
+      // v1 → v2：加「API 服务商」表。
+      // 老版本那条单份 apiConfig 的迁移放在应用层（见 migrateLegacyApiConfig），
+      // 因为那段逻辑要读 settings 表并构造完整的 Provider，塞在 upgrade 里太挤。
+      if (oldVersion < 2) {
+        const providers = database.createObjectStore('providers', { keyPath: 'id' });
+        providers.createIndex('byUpdatedAt', 'updatedAt');
+      }
+
       // 将来加字段时在这里续写，例如：
-      // if (oldVersion < 2) {
+      // if (oldVersion < 3) {
       //   tx.objectStore('characters').createIndex('byName', 'name');
       // }
       // ⛔ 永远不要 deleteObjectStore —— 那是直接抹掉用户的数据。
@@ -202,18 +221,20 @@ export interface StorageStats {
   characters: number;
   conversations: number;
   messages: number;
+  providers: number;
   settings: number;
   /** 浏览器报告的已用空间（字节），拿不到时为 null */
   usageBytes: number | null;
 }
 
-/** 看一眼现在存了多少东西。设置页的「存储」区块和调试自检都用它 */
+/** 看一眼现在存了多少东西。设置页的「数据储存」和数据自检都用它 */
 export async function stats(): Promise<StorageStats> {
   const database = await db();
-  const [characters, conversations, messages, settings] = await Promise.all([
+  const [characters, conversations, messages, providers, settings] = await Promise.all([
     database.count('characters'),
     database.count('conversations'),
     database.count('messages'),
+    database.count('providers'),
     database.count('settings'),
   ]);
 
@@ -225,7 +246,30 @@ export async function stats(): Promise<StorageStats> {
     // 拿不到就算了，不是错误
   }
 
-  return { characters, conversations, messages, settings, usageBytes };
+  return { characters, conversations, messages, providers, settings, usageBytes };
+}
+
+/* ============================ API 服务商 ============================ */
+
+export async function listProviders(): Promise<Provider[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('providers', 'byUpdatedAt');
+  // 最近改过的排在前面
+  return all.reverse();
+}
+
+export function getProvider(id: string): Promise<Provider | undefined> {
+  return db().then((database) => database.get('providers', id));
+}
+
+export async function putProvider(provider: Provider): Promise<void> {
+  const database = await db();
+  await database.put('providers', provider);
+}
+
+export async function deleteProviderRecord(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('providers', id);
 }
 
 /**
@@ -235,14 +279,82 @@ export async function stats(): Promise<StorageStats> {
 export async function clearAll(): Promise<void> {
   const database = await db();
   const tx = database.transaction(
-    ['characters', 'conversations', 'messages', 'settings'],
+    ['characters', 'conversations', 'messages', 'providers', 'settings'],
     'readwrite',
   );
   await Promise.all([
     tx.objectStore('characters').clear(),
     tx.objectStore('conversations').clear(),
     tx.objectStore('messages').clear(),
+    tx.objectStore('providers').clear(),
     tx.objectStore('settings').clear(),
   ]);
   await tx.done;
+}
+
+/* ============================ 老数据迁移 ============================ */
+
+/** 老版本（T4 早期）存在 settings 里的那份单条配置 */
+interface LegacyApiConfig {
+  baseUrl?: string;
+  model?: string;
+  temperature?: number;
+  rememberKey?: boolean;
+}
+
+/**
+ * 把老版本的一条 apiConfig 升级成一个「服务商」。
+ *
+ * 只在 providers 表**还是空的**时候才做，所以反复启动也不会重复迁移。
+ * 迁移完把老 key 删掉，避免两份配置各说各话。
+ *
+ * 返回 true 表示这次真的迁移了。
+ */
+export async function migrateLegacyApiConfig(): Promise<boolean> {
+  const database = await db();
+  if ((await database.count('providers')) > 0) return false;
+
+  const legacy = await getSetting<LegacyApiConfig>('apiConfig');
+  if (!legacy?.baseUrl) return false;
+
+  const oldKey = await getSetting<string>('apiKey');
+  const now = Date.now();
+
+  const provider: Provider = {
+    id: newId(),
+    name: '我的服务商',
+    protocol: 'openai',
+    baseUrl: legacy.baseUrl,
+    apiPath: '/chat/completions',
+    keys: oldKey
+      ? [{ id: newId(), value: oldKey, enabled: true, weight: 1, callCount: 0, failCount: 0 }]
+      : [],
+    models: legacy.model
+      ? [
+          {
+            id: legacy.model,
+            displayName: legacy.model,
+            contextLength: null,
+            enabled: true,
+            source: 'manual',
+          },
+        ]
+      : [],
+    generation: { temperature: legacy.temperature ?? 0.8, maxTokens: null, topP: null },
+    advanced: {
+      stream: false,
+      rateLimit: { enabled: false, perMinute: 60 },
+      breaker: { enabled: false, failCount: 5, cooldownSec: 60 },
+    },
+    vendor: '',
+    group: '',
+    enabled: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await putProvider(provider);
+  await deleteSetting('apiConfig');
+  await deleteSetting('apiKey');
+  return true;
 }

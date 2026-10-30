@@ -1,0 +1,280 @@
+/* ==========================================================================
+   服务商：列表页 + 详情页
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding:
+    calc(env(safe-area-inset-top) + var(--sp-4))
+    var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-6));
+}
+
+/* ---------- 智能添加 ---------- */
+
+.smart-add {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4);
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--border-w) dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.smart-add__wand {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: var(--radius-full);
+}
+
+.smart-add__text {
+  min-width: 0;
+}
+
+.smart-add__title {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+}
+
+.smart-add__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
+.smart-panel {
+  margin-bottom: var(--sp-5);
+}
+
+.smart-panel__area {
+  display: block;
+  width: 100%;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.smart-panel__actions {
+  display: flex;
+  gap: var(--sp-2);
+  justify-content: flex-end;
+  margin-top: var(--sp-2);
+}
+
+.smart-panel__note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.smart-panel__note.is-bad {
+  color: var(--danger);
+}
+
+/* ---------- 表单字段 ---------- */
+
+.field {
+  display: block;
+  margin-bottom: var(--sp-4);
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.field__label--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.field__tools {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.field__hint {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.field__note {
+  margin: var(--sp-2) 0;
+  min-height: 1.2em;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.field__note--top {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.field__note.is-ok {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+.field__note.is-bad {
+  color: var(--danger);
+}
+
+.field__note strong {
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+}
+
+/* ---------- Key 行 ---------- */
+
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.key-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 模型行 ---------- */
+
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.model-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  /* 12px 外边距把热区撑到 44px（宪法 §3.6） */
+  margin: 12px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.model-row__id {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 行内小按钮 ---------- */
+
+.mini {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mini:active {
+  background: var(--surface);
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.row-actions--main {
+  margin-top: var(--sp-5);
+}
+
+.row-actions--main .btn {
+  flex: 1;
+}
+
+/* ---------- 滑块 ---------- */
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  accent-color: var(--accent);
+}
+
+.slider__value {
+  min-width: 2.6em;
+  text-align: right;
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 空状态 ---------- */
+
+.empty {
+  padding: var(--sp-6) var(--sp-4);
+  text-align: center;
+}
+
+.empty__title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-base);
+  color: var(--ink-2);
+}
+
+.empty__hint {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* ---------- 删除区 ---------- */
+
+.fold--danger {
+  margin-top: var(--sp-5);
+}
+
+.fold--danger .fold__head {
+  color: var(--danger);
+}

@@ -1,3 +1,4 @@
+import { onPrefsChanged, statusBarVisible } from '../../core/prefs';
 import { icon } from '../../ui/icons';
 import type { IconName } from '../../ui/icons';
 import './desktop.css';
@@ -68,7 +69,7 @@ function paint(el: HTMLElement | null, text: string): void {
 export function mountDesktop(root: HTMLElement): () => void {
   root.innerHTML = `
     <div class="desktop">
-      <header class="statusbar" aria-hidden="true">
+      <header class="statusbar" aria-hidden="true"${statusBarVisible() ? '' : ' hidden'}>
         <span class="statusbar__clock" id="clock">--:--</span>
         <span class="statusbar__icons">
           <span class="statusbar__signal">${SIGNAL}</span>
@@ -86,6 +87,7 @@ export function mountDesktop(root: HTMLElement): () => void {
       </footer>
     </div>`;
 
+  const bar = root.querySelector<HTMLElement>('.statusbar');
   const clock = root.querySelector<HTMLElement>('#clock');
   const wifi = root.querySelector<HTMLElement>('#wifi');
   const level = root.querySelector<SVGRectElement>('.battery__level');
@@ -96,8 +98,22 @@ export function mountDesktop(root: HTMLElement): () => void {
     const mm = String(d.getMinutes()).padStart(2, '0');
     paint(clock, `${hh}:${mm}`);
   };
-  tick();
-  const timer = window.setInterval(tick, 1000);
+
+  // 顶栏被关掉时连时钟一起停 —— 没必要为一个看不见的东西每秒跑一次
+  let timer = 0;
+  const syncBar = (): void => {
+    const on = statusBarVisible();
+    if (bar) bar.hidden = !on;
+    if (on && timer === 0) {
+      tick();
+      timer = window.setInterval(tick, 1000);
+    } else if (!on && timer !== 0) {
+      window.clearInterval(timer);
+      timer = 0;
+    }
+  };
+  syncBar();
+  const offPrefs = onPrefsChanged(syncBar);
 
   const syncOnline = (): void => {
     wifi?.classList.toggle('is-off', !navigator.onLine);
@@ -126,6 +142,7 @@ export function mountDesktop(root: HTMLElement): () => void {
   return () => {
     disposed = true;
     window.clearInterval(timer);
+    offPrefs();
     removeEventListener('online', syncOnline);
     removeEventListener('offline', syncOnline);
     battery?.removeEventListener('levelchange', syncBattery);
