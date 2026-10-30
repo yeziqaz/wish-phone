@@ -14,17 +14,16 @@ interface AppDef {
   route: string;
 }
 
+/** 每个 App 只出现一次：要么在网格，要么在 Dock */
 const GRID: AppDef[] = [
   { id: 'character', label: '角色', icon: 'character', route: '/character' },
-  { id: 'chat', label: '聊天', icon: 'chat', route: '/chat' },
-  { id: 'settings', label: '设置', icon: 'settings', route: '/settings' },
   { id: 'help', label: '帮助', icon: 'help', route: '/help' },
 ];
 
-/** Dock 放最常用的两个。和网格重复是正常的 —— Dock 是常驻快捷栏 */
+/** Dock 放最常用的两个 */
 const DOCK: AppDef[] = [
-  { id: 'dock-chat', label: '聊天', icon: 'chat', route: '/chat' },
-  { id: 'dock-settings', label: '设置', icon: 'settings', route: '/settings' },
+  { id: 'chat', label: '聊天', icon: 'chat', route: '/chat' },
+  { id: 'settings', label: '设置', icon: 'settings', route: '/settings' },
 ];
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'] as const;
