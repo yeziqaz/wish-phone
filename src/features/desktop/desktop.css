@@ -1,0 +1,104 @@
+/* ==========================================================================
+   桌面样式
+   ⚠️ 这里不出现任何裸色值，全部引用 design/tokens.css 的语义变量
+   ========================================================================== */
+
+.desktop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-height: 100dvh;
+  /* 顶到刘海下面，底让开手势条 */
+  padding:
+    calc(env(safe-area-inset-top) + var(--sp-8))
+    var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-5));
+}
+
+/* ---------- 状态栏 ---------- */
+
+.desktop__status {
+  text-align: center;
+}
+
+.desktop__time {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  /* 等宽数字：分钟跳动时不会左右晃 */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.desktop__date {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+
+/* ---------- 图标网格 ---------- */
+
+.desktop__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-5) var(--sp-2);
+  align-content: start;
+}
+
+/* ---------- App 图标 ----------
+   .jelly 已经提供了按下 80ms 收缩、松开 650ms 过冲回弹，
+   这里只负责外观，绝不碰 transform（否则会和反馈层抢属性，见 STYLE.md §5） */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app__icon {
+  display: grid;
+  place-items: center;
+  width: var(--icon-desktop);
+  height: var(--icon-desktop);
+  color: var(--ink);
+  /* 描边线框，不用阴影 —— 这是既定风格 */
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.app__label {
+  font-size: var(--fs-caption);
+  line-height: 1.2;
+  color: var(--ink-2);
+}
+
+/* ---------- Dock ---------- */
+
+.desktop__dock {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-8);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-xl);
+}
+
+/* Dock 里的图标稍小一点，视觉上退到第二层 */
+.app--dock .app__icon {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: var(--radius-md);
+}
