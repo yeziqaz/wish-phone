@@ -77,7 +77,8 @@ async function request(
       signal: controller.signal,
     });
 
-    const error = await describeResponse(response);
+    // 响应体只能读一次：错误检查读副本，原件留给调用方 .json()
+    const error = await describeResponse(response.clone());
     if (error) throw error;
     return response;
   } catch (error) {

@@ -111,14 +111,35 @@ function nameFromHost(baseUrl: string): string {
 
 /** 猜名字：明确标注 > 从域名里挑一个像的 */
 function pickName(text: string, baseUrl: string): string {
-  const labelled = text.match(/(?:名称|站名|名字|服务商|name)\s*[:：=]\s*(.+)/i);
+  const labelled = text.match(/(?:名称|站名|站点|站子|名字|服务商|平台|name)\s*[:：=]\s*(.+)/i);
   if (labelled?.[1]) {
     const value = labelled[1].trim();
     // 别把一整行别的信息也吞进来
     if (value.length > 0 && value.length <= 30) return value;
   }
 
-  return baseUrl ? nameFromHost(baseUrl) : '';
+  // 中文名优先于从域名推出来的英文
+  return chineseLine(text) || (baseUrl ? nameFromHost(baseUrl) : '');
+}
+
+/**
+ * 没有「站名：」这类标注时，找一行短的中文当名字，
+ * 例如第一行写着「XX 中转站」。带地址、Key、模型的行跳过。
+ */
+function chineseLine(text: string): string {
+  for (const rawLine of text.split(/\r?\n/)) {
+    const lineText = rawLine
+      .trim()
+      .replace(/^(欢迎使用|欢迎来到|欢迎)\s*/, '')
+      .replace(/[!！。,，:：]+$/, '')
+      .trim();
+    if (!lineText || lineText.length > 20) continue;
+    if (!/[\u4e00-\u9fff]/.test(lineText)) continue;
+    if (/https?:\/\/|sk-|[:：=]/i.test(lineText)) continue;
+    if (/地址|密钥|模型|官网|文档|key|url|token/i.test(lineText)) continue;
+    return lineText;
+  }
+  return '';
 }
 
 function tryJson(text: string): Record<string, unknown> | null {

@@ -1,6 +1,6 @@
 import { deleteProviderRecord, getProvider, newId, putProvider } from '../../core/db';
 import type { ApiProtocol, Provider } from '../../core/types';
-import { esc, must } from '../../core/dom';
+import { esc, find, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
@@ -62,15 +62,15 @@ export async function mountProviderEdit(root: HTMLElement, id: string): Promise<
     provider = existing;
   }
 
-  render(root, provider);
-  bind(root, provider);
+  // 新建 = 快速设置（只有基础配置）；点进已有的才是完整详情页
+  const quick = id === 'new';
+  render(root, provider, quick);
+  bind(root, provider, quick);
 }
 
 /* ============================ 渲染 ============================ */
 
-function render(root: HTMLElement, p: Provider): void {
-  const isNew = p.baseUrl === '' && p.models.length === 0 && p.keys.length === 0;
-
+function render(root: HTMLElement, p: Provider, quick: boolean): void {
   root.innerHTML = `
     <div class="page">
       <header class="topbar">
@@ -79,7 +79,7 @@ function render(root: HTMLElement, p: Provider): void {
         <h1 class="topbar__title" id="edit-title">${esc(p.name)}</h1>
       </header>
 
-      ${isNew ? '<p class="field__note field__note--top">填完名称、地址、Key、模型就能用了。下面更细的设置可以先不管。</p>' : ''}
+      ${quick ? '<p class="field__note field__note--top">先填基础信息，点「完成」保存。模型、生成参数等更细的设置，保存后点进这个服务商再调。</p>' : ''}
 
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="true">
@@ -136,6 +136,7 @@ function render(root: HTMLElement, p: Provider): void {
         </div>
       </section>
 
+      ${quick ? '' : `
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="true">
           模型<span class="fold__chevron">${line('chevron', 16)}</span>
@@ -177,13 +178,14 @@ function render(root: HTMLElement, p: Provider): void {
                    autocomplete="off" value="${p.generation.topP ?? ''}" placeholder="留空 = 用接口默认">
           </label>
         </div>
-      </section>
+      </section>`}
 
       <div class="row-actions row-actions--main">
-        <button class="btn btn--primary jelly" type="button" id="p-save">保存</button>
+        <button class="btn btn--primary jelly" type="button" id="p-save">${quick ? '完成' : '保存'}</button>
       </div>
       <p class="field__note" id="p-save-result"></p>
 
+      ${quick ? '' : `
       <section class="fold fold--danger">
         <button class="fold__head" type="button" data-fold aria-expanded="false">
           删除这个服务商<span class="fold__chevron">${line('chevron', 16)}</span>
@@ -192,13 +194,13 @@ function render(root: HTMLElement, p: Provider): void {
           <p class="field__note">只删掉这份接口配置，<strong>不会动你的角色和聊天记录</strong>。</p>
           <button class="btn btn--danger jelly" type="button" id="p-delete">确认删除</button>
         </div>
-      </section>
+      </section>`}
     </div>`;
 }
 
 /* ============================ 绑定 ============================ */
 
-function bind(root: HTMLElement, provider: Provider): void {
+function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   const nameInput = must<HTMLInputElement>(root, '#p-name');
   const title = must<HTMLElement>(root, '#edit-title');
   const avatarSlot = must<HTMLElement>(root, '#edit-avatar');
@@ -236,12 +238,19 @@ function bind(root: HTMLElement, provider: Provider): void {
 
   let showPlain = false;
 
+  const blankKey = (): Provider['keys'][number] => ({
+    id: newId(),
+    value: '',
+    enabled: true,
+    weight: 1,
+    callCount: 0,
+    failCount: 0,
+  });
+
   const renderKeys = (): void => {
     const box = must<HTMLElement>(root, '#p-keys');
-    if (provider.keys.length === 0) {
-      box.innerHTML = '<p class="field__note">还没有 Key。点上面的「+ 添加」。</p>';
-      return;
-    }
+    // 始终留一个空位可填；要第二个再点「+ 添加」
+    if (provider.keys.length === 0) provider.keys.push(blankKey());
     box.innerHTML = provider.keys
       .map(
         (key, index) => `
@@ -249,8 +258,12 @@ function bind(root: HTMLElement, provider: Provider): void {
           <input class="input" type="${showPlain ? 'text' : 'password'}"
                  autocomplete="off" spellcheck="false"
                  data-key-input value="${esc(key.value)}" placeholder="sk-…">
-          <button class="mini jelly" type="button" data-key-remove="${index}"
-                  aria-label="删除这个 Key">${line('trash', 18)}</button>
+          ${
+            provider.keys.length > 1
+              ? `<button class="mini jelly" type="button" data-key-remove="${index}"
+                  aria-label="删除这个 Key">${line('trash', 18)}</button>`
+              : ''
+          }
         </div>`,
       )
       .join('');
@@ -278,15 +291,10 @@ function bind(root: HTMLElement, provider: Provider): void {
   });
 
   must(root, '#p-addkey').addEventListener('click', () => {
-    provider.keys.push({
-      id: newId(),
-      value: '',
-      enabled: true,
-      weight: 1,
-      callCount: 0,
-      failCount: 0,
-    });
+    provider.keys.push(blankKey());
     renderKeys();
+    const inputs = root.querySelectorAll<HTMLInputElement>('[data-key-input]');
+    inputs[inputs.length - 1]?.focus();
   });
 
   must(root, '#p-eye').addEventListener('click', () => {
@@ -298,7 +306,8 @@ function bind(root: HTMLElement, provider: Provider): void {
   /* ---------- 模型列表 ---------- */
 
   const renderModels = (): void => {
-    const box = must<HTMLElement>(root, '#p-models');
+    const box = find<HTMLElement>(root, '#p-models');
+    if (!box) return;
     if (provider.models.length === 0) {
       box.innerHTML =
         '<p class="field__note">还没有模型。点下面的「拉取模型」自动获取，或「手动添加」。</p>';
@@ -333,7 +342,7 @@ function bind(root: HTMLElement, provider: Provider): void {
 
   renderModels();
 
-  must(root, '#p-models').addEventListener('input', (e) => {
+  find(root, '#p-models')?.addEventListener('input', (e) => {
     const input = (e.target as HTMLElement).closest<HTMLInputElement>('[data-model-field]');
     if (!input) return;
     const model = provider.models[Number(input.dataset.index ?? '-1')];
@@ -347,7 +356,7 @@ function bind(root: HTMLElement, provider: Provider): void {
     }
   });
 
-  must(root, '#p-models').addEventListener('change', (e) => {
+  find(root, '#p-models')?.addEventListener('change', (e) => {
     const box = (e.target as HTMLElement).closest<HTMLInputElement>('[data-model-toggle]');
     if (!box) return;
     const index = Number(box.dataset.modelToggle ?? '-1');
@@ -355,7 +364,7 @@ function bind(root: HTMLElement, provider: Provider): void {
     if (model) model.enabled = box.checked;
   });
 
-  must(root, '#p-models').addEventListener('click', (e) => {
+  find(root, '#p-models')?.addEventListener('click', (e) => {
     const button = (e.target as HTMLElement).closest<HTMLElement>('[data-model-remove]');
     if (!button) return;
     const index = Number(button.dataset.modelRemove ?? '-1');
@@ -365,7 +374,7 @@ function bind(root: HTMLElement, provider: Provider): void {
     }
   });
 
-  must(root, '#p-addmodel').addEventListener('click', () => {
+  find(root, '#p-addmodel')?.addEventListener('click', () => {
     provider.models.push({
       id: '',
       displayName: '',
@@ -379,7 +388,7 @@ function bind(root: HTMLElement, provider: Provider): void {
     inputs[inputs.length - 1]?.focus();
   });
 
-  must(root, '#p-fetch').addEventListener('click', () => {
+  find(root, '#p-fetch')?.addEventListener('click', () => {
     void (async () => {
       const note = must<HTMLElement>(root, '#p-model-note');
       const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
@@ -425,8 +434,8 @@ function bind(root: HTMLElement, provider: Provider): void {
 
   /* ---------- 生成设置 ---------- */
 
-  const temp = must<HTMLInputElement>(root, '#p-temp');
-  temp.addEventListener('input', () => {
+  const temp = find<HTMLInputElement>(root, '#p-temp');
+  temp?.addEventListener('input', () => {
     must(root, '#p-temp-value').textContent = Number(temp.value).toFixed(1);
   });
 
@@ -472,11 +481,12 @@ function bind(root: HTMLElement, provider: Provider): void {
       provider.baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
       provider.apiPath =
         must<HTMLInputElement>(root, '#p-path').value.trim() || '/chat/completions';
-      provider.generation.temperature = Number(temp.value);
-      provider.generation.maxTokens = numberOrNull(
-        must<HTMLInputElement>(root, '#p-maxtokens').value,
-      );
-      provider.generation.topP = numberOrNull(must<HTMLInputElement>(root, '#p-topp').value);
+      // 快速设置页没有生成参数这一块，保留原值
+      if (temp) provider.generation.temperature = Number(temp.value);
+      const maxTokens = find<HTMLInputElement>(root, '#p-maxtokens');
+      if (maxTokens) provider.generation.maxTokens = numberOrNull(maxTokens.value);
+      const topP = find<HTMLInputElement>(root, '#p-topp');
+      if (topP) provider.generation.topP = numberOrNull(topP.value);
       provider.updatedAt = Date.now();
 
       // 全是空白的 Key 行直接丢掉，别在库里留噪音
@@ -496,8 +506,13 @@ function bind(root: HTMLElement, provider: Provider): void {
 
       try {
         await putProvider(provider);
+        if (quick) {
+          location.hash = '/settings/providers';
+          return;
+        }
         result.textContent = '已保存。';
         result.className = 'field__note is-ok';
+        renderKeys();
         renderModels();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -509,7 +524,7 @@ function bind(root: HTMLElement, provider: Provider): void {
 
   /* ---------- 删除 ---------- */
 
-  must(root, '#p-delete').addEventListener('click', () => {
+  find(root, '#p-delete')?.addEventListener('click', () => {
     void (async () => {
       await deleteProviderRecord(provider.id);
       location.hash = '/settings/providers';
