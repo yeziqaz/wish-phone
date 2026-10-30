@@ -16,21 +16,39 @@
 }
 
 /* ---------- 顶部状态栏 ----------
-   大号时钟已经搬到锁屏，这里只留一行小字，
-   存在感越低越好 —— 它是「状态栏」，不是主角 */
+   模拟真手机：左上时钟，右上信号 / WiFi / 电量 */
 
-.desktop__bar {
+.statusbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
+  min-height: 24px;
+  margin-top: calc(-1 * var(--sp-2));
   font-size: var(--fs-sm);
-  color: var(--ink-3);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
 }
 
-.desktop__clock {
+.statusbar__clock {
   /* 等宽数字：分钟跳动时整行不会左右晃 */
   font-variant-numeric: tabular-nums;
+}
+
+.statusbar__icons {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.statusbar__icons > span {
+  display: grid;
+  place-items: center;
+}
+
+/* 断网时 WiFi 变淡 */
+.statusbar__wifi.is-off {
+  opacity: 0.3;
 }
 
 /* ---------- 图标网格 ---------- */
