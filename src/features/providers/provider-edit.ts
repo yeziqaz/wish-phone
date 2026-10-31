@@ -544,8 +544,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         <span class="model-row__name">${esc(modelName(model))}</span>
         <span class="model-row__meta">${esc(modelMeta(model))}</span>
       </button>
-      <button class="model-row__act" type="button" data-model-test="${index}"
-              aria-label="测试这个模型">${line('zap', 16)}</button>
       <button class="model-row__act model-row__act--del" type="button" data-model-remove="${index}"
               aria-label="删除这个模型">${line('trash', 16)}</button>
       <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
@@ -586,7 +584,8 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
           }).join('')}
         </div>
         <button class="btn btn--secondary jelly model-row__test" type="button"
-                data-model-test="${index}">测试这个模型</button>
+                data-model-test="${index}">${line('zap', 16)} 测试这个模型</button>
+        <p class="model-row__hint">会发一次真实请求，消耗少量 token。</p>
         <p class="model-row__result"></p>
       </div>
     </div>`;
@@ -828,11 +827,17 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       note.className = 'field__note';
     }
 
+    // 分组模式下模型是挂在某个 Key 名下的，必须用那个 Key 去测
+    const ownerKey =
+      groupMode() && model.keyId
+        ? (provider.keys.find((k) => k.id === model.keyId)?.value ?? firstKey(provider))
+        : firstKey(provider);
+
     try {
       const started = Date.now();
       await chat([{ role: 'user', content: '回复一个字：好' }], {
         baseUrl,
-        apiKey: firstKey(provider),
+        apiKey: ownerKey,
         model: model.id,
         temperature: 0,
       });

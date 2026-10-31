@@ -517,6 +517,13 @@ p[hidden] {
   border-color: var(--accent);
 }
 
+.model-row__hint {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--ink-4);
+}
+
 .model-row__test {
   width: 100%;
   min-height: 40px;
