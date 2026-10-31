@@ -306,8 +306,3 @@ export function parseProvidersText(text: string): ParsedProvider[] {
   const whole = parseOneBlock(trimmed);
   return whole ? [whole] : [];
 }
-
-/** 只要一个站子时用它（保留老接口的形状） */
-export function parseProviderText(text: string): ParsedProvider {
-  return parseProvidersText(text)[0] ?? { name: '', baseUrl: '', apiKeys: [], models: [], notes: ['没能认出什么，请手动填写'] };
-}
