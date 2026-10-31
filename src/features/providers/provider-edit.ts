@@ -1,4 +1,4 @@
-import { deleteProviderRecord, getProvider, newId, putProvider } from '../../core/db';
+import { getProvider, newId, putProvider } from '../../core/db';
 import type { ApiProtocol, Provider, ProviderModel } from '../../core/types';
 import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
@@ -307,15 +307,9 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
       <p class="field__note" id="p-save-result"></p>
 
       ${quick ? '' : `
-      <section class="fold fold--danger">
-        <button class="fold__head" type="button" data-fold aria-expanded="false">
-          删除这个服务商<span class="fold__chevron">${line('chevron', 16)}</span>
-        </button>
-        <div class="fold__body" hidden>
-          <p class="field__note">只删掉这份接口配置，<strong>不会动你的角色和聊天记录</strong>。</p>
-          <button class="btn btn--danger jelly" type="button" id="p-delete">确认删除</button>
-        </div>
-      </section>`}
+      <p class="field__note field__note--top">
+        要删除这个服务商，回列表把它向左滑。
+      </p>`}
     </div>`;
 }
 
@@ -984,12 +978,4 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     })();
   });
 
-  /* ---------- 删除 ---------- */
-
-  find(root, '#p-delete')?.addEventListener('click', () => {
-    void (async () => {
-      await deleteProviderRecord(provider.id);
-      location.hash = '/settings/providers';
-    })();
-  });
 }
