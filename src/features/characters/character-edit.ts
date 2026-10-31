@@ -117,9 +117,13 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
         <div class="gallery__track" id="c-track"></div>
         <div class="gallery__bar">
           <span class="gallery__count" id="c-gallery-count"></span>
-          <button class="gallery__add" type="button" id="c-add-photo">＋ 加照片</button>
+          <div class="gallery__actions">
+            <button class="gallery__prompt-toggle" type="button" id="c-prompt-toggle"
+                    aria-expanded="false">提示词</button>
+            <button class="gallery__add" type="button" id="c-add-photo">＋ 加照片</button>
+          </div>
         </div>
-        <div class="gallery__prompt" id="c-photo-prompt-box">
+        <div class="gallery__prompt" id="c-photo-prompt-box" hidden>
           <label class="field">
             <span class="field__label">这张图的提示词（生图用，可空）</span>
             <textarea class="input textarea" id="c-photo-prompt" rows="2"
@@ -212,6 +216,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   const promptInput = must<HTMLTextAreaElement>(root, '#c-photo-prompt');
   const removeButton = must<HTMLButtonElement>(root, '#c-remove-photo');
   const promptBox = must<HTMLElement>(root, '#c-photo-prompt-box');
+  const promptToggle = must<HTMLButtonElement>(root, '#c-prompt-toggle');
 
   const syncGallery = (): void => {
     const photo = photos[current];
@@ -220,7 +225,11 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     promptInput.value = photo?.prompt ?? '';
     promptInput.disabled = !photo;
     removeButton.disabled = !photo;
-    promptBox.hidden = total === 0;
+    promptToggle.disabled = !photo;
+    if (total === 0) {
+      promptBox.hidden = true;
+      promptToggle.setAttribute('aria-expanded', 'false');
+    }
   };
 
   const renderTrack = (): void => {
@@ -257,6 +266,11 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     if (next === current) return;
     current = next;
     syncGallery();
+  });
+
+  promptToggle.addEventListener('click', () => {
+    promptBox.hidden = !promptBox.hidden;
+    promptToggle.setAttribute('aria-expanded', String(!promptBox.hidden));
   });
 
   promptInput.addEventListener('input', () => {
