@@ -323,6 +323,11 @@
   color: var(--ink-3);
 }
 
+/* 没有内容时不占位置 */
+.field__note:empty {
+  display: none;
+}
+
 .field__note.is-ok {
   color: var(--success);
   font-weight: var(--fw-medium);
@@ -350,9 +355,9 @@
   flex: 1;
 }
 
-/* 页面底部小字备注：居中、浅、不加底 */
+/* 页面底部小字备注：居中、浅、不加底，紧贴着上面的按钮 */
 .page-foot {
-  margin: var(--sp-6) 0 0;
+  margin: var(--sp-3) 0 0;
   text-align: center;
   font-size: var(--fs-caption);
   line-height: 1.5;
