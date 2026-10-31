@@ -152,9 +152,32 @@
 }
 
 .world-tab.is-active {
+  padding: 0;
   color: var(--inverse-ink);
   background: var(--inverse-bg);
   border-color: var(--inverse-bg);
+}
+
+.world-tab__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 0 var(--sp-3);
+}
+
+/* 当前世界右侧的铅笔：只负责「进世界编辑」，不负责切换 */
+.world-tab__edit {
+  display: grid;
+  place-items: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  padding: 0;
+  color: var(--inverse-ink);
+  background: none;
+  border: 0;
+  opacity: 0.7;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .world-tab__name {
@@ -239,18 +262,3 @@
   background: var(--surface-2);
 }
 
-.world-manage {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  min-height: var(--tap-min);
-  padding: 0 var(--sp-1);
-  font: inherit;
-  font-size: var(--fs-caption);
-  color: var(--ink-3);
-  background: none;
-  border: 0;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}

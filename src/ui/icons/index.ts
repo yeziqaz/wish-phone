@@ -47,7 +47,8 @@ export type LineIconName =
   | 'eye'
   | 'eyeOff'
   | 'zap'
-  | 'world';
+  | 'world'
+  | 'pencil';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -83,6 +84,11 @@ const LINE: Record<LineIconName, string> = {
     '<path d="M14 14.2a3 3 0 0 1-4.2-4.2"/>' +
     '<path d="M17.5 17.5a10.4 10.4 0 0 1-14.9-4.9 1 1 0 0 1 0-.6 10.5 10.5 0 0 1 4.3-4.9"/>' +
     '<path d="m3 3 18 18"/>',
+
+  // 铅笔：编辑
+  pencil:
+    '<path d="M4 20l4.3-.9L19.6 7.8a2 2 0 0 0-2.8-2.8L5.4 16.3 4 20z"/>' +
+    '<path d="M14.6 6.8l2.8 2.8"/>',
 
   // 地球：世界观
   world:

@@ -80,11 +80,25 @@ function worldTabsHTML(state: ListState): string {
   const tabs = state.worlds
     .map((world) => {
       const active = world.id === state.world.id;
+      const label = `
+        <span class="world-tab__name">${esc(world.name)}</span>
+        <span class="world-tab__count">${state.counts.get(world.id) ?? 0}</span>`;
+
+      // 当前世界：整颗胶囊是「已选中」，右侧单独给一个铅笔进世界编辑。
+      // 不加「管理」按钮 —— 用户说不想为改设定跑一趟设置。
+      if (active) {
+        return `
+          <div class="world-tab is-active" role="tab" aria-selected="true">
+            <span class="world-tab__label">${label}</span>
+            <button class="world-tab__edit" type="button" data-go="/world/${esc(world.id)}"
+                    aria-label="编辑这个世界">${line('pencil', 16)}</button>
+          </div>`;
+      }
+
       return `
-        <button class="world-tab jelly${active ? ' is-active' : ''}" type="button"
-                data-world="${esc(world.id)}" role="tab" aria-selected="${active}">
-          <span class="world-tab__name">${esc(world.name)}</span>
-          <span class="world-tab__count">${state.counts.get(world.id) ?? 0}</span>
+        <button class="world-tab jelly" type="button"
+                data-world="${esc(world.id)}" role="tab" aria-selected="false">
+          ${label}
         </button>`;
     })
     .join('');
@@ -113,13 +127,7 @@ function worldLineHTML(state: ListState): string {
          </div>`
       : `<span class="world-line__desc">${esc(state.world.description || state.branch.name)}</span>`;
 
-  return `
-    <div class="world-line">
-      ${left}
-      <button class="world-manage" type="button" data-go="/world/${esc(state.world.id)}">
-        管理${line('chevron', 14)}
-      </button>
-    </div>`;
+  return `<div class="world-line">${left}</div>`;
 }
 
 function listHTML(state: ListState): string {
