@@ -14,7 +14,7 @@ import {
 import type { Branch, Character, World } from './types';
 
 /**
- * 世界（世界观）与时间线（平行时空）。
+ * 小世界与时间线（平行时空）。
  *
  * 数据关系：
  *   世界 1 ── N 时间线 1 ── N 角色
@@ -63,17 +63,41 @@ export function makeBranch(worldId: string, name = '主线', note = ''): Branch 
   };
 }
 
-/** 新建一个世界，自带一条「主线」时间线，并切成当前世界 */
-export async function createWorld(name: string, description: string): Promise<World> {
+/** 这个世界的模式。老数据没写就按「可关联」处理 */
+export function worldMode(world: World): 'independent' | 'linked' {
+  return world.mode === 'independent' ? 'independent' : 'linked';
+}
+
+/**
+ * 下一个默认名字：小世界1、小世界2……
+ * 只数「小世界 + 数字」这种名字，用户自己起的名字不参与编号。
+ */
+export async function nextWorldName(): Promise<string> {
+  const worlds = await listWorlds();
+  let max = 0;
+  for (const world of worlds) {
+    const matched = /^小世界\s*(\d+)$/.exec(world.name.trim());
+    if (matched?.[1]) max = Math.max(max, Number(matched[1]));
+  }
+  return `小世界${max + 1}`;
+}
+
+/** 新建一个小世界，自带一条「主线」时间线，并切成当前世界 */
+export async function createWorld(
+  name: string,
+  description: string,
+  mode: 'independent' | 'linked' = 'linked',
+): Promise<World> {
   const now = Date.now();
   const branch = makeBranch('', '主线');
   const world: World = {
     id: newId(),
     createdAt: now,
     updatedAt: now,
-    name: name.trim() || '未命名世界',
+    name: name.trim() || (await nextWorldName()),
     description: description.trim(),
     activeBranchId: branch.id,
+    mode,
   };
   branch.worldId = world.id;
 
@@ -154,8 +178,9 @@ export async function ensureWorlds(): Promise<World> {
 
   if (worlds.length === 0) {
     world = await createWorld(
-      '默认世界',
+      '小世界1',
       '一个普通的现代都市。你住在这里，认识的人也都在这一座城市里。',
+      'linked',
     );
     worlds = [world];
   } else {
@@ -186,11 +211,18 @@ export async function ensureWorlds(): Promise<World> {
 
   // 老世界（v3 早期如果 activeBranchId 为空）也补一下
   for (const item of worlds) {
+    let next = item;
+
     if (!item.activeBranchId) {
       const first = await listBranches(item.id);
-      if (first[0]) {
-        await putWorld({ ...item, activeBranchId: first[0].id, updatedAt: Date.now() });
-      }
+      if (first[0]) next = { ...next, activeBranchId: first[0].id };
+    }
+
+    // 改名前留下的「默认世界」统一叫「小世界1」，免得新旧两套叫法混着
+    if (next.name === '默认世界') next = { ...next, name: '小世界1' };
+
+    if (next !== item) {
+      await putWorld({ ...next, updatedAt: Date.now() });
     }
   }
 

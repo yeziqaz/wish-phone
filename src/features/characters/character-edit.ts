@@ -74,11 +74,11 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
           </label>
 
           <div class="field">
-            <span class="field__label">所在世界</span>
+            <span class="field__label">所在小世界</span>
             <p class="field__hint">
-              ${world ? `${esc(world.name)}${branch ? ` · ${esc(branch.name)}` : ''}` : '默认世界 · 主线'}
+              ${world ? `${esc(world.name)}${branch ? ` · ${esc(branch.name)}` : ''}` : '小世界1 · 主线'}
             </p>
-            ${world ? `<div><button class="btn btn--link" type="button" data-go="/world/${esc(world.id)}">打开世界设定</button></div>` : ''}
+            ${world ? `<div><button class="btn btn--link" type="button" data-go="/world/${esc(world.id)}">打开小世界设定</button></div>` : ''}
           </div>
 
           <label class="field">

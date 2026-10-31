@@ -148,3 +148,31 @@
   background: var(--surface-2);
   border-radius: var(--radius-md);
 }
+
+/* ---------- 角色独立 / 角色可关联 ---------- */
+
+.mode-pick {
+  display: flex;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0 var(--sp-2);
+}
+
+.mode-pick__item {
+  flex: 1;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mode-pick__item[aria-checked='true'] {
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-color: var(--inverse-bg);
+}

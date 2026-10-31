@@ -43,8 +43,8 @@ export async function mountSettings(root: HTMLElement): Promise<void> {
         <button class="nav-item" type="button" data-go="/settings/worlds">
           <span class="nav-item__icon">${line('world')}</span>
           <span class="nav-item__text">
-            <span class="nav-item__title">世界观</span>
-            <span class="nav-item__sub">${worlds.length > 0 ? `${worlds.length} 个世界` : '还没有世界'}</span>
+            <span class="nav-item__title">小世界</span>
+            <span class="nav-item__sub">${worlds.length > 0 ? `${worlds.length} 个小世界` : '还没有小世界'}</span>
           </span>
           <span class="nav-item__tail">${line('chevron', 18)}</span>
         </button>

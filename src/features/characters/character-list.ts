@@ -6,7 +6,7 @@ import {
   putCharacter,
 } from '../../core/db';
 import { esc, must } from '../../core/dom';
-import { resolveActiveWorld, resolveBranch, switchTimeline } from '../../core/worlds';
+import { resolveActiveWorld, resolveBranch, switchTimeline, worldMode } from '../../core/worlds';
 import type { Branch, Character, World } from '../../core/types';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
@@ -112,6 +112,16 @@ function worldTabsHTML(state: ListState): string {
 }
 
 function worldLineHTML(state: ListState): string {
+  const desc = `<span class="world-line__desc">${esc(state.world.description || state.branch.name)}</span>`;
+
+  if (worldMode(state.world) === 'independent') {
+    return `
+      <div class="world-line">
+        <span class="world-line__tag">角色独立</span>
+        ${desc}
+      </div>`;
+  }
+
   const left =
     state.branches.length > 1
       ? `<div class="branch-row" role="tablist" aria-label="时间线">
@@ -125,7 +135,7 @@ function worldLineHTML(state: ListState): string {
              })
              .join('')}
          </div>`
-      : `<span class="world-line__desc">${esc(state.world.description || state.branch.name)}</span>`;
+      : desc;
 
   return `<div class="world-line">${left}</div>`;
 }
@@ -134,7 +144,7 @@ function listHTML(state: ListState): string {
   if (state.characters.length === 0) {
     return `
       <div class="empty">
-        <p class="empty__title">这个世界还是空的</p>
+        <p class="empty__title">这个小世界还是空的</p>
         <p class="empty__hint">点右上角的「+」创建角色，<br>或者导入一张现成的角色卡。</p>
       </div>`;
   }

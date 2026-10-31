@@ -1,6 +1,6 @@
 import { listBranches, listCharacters, listWorlds } from '../../core/db';
 import { esc } from '../../core/dom';
-import { getActiveWorldId } from '../../core/worlds';
+import { getActiveWorldId, worldMode } from '../../core/worlds';
 import type { World } from '../../core/types';
 import { line } from '../../ui/icons';
 import './worlds.css';
@@ -13,6 +13,7 @@ import './worlds.css';
    ========================================================================== */
 
 function worldCardHTML(world: World, count: number, branchName: string, active: boolean): string {
+  const mode = worldMode(world) === 'independent' ? '角色独立' : `可关联 · ${branchName}`;
   return `
     <button class="world-card jelly" type="button" data-go="/world/${esc(world.id)}">
       <span class="world-card__head">
@@ -20,7 +21,7 @@ function worldCardHTML(world: World, count: number, branchName: string, active: 
         ${active ? '<span class="world-card__now">当前</span>' : ''}
       </span>
       <span class="world-card__desc">${esc(world.description || '还没写设定')}</span>
-      <span class="world-card__meta">${count} 个角色 · ${esc(branchName)}</span>
+      <span class="world-card__meta">${count} 个角色 · ${esc(mode)}</span>
       <span class="world-card__tail">${line('chevron', 18)}</span>
     </button>`;
 }
@@ -44,18 +45,18 @@ export async function mountWorldList(root: HTMLElement): Promise<void> {
     <div class="page">
       <header class="topbar">
         <button class="topbar__back jelly" type="button" data-go="/settings" aria-label="返回">${line('back', 22)}</button>
-        <h1 class="topbar__title">世界观</h1>
+        <h1 class="topbar__title">小世界</h1>
         <button class="topbar__action jelly" type="button" data-go="/world/new"
-                aria-label="新建世界">${line('plus', 22)}</button>
+                aria-label="新建小世界">${line('plus', 22)}</button>
       </header>
 
       <p class="world-list__hint">
-        一个世界就是一份卷宗。同一个世界里的角色知道彼此的事；不同世界互不相干。
+        一个小世界是一套设定 + 一组角色。角色独立 = 每人一条线；角色可关联 = 同一个时空。
       </p>
 
       ${
         cards.length === 0
-          ? '<div class="empty"><p class="empty__title">还没有世界</p><p class="empty__hint">点右上角的「+」建一个。</p></div>'
+          ? '<div class="empty"><p class="empty__title">还没有小世界</p><p class="empty__hint">点右上角的「+」建一个。</p></div>'
           : cards.join('')
       }
     </div>`;

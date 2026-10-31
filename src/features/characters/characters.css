@@ -262,3 +262,14 @@
   background: var(--surface-2);
 }
 
+
+/* 「角色独立」小标记：只说明模式，不是按钮 */
+.world-line__tag {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+}
