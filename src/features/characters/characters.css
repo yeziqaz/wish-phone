@@ -3,6 +3,55 @@
    ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
    ========================================================================== */
 
+/* ---------- 导入角色卡 ---------- */
+
+.card-import {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--border-w) dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-import__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: var(--ink-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-full);
+}
+
+.card-import__text {
+  min-width: 0;
+}
+
+.card-import__title {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.card-import__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--ink-3);
+}
+
 /* ---------- 列表 ---------- */
 
 .char-list {
