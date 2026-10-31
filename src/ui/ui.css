@@ -425,3 +425,14 @@
   line-height: 1.5;
   color: var(--ink-3);
 }
+
+/* 一行放两个字段（手机上并排，窄了也不挤） */
+.field-row {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.field-row > .field {
+  flex: 1;
+  min-width: 0;
+}

@@ -48,7 +48,8 @@ export type LineIconName =
   | 'eyeOff'
   | 'zap'
   | 'world'
-  | 'pencil';
+  | 'pencil'
+  | 'image';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -84,6 +85,13 @@ const LINE: Record<LineIconName, string> = {
     '<path d="M14 14.2a3 3 0 0 1-4.2-4.2"/>' +
     '<path d="M17.5 17.5a10.4 10.4 0 0 1-14.9-4.9 1 1 0 0 1 0-.6 10.5 10.5 0 0 1 4.3-4.9"/>' +
     '<path d="m3 3 18 18"/>',
+
+  // 照片：画框 + 太阳 + 山
+  image:
+    '<rect x="3.5" y="4.5" width="17" height="15" rx="2.4"/>' +
+    '<circle cx="9" cy="9.6" r="1.6"/>' +
+    '<path d="M4.5 17.2l4.6-4.6a1.6 1.6 0 0 1 2.2 0l3.6 3.6"/>' +
+    '<path d="M13.6 14.9l1.4-1.4a1.6 1.6 0 0 1 2.2 0l2 2"/>',
 
   // 铅笔：编辑
   pencil:

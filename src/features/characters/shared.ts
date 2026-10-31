@@ -17,6 +17,7 @@ export function blankCharacter(name = ''): Character {
     source: 'manual',
 
     name,
+    photoRatio: '1:1',
     description: '',
     personality: '',
     scenario: '',

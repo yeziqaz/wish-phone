@@ -97,8 +97,14 @@ export interface Character {
   assets?: unknown[];
   sourceUrls?: string[];
 
-  /** 头像在本地保存的标识（PNG 卡的原图，或用户单独设的头像） */
+  /**
+   * 头像 / 照片。
+   * 内置角色存 'builtin:wuli'；用户选的照片存 data URL。
+   */
   avatarKey?: string;
+
+  /** 照片裁切时选的比例。卡片上的拍立得按它决定高宽 */
+  photoRatio?: '1:1' | '3:4' | '4:3' | '9:16';
 
   /**
    * 这个角色属于哪个世界 / 哪条时间线。
