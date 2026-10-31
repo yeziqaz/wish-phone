@@ -97,3 +97,27 @@ export function takePendingParse(): ParsedProvider[] {
   pending = [];
   return value;
 }
+
+/**
+ * 按模型 ID 猜它是干什么的。
+ *
+ * ⚠️ 这是猜，不是实测。很多站子的 /models 只给一串 ID，不给类型；
+ *    猜错了用户可以在拉取抽屉里点标签改。
+ */
+export function guessModelKind(id: string): import('../../core/types').ModelKind {
+  const s = id.toLowerCase();
+
+  // 视频优先：有些视频模型名字里也带 image
+  if (/sora|veo-|kling|runway|pika|hailuo|seedance|luma|(^|[-_])video|wan2\.|minimax-video/.test(s)) {
+    return 'video';
+  }
+  // 语音：tts / 朗读 / 转写都先归到这里
+  if (/tts|text-to-speech|speech|whisper|audio|voice|eleven|cosyvoice|sovits|fish|minimax.*speech/.test(s)) {
+    return 'voice';
+  }
+  // 生图
+  if (/dall-e|dalle|gpt-image|image-gen|imagegen|flux|stable-diffusion|sdxl|(^|[-_])sd[-_]?[0-9x]|stable|midjourney|(^|[-_])mj[-_]|seedream|kolors|wanx|imagen|ideogram|recraft|image/.test(s)) {
+    return 'image';
+  }
+  return 'text';
+}

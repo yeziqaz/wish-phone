@@ -710,3 +710,137 @@
   line-height: 1.6;
   color: var(--ink-3);
 }
+
+/* ==========================================================================
+   其他 API（生图 / 语音 / 生视频）
+   ========================================================================== */
+
+.api-hub__title {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.api-hub {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+.api-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 96px;
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.api-card__title {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+}
+
+.api-card__sub {
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-hub__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-4);
+}
+
+/* ---------- 某个类型的详情页 ---------- */
+
+.api-type__hint {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.api-type__title {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.api-current {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-current__label {
+  margin: 0 0 4px;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.api-current__name {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-current__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.api-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  background: var(--surface);
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.api-provider:last-child {
+  border-bottom: 0;
+}
+
+.api-provider__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.api-provider__name {
+  display: block;
+  font-size: var(--fs-base);
+  line-height: 1.3;
+}
+
+.api-provider__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.api-providers {
+  margin-bottom: var(--sp-3);
+}

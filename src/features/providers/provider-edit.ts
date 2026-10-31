@@ -1,5 +1,6 @@
 import { getProvider, newId, putProvider } from '../../core/db';
 import type { ApiProtocol, Provider, ProviderModel } from '../../core/types';
+import { MODEL_KIND_LABEL } from '../../core/types';
 import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
@@ -56,6 +57,7 @@ function modelName(model: ProviderModel): string {
 
 function modelMeta(model: ProviderModel): string {
   const parts: string[] = [];
+  if (model.kind && model.kind !== 'text') parts.push(MODEL_KIND_LABEL[model.kind]);
   if (model.displayName.trim() && model.displayName !== model.id) parts.push(model.id);
   if (model.contextLength) parts.push(`${Math.round(model.contextLength / 1000)}K`);
   if (!model.enabled) parts.push('已停用');
@@ -770,6 +772,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         for (const item of picked) {
           provider.models.push({
             id: item.id,
+            kind: 'text',
             displayName: item.id,
             contextLength: lengthOf.get(item.id) ?? null,
             maxOutput: null,

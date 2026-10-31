@@ -31,6 +31,8 @@ export interface SheetConfig {
   emptyText?: string;
   /** 确认按钮的文案，默认「添加 N 个」 */
   confirmLabel?: (count: number) => string;
+  /** 单选模式：点一个就替换掉上一个。用于「选一个主模型」 */
+  single?: boolean;
 }
 
 export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
@@ -39,7 +41,8 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
     // 折起来的组（默认全展开）
     const collapsed = new Set<string>();
     const groupOf = config.groupOf;
-    const confirmLabel = config.confirmLabel ?? ((count: number) => `添加 ${count} 个`);
+    const confirmLabel =
+      config.confirmLabel ?? (config.single ? () => '用这个' : (count: number) => `添加 ${count} 个`);
 
     const items = config.items;
     const byId = new Map(items.map((item) => [item.id, item]));
@@ -110,12 +113,16 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
                        <span class="sheet__group-name">${esc(name)}</span>
                        <span class="sheet__group-count">${shown.length}</span>
                      </button>
-                     <button class="sheet__check${allPicked ? ' is-on' : ''}" type="button"
-                             data-group-all="${esc(name)}" aria-pressed="${allPicked}"
-                             aria-label="${allPicked ? '取消全选本组' : '全选本组'}"
-                             ${pickable.length === 0 ? 'disabled' : ''}>
-                       ${allPicked ? line('check', 14) : ''}
-                     </button>
+                     ${
+                       config.single
+                         ? ''
+                         : `<button class="sheet__check${allPicked ? ' is-on' : ''}" type="button"
+                                  data-group-all="${esc(name)}" aria-pressed="${allPicked}"
+                                  aria-label="${allPicked ? '取消全选本组' : '全选本组'}"
+                                  ${pickable.length === 0 ? 'disabled' : ''}>
+                            ${allPicked ? line('check', 14) : ''}
+                          </button>`
+                     }
                    </div>`
                 : ''
             }
@@ -207,8 +214,14 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
       const box = (e.target as HTMLInputElement).closest<HTMLInputElement>('[data-item]');
       if (!box) return;
       const id = box.dataset.item ?? '';
-      if (box.checked) selected.add(id);
-      else selected.delete(id);
+      if (config.single) {
+        selected.clear();
+        if (box.checked) selected.add(id);
+      } else if (box.checked) {
+        selected.add(id);
+      } else {
+        selected.delete(id);
+      }
       paint(currentQuery());
       syncConfirm();
     });

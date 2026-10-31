@@ -356,7 +356,11 @@ function normalizeProvider(p: Provider): Provider {
     multiKey: p.multiKey ?? p.keys.length > 1,
     keyMode: p.keyMode ?? 'rotate',
     keys: p.keys.map((k) => ({ ...k, label: k.label ?? '' })),
-    models: p.models.map((m) => ({ ...m, maxOutput: m.maxOutput ?? null })),
+    models: p.models.map((m) => ({
+      ...m,
+      maxOutput: m.maxOutput ?? null,
+      kind: m.kind ?? 'text',
+    })),
   };
 }
 

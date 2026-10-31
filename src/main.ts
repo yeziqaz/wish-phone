@@ -6,6 +6,7 @@ import { mountDesktop } from './features/desktop/desktop';
 import { mountLockscreen } from './features/lockscreen/lockscreen';
 import { mountProviderEdit } from './features/providers/provider-edit';
 import { mountProviderList } from './features/providers/provider-list';
+import { mountApiType } from './features/providers/api-type';
 import { mountCharacterList } from './features/characters/character-list';
 import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
@@ -53,6 +54,7 @@ route('/settings/data', () => void mountDataStore(app));
 route('/world/new', () => void mountWorldEdit(app, 'new'));
 route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
 route('/settings/providers', () => void mountProviderList(app));
+route('/settings/api/:kind', ({ params }) => void mountApiType(app, params.kind ?? ''));
 // ⚠️ 'new' 必须注册在 ':id' 前面 —— 路由匹配按注册顺序走
 route('/settings/providers/new', () => void mountProviderEdit(app, 'new'));
 route('/settings/providers/:id', ({ params }) => void mountProviderEdit(app, params.id ?? ''));

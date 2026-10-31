@@ -1,5 +1,6 @@
 import { deleteProviderRecord, listProviders, putProvider } from '../../core/db';
-import type { Provider } from '../../core/types';
+import { getBindings } from '../../core/model-bindings';
+import type { ModelKind, Provider } from '../../core/types';
 import { esc, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
@@ -49,7 +50,33 @@ const EMPTY = `
   </div>`;
 
 export async function mountProviderList(root: HTMLElement): Promise<void> {
-  const providers = await listProviders();
+  const [providers, bindings] = await Promise.all([listProviders(), getBindings()]);
+
+  /** 「生图 API」卡片下面那行小字：当前选的是哪个模型 */
+  const kindSummary = (kind: ModelKind): string => {
+    const ref = bindings.byKind[kind];
+    if (!ref) return '未设置';
+    const provider = providers.find((item) => item.id === ref.providerId);
+    const model = provider?.models.find((item) => item.id === ref.modelId);
+    if (!provider || !model) return '未设置';
+    return `${provider.name} · ${model.id}`;
+  };
+
+  const API_TITLE: Record<'image' | 'voice' | 'video', string> = {
+    image: '生图 API',
+    voice: '语音 API',
+    video: '生视频 API',
+  };
+
+  const apiCards = (['image', 'voice', 'video'] as const)
+    .map(
+      (kind) => `
+      <button class="api-card jelly" type="button" data-go="/settings/api/${kind}">
+        <span class="api-card__title">${API_TITLE[kind]}</span>
+        <span class="api-card__sub">${esc(kindSummary(kind))}</span>
+      </button>`,
+    )
+    .join('');
 
   root.innerHTML = `
     <div class="page">
@@ -85,6 +112,10 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
       <div class="nav-group">
         ${providers.length === 0 ? EMPTY : providers.map(itemHTML).join('')}
       </div>
+
+      <h2 class="api-hub__title">其他 API</h2>
+      <div class="api-hub">${apiCards}</div>
+      <p class="api-hub__hint">生图、语音、生视频各自选一个模型。文字模型还是点上面的服务商挑。</p>
     </div>`;
 
   const panel = must<HTMLElement>(root, '#smart-panel');

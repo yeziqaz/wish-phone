@@ -250,6 +250,8 @@ export interface ProviderKey {
 export interface ProviderModel {
   /** 真实模型 ID，发请求时用它 */
   id: string;
+  /** 这个模型是干什么的。老数据没有就按「文字」处理 */
+  kind?: ModelKind;
   /** 显示名称 / 备注（例如真实是 gpt-5-mini，显示成「小助手」） */
   displayName: string;
   /** 上下文长度，拿不到就是 null */
@@ -303,12 +305,24 @@ export interface Provider {
   updatedAt: number;
 }
 
-/** 默认绑定：全局 / 按 APP / 按角色 */
+/** 模型按用途分四类。别按站子分，站子只是地址和 Key。 */
+export type ModelKind = 'text' | 'image' | 'voice' | 'video';
+
+export const MODEL_KIND_LABEL: Record<ModelKind, string> = {
+  text: '文字',
+  image: '生图',
+  voice: '语音',
+  video: '视频',
+};
+
+/** 指向某个服务商里的某个模型 */
+export interface ModelRef {
+  providerId: string;
+  modelId: string;
+}
+
+/** 全局主模型 + 角色专属覆盖（没填就跟随全局） */
 export interface Bindings {
-  defaultProviderId: string | null;
-  defaultModelId: string | null;
-  /** key 是 APP 名（如 'chat'） */
-  apps: Record<string, { providerId: string; modelId: string }>;
-  /** key 是角色 id */
-  characters: Record<string, { providerId: string; modelId: string }>;
+  byKind: Partial<Record<ModelKind, ModelRef>>;
+  characters: Record<string, Partial<Record<ModelKind, ModelRef>>>;
 }
