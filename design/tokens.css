@@ -25,6 +25,7 @@
   --inverse-bg:    #111114;  /* 反色块底 */
   --inverse-ink:   #ffffff;  /* 反色块上的文字 */
   --accent:        #111114;  /* 强调色：默认等同 ink，换色卡只改这一个 */
+  --accent-hover:  #33333b;  /* 悬停时浅一级，不能比默认更黑 */
   --accent-ink:    #ffffff;  /* 强调色上的文字 */
 
   /* 语义色：同色一浅一深，浅的做底、深的写字。
@@ -36,6 +37,7 @@
   --info:          #2358a8;
   --info-bg:       #eaf1fc;
   --danger:        #c0392b;  /* 危险：仅删除 / 错误 */
+  --danger-ink:    #ffffff;  /* 危险按钮上的文字，对比度 ≈ 5.4:1 */
   --danger-bg:     #fdeceb;
 
   /* 半透明（遮罩、纹理用） */
@@ -61,7 +63,7 @@
   --sp-5: 20px;   --sp-6: 24px;   --sp-8: 32px;   --sp-10: 40px;
 
   /* ---------- 字号 ---------- */
-  --fs-caption: 11px;  /* 角标、时间戳 */
+  --fs-caption: 12px;  /* 角标、时间戳（不许再往下调） */
   --fs-sm:      13px;  /* 辅助说明 */
   --fs-base:    15px;  /* 正文 */
   --fs-lg:      17px;  /* 列表标题、按钮 */
@@ -72,9 +74,18 @@
   --fw-medium:   500;
   --fw-semibold: 600;
 
+  /* ---------- 字体：只用系统字体，不引任何远程 CDN ---------- */
+  --font-sans: system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB',
+               'Microsoft YaHei', 'Source Han Sans SC', sans-serif;
+
+  /* ---------- 字距：大标题收紧，小字放宽 ---------- */
+  --tracking-tight:  -0.02em;   /* 20px 以上标题 */
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;    /* 全大写小字 */
+
   /* ---------- 行高 ---------- */
   --lh-tight: 1.25;
-  --lh-base:  1.55;
+  --lh-base:  1.6;
 
   /* ---------- 阴影：靠描边分层，阴影只给"浮起来"的东西 ---------- */
   --shadow-none: none;
@@ -128,6 +139,7 @@
   --inverse-bg:  #fafafa;
   --inverse-ink: #111114;
   --accent:      #f2f2f4;
+  --accent-hover: #d5d5da;
   --accent-ink:  #111114;
 
   /* 深色下语义色要提亮，底色要压暗，否则对比度不够 */
@@ -138,6 +150,7 @@
   --info:        #74a6ea;
   --info-bg:     #16202f;
   --danger:      #ff8a80;
+  --danger-ink:  #2a0b0b;
   --danger-bg:   #2c1717;
 
   --ink-a04: rgb(255 255 255 / 0.04);
@@ -159,6 +172,7 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  font-family: var(--font-sans);
   font-size: var(--fs-base);
   line-height: var(--lh-base);
   -webkit-font-smoothing: antialiased;
@@ -192,7 +206,14 @@ html, body {
   border-color: var(--inverse-bg);
 }
 
-/* 按钮 */
+/* ==========================================================================
+   按钮：六种变体，按重要程度从高到低，每种只做一件事
+
+    默认 .btn 就是「描边」——白底 + 边框，一屏里最安全的那个。
+    一页只允许出现一个 .btn--primary（主要按钮）。
+
+    图标和文字之间固定 8px（--sp-2）；只有图标的按钮必须 aria-label。
+   ========================================================================== */
 .btn {
   min-height: var(--tap-min);
   padding: 0 var(--sp-4);
@@ -200,6 +221,7 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
+  font: inherit;
   font-size: var(--fs-lg);
   font-weight: var(--fw-medium);
   border-radius: var(--radius-md);
@@ -210,21 +232,79 @@ html, body {
   user-select: none;
 }
 
+/* 主要：一屏唯一的那一个动作 */
 .btn--primary {
   background: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
 }
 
-.btn--ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
-.btn--danger { color: var(--danger); border-color: var(--danger); }
-
-.btn[disabled], .btn[aria-disabled="true"] {
-  color: var(--ink-4);
-  border-color: var(--line);
+/* 次要：浅灰底、无边框，和主要并排时的备选操作 */
+.btn--secondary {
   background: var(--surface-2);
+  color: var(--ink);
+  border-color: transparent;
+}
+
+/* 幽灵：工具栏、卡片里的低优先级操作，平时像文字 */
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-2);
+}
+
+/* 危险：删除、清空这类不可逆的操作。红底白字，不许拿来强调普通按钮 */
+.btn--danger {
+  background: var(--danger);
+  color: var(--danger-ink);
+  border-color: var(--danger);
+}
+
+/* 危险但只是描边（二次确认里「取消」旁边那个删除） */
+.btn--danger-ghost {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* 链接：像文字一样轻 */
+.btn--link {
+  min-height: var(--tap-min);
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn[disabled],
+.btn[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
   pointer-events: none;
 }
+
+/* ==========================================================================
+   状态：悬停只给真正有鼠标的设备，手机上点完不会卡在悬停态
+   ========================================================================== */
+@media (hover: hover) {
+  .btn:hover { background: var(--surface-2); }
+  .btn--primary:hover { background: var(--accent-hover); }
+  .btn--secondary:hover { background: var(--line); }
+  .btn--ghost:hover { background: var(--surface-2); }
+  .btn--danger:hover { background: var(--danger); opacity: 0.9; }
+  .btn--link:hover { opacity: 0.7; }
+}
+
+/* 焦点环：只在键盘操作时出现，鼠标点击不会冒出一圈框 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 数字对齐：表格、金额、时钟这类会变化的数字用它，位数变动时不跳 */
+.tabular { font-variant-numeric: tabular-nums; }
 
 /* 果冻反馈：只碰 transform / box-shadow，绝不和美化层抢属性 */
 .jelly {
@@ -266,6 +346,8 @@ html, body {
 }
 .input::placeholder { color: var(--ink-4); }
 .input:focus { border-color: var(--accent); }
+/* 输入框自己已经有边框变色的聚焦反馈，不再叠一圈 outline */
+.input:focus-visible { outline: none; }
 
 /* 标签 / 徽标 */
 .tag {

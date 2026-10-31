@@ -17,7 +17,7 @@ import './settings.css';
 function card(value: string, label: string): string {
   return `
     <div class="data-card">
-      <div class="data-card__value">${value}</div>
+      <div class="data-card__value tabular">${value}</div>
       <div class="data-card__label">${label}</div>
     </div>`;
 }

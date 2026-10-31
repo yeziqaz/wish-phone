@@ -64,6 +64,7 @@
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

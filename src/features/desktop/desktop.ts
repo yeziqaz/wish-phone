@@ -70,7 +70,7 @@ export function mountDesktop(root: HTMLElement): () => void {
   root.innerHTML = `
     <div class="desktop">
       <header class="statusbar" aria-hidden="true"${statusBarVisible() ? '' : ' hidden'}>
-        <span class="statusbar__clock" id="clock">--:--</span>
+        <span class="statusbar__clock tabular" id="clock">--:--</span>
         <span class="statusbar__icons">
           <span class="statusbar__signal">${SIGNAL}</span>
           <span class="statusbar__wifi" id="wifi">${WIFI}</span>
