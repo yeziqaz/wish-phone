@@ -217,6 +217,10 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           模型<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body">
+          <div class="field field--row" id="p-fetch-key-row" hidden>
+            <span class="field__label">给哪个 Key</span>
+            <select class="input" id="p-fetch-key"></select>
+          </div>
           <div class="model-tools">
             <button class="mini jelly" type="button" id="p-fetch">拉取</button>
             <button class="mini jelly" type="button" id="p-addmodel">+ 手动</button>
@@ -315,6 +319,38 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   let showPlain = false;
 
+  /** Key 的显示名：优先备注，没有就用序号 */
+  const keyNameOf = (keyId?: string): string => {
+    const index = provider.keys.findIndex((k) => k.id === keyId);
+    const key = index < 0 ? undefined : provider.keys[index];
+    if (!key) return '';
+    return key.label.trim() || `Key ${index + 1}`;
+  };
+
+  /** 是不是「每个 Key 管自己的模型」那种用法 */
+  const groupMode = (): boolean => provider.multiKey && provider.keyMode === 'group';
+
+  /** 分组模式下要选「这次给哪个 Key 拉取」 */
+  const fetchKeyRow = find<HTMLElement>(root, '#p-fetch-key-row');
+  const fetchKeySelect = find<HTMLSelectElement>(root, '#p-fetch-key');
+
+  const syncFetchKey = (): void => {
+    if (!fetchKeyRow || !fetchKeySelect) return;
+    const show = groupMode();
+    fetchKeyRow.hidden = !show;
+    if (!show) return;
+    const current = fetchKeySelect.value;
+    fetchKeySelect.innerHTML = provider.keys
+      .map(
+        (key) =>
+          `<option value="${esc(key.id)}">${esc(keyNameOf(key.id))}${
+            key.enabled ? '' : '（已停用）'
+          }</option>`,
+      )
+      .join('');
+    if (provider.keys.some((key) => key.id === current)) fetchKeySelect.value = current;
+  };
+
   const blankKey = (): Provider['keys'][number] => ({
     id: newId(),
     value: '',
@@ -367,7 +403,10 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     const key = provider.keys[index];
     if (!key) return;
     if (target.matches('[data-key-input]')) key.value = target.value;
-    else if (target.matches('[data-key-label]')) key.label = target.value;
+    else if (target.matches('[data-key-label]')) {
+      key.label = target.value;
+      syncFetchKey();
+    }
   });
 
   must(root, '#p-keys').addEventListener('change', (e) => {
@@ -375,7 +414,9 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     if (!target.matches('[data-key-toggle]')) return;
     const index = Number(target.closest<HTMLElement>('.key-row')?.dataset.index ?? '-1');
     const key = provider.keys[index];
-    if (key) key.enabled = target.checked;
+    if (!key) return;
+    key.enabled = target.checked;
+    syncFetchKey();
   });
 
   /* ---------- 多 Key 开关 + 用法 ---------- */
@@ -395,6 +436,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       provider.keyMode === 'rotate'
         ? '轮询：同一个站的几个号轮流用，模型大家共用。'
         : '分组：每个 Key 管自己的模型，适合站子按模型系列发 Key。';
+    syncFetchKey();
   };
   syncKeyMode();
 
@@ -419,12 +461,14 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     if (index >= 0) {
       provider.keys.splice(index, 1);
       renderKeys();
+      syncFetchKey();
     }
   });
 
   must(root, '#p-addkey').addEventListener('click', () => {
     provider.keys.push(blankKey());
     renderKeys();
+    syncFetchKey();
     const inputs = root.querySelectorAll<HTMLInputElement>('[data-key-input]');
     inputs[inputs.length - 1]?.focus();
   });
@@ -483,16 +527,23 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       return;
     }
 
-    // 按系列分组，组的先后 = 首次出现的先后（拉下来的顺序通常就是同系列挨着）
+    // 分组模式按 Key 归堆；否则按系列归堆
     const groups = new Map<string, { index: number; model: ProviderModel }[]>();
     provider.models.forEach((model, index) => {
-      const name = modelSeries(model.id);
+      const name = groupMode() ? keyNameOf(model.keyId) || '未分配 Key' : modelSeries(model.id);
       const list = groups.get(name);
       if (list) list.push({ index, model });
       else groups.set(name, [{ index, model }]);
     });
 
-    box.innerHTML = [...groups.entries()]
+    // 按 Key 分组时组的顺序跟着 Key 走，不随模型顺序乱跳
+    let entries = [...groups.entries()];
+    if (groupMode()) {
+      const order = [...provider.keys.map((key) => keyNameOf(key.id)), '未分配 Key'];
+      entries = entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    }
+
+    box.innerHTML = entries
       .map(
         ([name, items]) => `
       <section class="model-group" data-group-name="${esc(name)}">
@@ -606,12 +657,14 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   });
 
   find(root, '#p-addmodel')?.addEventListener('click', () => {
+    const manualKey = groupMode() ? fetchKeySelect?.value : undefined;
     provider.models.push({
       id: '',
       displayName: '',
       contextLength: null,
       enabled: true,
       source: 'manual',
+      ...(manualKey ? { keyId: manualKey } : {}),
     });
     openModels.add(provider.models.length - 1);
     renderModels();
@@ -633,10 +686,22 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       note.textContent = '正在拉取…';
       note.className = 'field__note';
 
+      // 分组模式：这次拉的模型归选中的那个 Key
+      const targetKey = groupMode() ? fetchKeySelect?.value : undefined;
+      const targetKeyValue = targetKey
+        ? (provider.keys.find((k) => k.id === targetKey)?.value ?? firstKey(provider))
+        : firstKey(provider);
+
+      if (groupMode() && !targetKey) {
+        note.textContent = '先添加一个 Key，再拉模型。';
+        note.className = 'field__note is-bad';
+        return;
+      }
+
       try {
         const list = await listModels({
           baseUrl,
-          apiKey: firstKey(provider),
+          apiKey: targetKeyValue,
           model: '',
           temperature: 0,
         });
@@ -647,7 +712,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
         // 先让用户在抽屉里挑，勾中的才进列表
         const picked = await openSheet({
-          title: '选择模型',
+          title: targetKey ? `选择模型 · ${keyNameOf(targetKey)}` : '选择模型',
           items: list.map((item) => ({
             id: item.id,
             label: item.id,
@@ -673,6 +738,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
             contextLength: lengthOf.get(item.id) ?? null,
             enabled: true,
             source: 'fetched',
+            ...(targetKey ? { keyId: targetKey } : {}),
           });
         }
         openModels.clear();
