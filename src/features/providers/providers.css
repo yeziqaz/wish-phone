@@ -13,6 +13,51 @@
     calc(env(safe-area-inset-bottom) + var(--sp-6));
 }
 
+/* ---------- 侧滑删除 ---------- */
+
+.swipe {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--border-w);
+}
+
+/* 删除键藏在右侧，滑开才露出来 */
+.swipe__actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  display: flex;
+}
+
+.swipe__delete {
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--danger-ink);
+  background: var(--danger);
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swipe .nav-item {
+  position: relative;
+  width: 100%;
+  background: var(--surface);
+  /* 只做 transform，不碰别的属性（宪法 §3.2） */
+  transition: transform var(--dur-normal) var(--ease-out);
+  touch-action: pan-y;
+}
+
+.swipe .nav-item:active {
+  background: var(--surface-2);
+}
+
 /* ---------- 智能添加 ---------- */
 
 .smart-add {

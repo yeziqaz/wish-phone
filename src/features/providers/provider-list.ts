@@ -1,4 +1,4 @@
-import { listProviders, putProvider } from '../../core/db';
+import { deleteProviderRecord, listProviders, putProvider } from '../../core/db';
 import type { Provider } from '../../core/types';
 import { esc, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
@@ -21,15 +21,20 @@ function itemHTML(provider: Provider): string {
     count > 0 ? `${count} 个模型` : '还没有模型'
   }`;
   return `
-    <button class="nav-item${provider.enabled ? '' : ' is-off'}" type="button"
-            data-go="/settings/providers/${esc(provider.id)}">
-      ${avatarHTML(provider.name, 40)}
-      <span class="nav-item__text">
-        <span class="nav-item__title">${esc(provider.name)}</span>
-        <span class="nav-item__sub">${esc(sub)}</span>
-      </span>
-      <span class="nav-item__tail">${line('chevron', 18)}</span>
-    </button>`;
+    <div class="swipe" data-row="${esc(provider.id)}">
+      <div class="swipe__actions">
+        <button class="swipe__delete" type="button" data-delete="${esc(provider.id)}">删除</button>
+      </div>
+      <button class="nav-item${provider.enabled ? '' : ' is-off'}" type="button"
+              data-go="/settings/providers/${esc(provider.id)}">
+        ${avatarHTML(provider.name, 40)}
+        <span class="nav-item__text">
+          <span class="nav-item__title">${esc(provider.name)}</span>
+          <span class="nav-item__sub">${esc(sub)}</span>
+        </span>
+        <span class="nav-item__tail">${line('chevron', 18)}</span>
+      </button>
+    </div>`;
 }
 
 const EMPTY = `
@@ -82,6 +87,175 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
   const note = must<HTMLElement>(root, '#smart-note');
   const result = must<HTMLElement>(root, '#smart-result');
 
+
+  /* ========================================================================
+     侧滑删除
+
+     手指在列表项上向左滑，右侧露出「删除」。点一下删除键不会马上删，
+     按钮会变成「确认」——再点一次才真的删掉（不可逆操作必须二次确认）。
+     同一时间只允许一行是打开的。
+     ======================================================================== */
+
+  const SWIPE_W = 88;
+  const group = must<HTMLElement>(root, '.nav-group');
+  let openRow: HTMLElement | null = null;
+  let armed: HTMLElement | null = null; // 已经点过一次「确认」的那一行
+  let armedTimer = 0;
+
+  /** 把「确认」状态退回「删除」 */
+  const disarm = (): void => {
+    window.clearTimeout(armedTimer);
+    if (armed) {
+      const button = armed.querySelector<HTMLElement>('[data-delete]');
+      if (button) button.textContent = '删除';
+    }
+    armed = null;
+  };
+
+  const contentOf = (row: HTMLElement | null): HTMLElement | null =>
+    row?.querySelector<HTMLElement>('.nav-item') ?? null;
+
+  const setShift = (row: HTMLElement, px: number, animate: boolean): void => {
+    const content = contentOf(row);
+    if (!content) return;
+    content.style.transition = animate ? '' : 'none';
+    content.style.transform = px === 0 ? '' : `translateX(${px}px)`;
+  };
+
+  const closeRow = (): void => {
+    if (openRow) {
+      setShift(openRow, 0, true);
+      openRow = null;
+    }
+    disarm();
+  };
+
+  const openRowNow = (row: HTMLElement): void => {
+    if (openRow && openRow !== row) closeRow();
+    openRow = row;
+    setShift(row, -SWIPE_W, true);
+  };
+
+  let startX = 0;
+  let startY = 0;
+  let tracking: HTMLElement | null = null;
+  let horizontal = false;
+  let baseX = 0;
+  // 手指按在「已经滑开的那一行」上，抬手后那一下 click 不该导航
+  let suppressNav = false;
+
+  group.addEventListener('pointerdown', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-delete]')) return;
+    const nav = target.closest<HTMLElement>('.nav-item');
+    const row = nav?.closest<HTMLElement>('.swipe');
+    if (!row || !nav) return;
+
+    suppressNav = openRow === row;
+    tracking = row;
+    startX = e.clientX;
+    startY = e.clientY;
+    baseX = openRow === row ? -SWIPE_W : 0;
+    horizontal = false;
+  });
+
+  group.addEventListener('pointermove', (e) => {
+    if (!tracking) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    if (!horizontal) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      // 以竖向为主：交给页面滚动，不抢手势
+      if (Math.abs(dy) > Math.abs(dx)) {
+        tracking = null;
+        return;
+      }
+      horizontal = true;
+    }
+
+    setShift(tracking, Math.min(0, Math.max(-SWIPE_W, baseX + dx)), false);
+  });
+
+  const endSwipe = (e: PointerEvent): void => {
+    if (!tracking) return;
+    const row = tracking;
+    tracking = null;
+
+    if (!horizontal) {
+      // 没滑动就是普通点击：如果这一行正开着，点一下关掉
+      if (openRow === row) {
+        closeRow();
+        return;
+      }
+      suppressNav = false;
+      return;
+    }
+
+    const dx = e.clientX - startX;
+    const wasOpen = baseX < 0;
+    // 滑过半程就翻面，否则回到原样
+    const shouldOpen = wasOpen ? dx < SWIPE_W / 2 : dx < -SWIPE_W / 2;
+    if (shouldOpen) openRowNow(row);
+    else closeRow();
+  };
+
+  group.addEventListener('pointerup', endSwipe);
+  group.addEventListener('pointercancel', () => {
+    if (!tracking) return;
+    const row = tracking;
+    tracking = null;
+    horizontal = false;
+    if (openRow === row) openRowNow(row);
+    else closeRow();
+  });
+
+  group.addEventListener(
+    'click',
+    (e) => {
+      const target = e.target as HTMLElement;
+
+      const del = target.closest<HTMLElement>('[data-delete]');
+      if (del) {
+        const row = del.closest<HTMLElement>('.swipe');
+        const id = del.dataset.delete ?? '';
+        if (!row || !id) return;
+        if (armed !== row) {
+          // 第一次点：换成「确认」，3 秒不作数就变回去
+          disarm();
+          armed = row;
+          del.textContent = '确认';
+          armedTimer = window.setTimeout(disarm, 3000);
+          return;
+        }
+        void (async () => {
+          disarm();
+          closeRow();
+          await deleteProviderRecord(id);
+          await refreshList();
+        })();
+        return;
+      }
+
+      if (!target.closest('.nav-item')) return;
+      // 刚才那一下是滑动，或者是点「开着的行 / 别的行」想收起来 —— 都不该导航
+      if (horizontal || suppressNav || openRow) {
+        if (openRow) closeRow();
+        horizontal = false;
+        suppressNav = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
+
+  // 点页面别处收起
+  root.addEventListener('pointerdown', (e) => {
+    if (!openRow) return;
+    if ((e.target as HTMLElement).closest('.swipe')) return;
+    closeRow();
+  });
 
   must(root, '#smart-toggle').addEventListener('click', () => {
     panel.hidden = !panel.hidden;
