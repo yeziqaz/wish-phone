@@ -7,6 +7,7 @@ import { mountLockscreen } from './features/lockscreen/lockscreen';
 import { mountProviderEdit } from './features/providers/provider-edit';
 import { mountProviderList } from './features/providers/provider-list';
 import { mountApiType } from './features/providers/api-type';
+import type { ModelKind } from './core/types';
 import { mountCharacterList } from './features/characters/character-list';
 import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
@@ -56,7 +57,9 @@ route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
 route('/settings/providers', () => void mountProviderList(app));
 route('/settings/api/:kind', ({ params }) => void mountApiType(app, params.kind ?? ''));
 // ⚠️ 'new' 必须注册在 ':id' 前面 —— 路由匹配按注册顺序走
-route('/settings/providers/new', () => void mountProviderEdit(app, 'new'));
+route('/settings/providers/new', ({ query }) =>
+  void mountProviderEdit(app, 'new', (query.get('kind') as ModelKind | null) ?? 'text'),
+);
 route('/settings/providers/:id', ({ params }) => void mountProviderEdit(app, params.id ?? ''));
 
 // 全局事件委托：绑在挂载点上，页面怎么换都不用重新绑

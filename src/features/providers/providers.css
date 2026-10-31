@@ -848,3 +848,80 @@
 .api-providers {
   margin-bottom: var(--sp-3);
 }
+
+/* ==========================================================================
+   API 与模型：四个模块 + 主模型
+   ========================================================================== */
+
+.api-scope {
+  margin-bottom: var(--sp-2);
+}
+
+/* 模块页顶部：当前主模型一行 */
+.api-current--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.api-current--row .api-current__name {
+  margin-bottom: 0;
+}
+
+/* 模块里的服务商行：主体点进详情，右边单独一个拉取按钮 */
+.api-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  background: var(--surface);
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.api-provider:last-child {
+  border-bottom: 0;
+}
+
+.api-provider__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 64px;
+  padding: var(--sp-2) 0;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.api-provider__tail {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+.api-provider__pull {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  padding: 0;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.api-provider__pull:active {
+  background: var(--surface-2);
+}

@@ -7,34 +7,56 @@ import type { ParsedProvider } from './smart-parse';
  * 同目录的文件之间可以互相引用（AGENTS.md 禁止的是**跨 feature 目录**互引）。
  */
 
-export const PROTOCOL_LABEL: Record<ApiProtocol, string> = {
-  openai: 'OpenAI 兼容',
-  gemini: 'Gemini',
-  claude: 'Claude',
-  custom: '自定义协议',
-};
+export interface ProtocolDef {
+  id: ApiProtocol;
+  label: string;
+  kinds: import('../../core/types').ModelKind[];
+  /** 这个协议真的能用了没有。没适配的只能建站，不能拉模型。 */
+  ready: boolean;
+}
+
+/**
+ * 协议挂在模块下面：文本有 OpenAI/Gemini/Claude，生图有 OpenAI/NovelAI，
+ * 语音有 ElevenLabs/MiniMax/FishAudio。没适配的如实标出来，不装能用。
+ */
+export const PROTOCOLS: ProtocolDef[] = [
+  { id: 'openai', label: 'OpenAI 兼容', kinds: ['text', 'image', 'voice', 'video'], ready: true },
+  { id: 'gemini', label: 'Gemini', kinds: ['text'], ready: false },
+  { id: 'claude', label: 'Claude', kinds: ['text'], ready: false },
+  { id: 'novelai', label: 'NovelAI', kinds: ['image'], ready: false },
+  { id: 'elevenlabs', label: 'ElevenLabs', kinds: ['voice'], ready: false },
+  { id: 'minimax', label: 'MiniMax', kinds: ['voice'], ready: false },
+  { id: 'fishaudio', label: 'FishAudio', kinds: ['voice'], ready: false },
+  { id: 'custom', label: '自定义协议', kinds: ['text', 'image', 'voice', 'video'], ready: true },
+];
+
+export function protocolsForKind(kind: import('../../core/types').ModelKind): ProtocolDef[] {
+  return PROTOCOLS.filter((protocol) => protocol.kinds.includes(kind));
+}
+
+export const PROTOCOL_LABEL: Record<ApiProtocol, string> = Object.fromEntries(
+  PROTOCOLS.map((protocol) => [protocol.id, protocol.label]),
+) as Record<ApiProtocol, string>;
 
 /**
  * 哪个协议是**真的能用**的。
  * gemini / claude 的原生格式是两套完全不同的请求与响应结构，
  * 排在后面的批次 —— 界面上要如实标出来，不能让用户填完才发现不通。
  */
-export const PROTOCOL_READY: Record<ApiProtocol, boolean> = {
-  openai: true,
-  custom: true,
-  gemini: false,
-  claude: false,
-};
+export const PROTOCOL_READY: Record<ApiProtocol, boolean> = Object.fromEntries(
+  PROTOCOLS.map((protocol) => [protocol.id, protocol.ready]),
+) as Record<ApiProtocol, boolean>;
 
-export const ALL_PROTOCOLS: ApiProtocol[] = ['openai', 'gemini', 'claude', 'custom'];
+export const ALL_PROTOCOLS: ApiProtocol[] = PROTOCOLS.map((protocol) => protocol.id);
 
 /** 一个空白的服务商 */
-export function blankProvider(name = '新服务商'): Provider {
+export function blankProvider(name = '新服务商', kind: import('../../core/types').ModelKind = 'text'): Provider {
   const now = Date.now();
   return {
     id: newId(),
     name,
     protocol: 'openai',
+    kind,
     baseUrl: '',
     apiPath: '/chat/completions',
     multiKey: false,

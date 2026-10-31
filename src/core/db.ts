@@ -353,6 +353,7 @@ export async function stats(): Promise<StorageStats> {
 function normalizeProvider(p: Provider): Provider {
   return {
     ...p,
+    kind: p.kind ?? 'text',
     multiKey: p.multiKey ?? p.keys.length > 1,
     keyMode: p.keyMode ?? 'rotate',
     keys: p.keys.map((k) => ({ ...k, label: k.label ?? '' })),

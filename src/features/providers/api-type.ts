@@ -1,46 +1,47 @@
-import { listProviders, newId, putProvider } from '../../core/db';
-import { getBindings, setKindBinding } from '../../core/model-bindings';
+import { listProviders, putProvider } from '../../core/db';
+import { getBindings } from '../../core/model-bindings';
 import type { ModelKind, ModelRef, Provider } from '../../core/types';
 import { MODEL_KIND_LABEL } from '../../core/types';
-import { esc, find, must } from '../../core/dom';
+import { esc, must } from '../../core/dom';
+import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { openSheet } from '../../ui/sheet';
 import { listModels, normalizeBaseUrl } from '../../ai/client';
 import { ApiError } from '../../ai/errors';
-import { PROTOCOL_LABEL, blankProvider, guessModelKind } from './shared';
+import { PROTOCOL_LABEL, PROTOCOL_READY, fromParsed, guessModelKind } from './shared';
+import { parseProvidersText } from './smart-parse';
 import './providers.css';
 
 /* ==========================================================================
-   生图 / 语音 / 生视频 API
+   一个 API 模块（文本 / 生图 / 语音 / 视频）
 
-   每个页面只做三件事：
-     1. 看当前选的是哪个模型
-     2. 从已有服务商拉取（拉回来只留这一类模型）
-     3. 新建一个服务商，直接拉取
+   只做三件事：
+     1. 智能添加 / 新建站子
+     2. 从站子拉取模型（只留这个模块对应的类型）
+     3. 列出现有站子，点进详情改 Key / 地址
 
-   类型判断是猜的（见 shared.ts 的 guessModelKind），猜错了可以换服务商试。
+   主模型的选择不在这里，在「API 与模型」页下面的全局/角色里。
    ========================================================================== */
 
-const KINDS: ModelKind[] = ['image', 'voice', 'video'];
+const PAGE_TITLE: Record<ModelKind, string> = {
+  text: '文本 API',
+  image: '生图 API',
+  voice: '语音 API',
+  video: '生视频 API',
+};
 
-const KIND_PAGE: Record<
-  Exclude<ModelKind, 'text'>,
-  { hint: string; providerHint: string }
-> = {
-  image: {
-    hint: '生成角色图、表情、场景图时用这个模型。',
-    providerHint: '支持 OpenAI 兼容接口（大多数中转站都算）。NovelAI 的原生接口要单独适配，下一版做。',
-  },
-  voice: {
-    hint: '把文字读出来时用这个模型。',
-    providerHint:
-      '支持 OpenAI 兼容接口。ElevenLabs / MiniMax / FishAudio 的原生接口要单独适配，下一版做。',
-  },
-  video: {
-    hint: '生成短视频时用这个模型。',
-    providerHint:
-      '支持 OpenAI 兼容接口。Sora / Veo / Kling 等原生接口要单独适配，下一版做。',
-  },
+const KIND_HINT: Record<ModelKind, string> = {
+  text: '只拉取输出文字的模型。',
+  image: '只拉取输出图片的模型。',
+  voice: '只拉取语音合成 / 朗读的模型。',
+  video: '只拉取输出视频的模型。',
+};
+
+const NATIVE_HINT: Record<ModelKind, string> = {
+  text: '文本模块支持 OpenAI 兼容；Gemini / Claude 的原生格式还没适配。',
+  image: '生图模块支持 OpenAI 兼容；NovelAI 的原生接口还没适配。',
+  voice: '语音模块支持 OpenAI 兼容；ElevenLabs / MiniMax / FishAudio 的原生接口还没适配。',
+  video: '视频模块支持 OpenAI 兼容；Sora / Veo / Kling 的原生接口还没适配。',
 };
 
 function describe(error: unknown): string {
@@ -52,61 +53,48 @@ function usableKey(provider: Provider): string {
   return provider.keys.find((key) => key.enabled && key.value)?.value ?? provider.keys[0]?.value ?? '';
 }
 
-function refKey(ref: ModelRef): string {
-  return `${ref.providerId}::${ref.modelId}`;
-}
-
-interface Resolved {
-  provider: Provider;
-  modelId: string;
-}
-
-/** 把绑定还原成「服务商 + 模型」。找不到（被删了）返回 null */
-function resolveRef(providers: Provider[], ref: ModelRef | undefined): Resolved | null {
-  if (!ref) return null;
-  const provider = providers.find((item) => item.id === ref.providerId);
-  if (!provider || !provider.models.some((model) => model.id === ref.modelId)) return null;
-  return { provider, modelId: ref.modelId };
-}
-
 export async function mountApiType(root: HTMLElement, rawKind: string): Promise<void> {
   const kind = rawKind as ModelKind;
-  if (!KINDS.includes(kind)) {
+  if (!(kind in PAGE_TITLE)) {
     root.innerHTML = `
       <div class="page">
         <header class="topbar">
           <button class="topbar__back jelly" type="button" data-go="/settings/providers" aria-label="返回">${line('back', 22)}</button>
           <h1 class="topbar__title">找不到</h1>
         </header>
-        <p class="field__note">没有这个 API 类型。</p>
+        <p class="field__note">没有这个 API 模块。</p>
       </div>`;
     return;
   }
 
-  const page = KIND_PAGE[kind as Exclude<ModelKind, 'text'>];
   const label = MODEL_KIND_LABEL[kind];
-  const pageTitle = kind === 'video' ? '生视频 API' : `${label} API`;
-
-  /** 重画之后想留一句话给用户看 */
   let flash = '';
   let flashBad = false;
 
   const paint = async (): Promise<void> => {
-    const providers = await listProviders();
-    const bindings = await getBindings();
-    const current = resolveRef(providers, bindings.byKind[kind]);
+    const [allProviders, bindings] = await Promise.all([listProviders(), getBindings()]);
+    const providers = allProviders.filter((provider) => (provider.kind ?? 'text') === kind);
+    const mainRef: ModelRef | undefined = bindings.byKind[kind];
+    const mainProvider = mainRef ? allProviders.find((p) => p.id === mainRef.providerId) : undefined;
+    const mainModel = mainProvider?.models.find((m) => m.id === mainRef?.modelId);
+    const mainText = mainProvider && mainModel ? `${mainProvider.name} · ${mainModel.id}` : '未设置';
 
     const providerRows = providers
       .map(
         (provider) => `
         <div class="api-provider">
-          <div class="api-provider__text">
-            <span class="api-provider__name">${esc(provider.name)}</span>
-            <span class="api-provider__sub">
-              ${esc(PROTOCOL_LABEL[provider.protocol])} · ${provider.models.length} 个模型
+          <button class="api-provider__main" type="button" data-edit="${esc(provider.id)}">
+            ${avatarHTML(provider.name, 36)}
+            <span class="api-provider__text">
+              <span class="api-provider__name">${esc(provider.name)}</span>
+              <span class="api-provider__sub">
+                ${esc(PROTOCOL_LABEL[provider.protocol])} · ${provider.models.length} 个模型
+              </span>
             </span>
-          </div>
-          <button class="btn btn--sm" type="button" data-pull="${esc(provider.id)}">拉取</button>
+            <span class="api-provider__tail">${line('chevron', 18)}</span>
+          </button>
+          <button class="api-provider__pull" type="button" data-pull="${esc(provider.id)}"
+                  aria-label="从 ${esc(provider.name)} 拉取模型">${line('import', 20)}</button>
         </div>`,
       )
       .join('');
@@ -115,141 +103,114 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
       <div class="page">
         <header class="topbar">
           <button class="topbar__back jelly" type="button" data-go="/settings/providers" aria-label="返回">${line('back', 22)}</button>
-          <h1 class="topbar__title">${pageTitle}</h1>
+          <h1 class="topbar__title">${PAGE_TITLE[kind]}</h1>
+          <button class="topbar__action jelly" type="button" data-new="1"
+                  aria-label="新建服务商">${line('plus', 22)}</button>
         </header>
 
-        <p class="api-type__hint">${esc(page.hint)}</p>
+        <p class="api-type__hint">${KIND_HINT[kind]}模型会留在这里，主模型去上一页选。</p>
 
-        <div class="api-current">
-          <p class="api-current__label">当前${label}模型</p>
-          <p class="api-current__name">
-            ${current ? `${esc(current.provider.name)} · ${esc(current.modelId)}` : '还没设置'}
-          </p>
-          <div class="api-current__actions">
-            <button class="btn ${current ? 'btn--sm' : 'btn--primary'}" type="button" id="api-pick">
-              ${current ? '更换' : '选一个'}
-            </button>
-            ${current ? '<button class="btn btn--sm btn--ghost" type="button" id="api-clear">清除</button>' : ''}
+        <div class="api-current api-current--row">
+          <div>
+            <p class="api-current__label">当前${label}主模型</p>
+            <p class="api-current__name">${esc(mainText)}</p>
           </div>
+          <button class="btn btn--sm" type="button" data-go="/settings/providers">去选</button>
         </div>
 
-        ${
-          flash
-            ? `<p class="field__note ${flashBad ? 'is-bad' : 'is-ok'}">${esc(flash)}</p>`
-            : ''
-        }
+        ${flash ? `<p class="field__note ${flashBad ? 'is-bad' : 'is-ok'}">${esc(flash)}</p>` : ''}
 
-        <h2 class="api-type__title">从已有服务商拉取</h2>
-        <p class="api-type__hint">拉取时只留${label}模型，其他类型会自动筛掉。</p>
+        <button class="smart-add jelly" type="button" id="smart-toggle">
+          <span class="smart-add__wand">${line('wand', 20)}</span>
+          <span class="smart-add__text">
+            <span class="smart-add__title">智能添加</span>
+            <span class="smart-add__sub">粘贴站子给的一整段信息，自动认出地址、密钥</span>
+          </span>
+        </button>
 
+        <div class="smart-panel" id="smart-panel" hidden>
+          <textarea class="input smart-panel__area" id="smart-text" rows="7"
+                    spellcheck="false" autocomplete="off"
+                    placeholder="站名&#10;https://api.example.com/v1&#10;key1:sk-xxxxxxxxxxxx&#10;&#10;（空一行可以接着写下一个站子）"></textarea>
+          <div class="smart-panel__actions">
+            <button class="btn jelly" type="button" id="smart-cancel">取消</button>
+            <button class="btn btn--primary jelly" type="button" id="smart-run">识别并添加</button>
+          </div>
+          <p class="smart-panel__note">识别全程在本地完成，粘进来的内容不会发到任何地方。</p>
+        </div>
+
+        <h2 class="api-type__title">已有服务商</h2>
         ${
           providers.length === 0
-            ? '<p class="field__note">还没有服务商。在下面新建一个。</p>'
+            ? '<div class="empty"><p class="empty__title">这个模块还没有服务商</p><p class="empty__hint">用上面的智能添加，<br>或者点右上角的「+」新建。</p></div>'
             : `<div class="nav-group api-providers">${providerRows}</div>`
         }
-
-        <section class="fold">
-          <button class="fold__head" type="button" data-fold aria-expanded="false">
-            新建服务商<span class="fold__chevron">${line('chevron', 16)}</span>
-          </button>
-          <div class="fold__body" hidden>
-            <p class="field__hint">${esc(page.providerHint)}</p>
-            <label class="field">
-              <span class="field__label">名字</span>
-              <input class="input" id="np-name" type="text" autocomplete="off" spellcheck="false"
-                     value="${label}服务商" placeholder="只给自己看">
-            </label>
-            <label class="field">
-              <span class="field__label">Base URL</span>
-              <input class="input" id="np-url" type="url" autocomplete="off" spellcheck="false"
-                     placeholder="https://api.example.com/v1">
-            </label>
-            <label class="field">
-              <span class="field__label">API Key</span>
-              <input class="input" id="np-key" type="text" autocomplete="off" spellcheck="false"
-                     placeholder="sk-...">
-              <span class="field__hint">Key 只存在这台设备上。</span>
-            </label>
-            <button class="btn jelly" type="button" id="np-create">保存并拉取</button>
-            <p class="field__note" id="np-note"></p>
-          </div>
-        </section>
+        <p class="api-type__hint">${NATIVE_HINT[kind]}</p>
       </div>`;
 
     flash = '';
 
-    const setNote = (el: HTMLElement | null, message: string, bad = false): void => {
-      if (!el) return;
-      el.textContent = message;
-      el.className = `field__note${bad ? ' is-bad' : message ? ' is-ok' : ''}`;
-    };
+    root.querySelectorAll<HTMLElement>('[data-edit]').forEach((button) => {
+      button.addEventListener('click', () => {
+        location.hash = `/settings/providers/${button.dataset.edit ?? ''}`;
+      });
+    });
 
-    /* ---------- 选当前模型 ---------- */
-    const pickable: { ref: ModelRef; label: string; group: string }[] = [];
-    for (const provider of providers) {
-      for (const model of provider.models) {
-        if ((model.kind ?? 'text') !== kind) continue;
-        pickable.push({
-          ref: { providerId: provider.id, modelId: model.id },
-          label: model.displayName && model.displayName !== model.id ? model.displayName : model.id,
-          group: provider.name,
-        });
-      }
-    }
+    root.querySelector<HTMLElement>('[data-new]')?.addEventListener('click', () => {
+      location.hash = `/settings/providers/new?kind=${kind}`;
+    });
 
-    must(root, '#api-pick').addEventListener('click', () => {
+    /* ---------- 智能添加 ---------- */
+    const panel = must<HTMLElement>(root, '#smart-panel');
+    const textarea = must<HTMLTextAreaElement>(root, '#smart-text');
+
+    must(root, '#smart-toggle').addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) textarea.focus();
+    });
+
+    must(root, '#smart-cancel').addEventListener('click', () => {
+      panel.hidden = true;
+    });
+
+    must(root, '#smart-run').addEventListener('click', () => {
       void (async () => {
-        if (pickable.length === 0) {
-          flash = `还没有任何${label}模型。先从下面的服务商拉取一个。`;
+        const parsed = parseProvidersText(textarea.value);
+        if (parsed.length === 0) {
+          flash = '没认出站子。至少要有一行地址。';
           flashBad = true;
           await paint();
           return;
         }
 
-        const picked = await openSheet({
-          title: `选择${label}模型`,
-          items: pickable.map((item) => ({
-            id: refKey(item.ref),
-            label: item.label,
-            meta: item.ref.modelId,
-          })),
-          groupOf: (item) => pickable.find((p) => refKey(p.ref) === item.id)?.group ?? '',
-          single: true,
-          confirmLabel: () => '用这个',
-          emptyText: '还没有可选的模型',
-        });
+        for (const item of parsed) {
+          const provider = fromParsed(item);
+          provider.kind = kind;
+          await putProvider(provider);
+        }
 
-        const hit = picked?.[0] ? pickable.find((item) => refKey(item.ref) === picked[0]!.id) : null;
-        if (!hit) return;
-
-        await setKindBinding(kind, hit.ref);
-        flash = `已设为${label}模型：${hit.label}`;
+        flash = `已添加 ${parsed.length} 个服务商。点右边的下载图标拉取模型。`;
         flashBad = false;
         await paint();
       })();
     });
 
-    const clear = root.querySelector<HTMLElement>('#api-clear');
-    clear?.addEventListener('click', () => {
-      void (async () => {
-        await setKindBinding(kind, null);
-        flash = `已清除${label}模型。`;
-        flashBad = false;
-        await paint();
-      })();
-    });
-
-    /* ---------- 从已有服务商拉取 ---------- */
+    /* ---------- 拉取模型 ---------- */
     root.querySelectorAll<HTMLElement>('[data-pull]').forEach((button) => {
       button.addEventListener('click', () => {
-        const providerId = button.dataset.pull ?? '';
-        const provider = providers.find((item) => item.id === providerId);
-        if (!provider) return;
-        void pullFrom(provider);
+        const provider = providers.find((item) => item.id === button.dataset.pull);
+        if (provider) void pullModels(provider);
       });
     });
 
-    const pullFrom = async (provider: Provider): Promise<void> => {
+    const pullModels = async (provider: Provider): Promise<void> => {
+      if (!PROTOCOL_READY[provider.protocol]) {
+        flash = `「${provider.name}」用的 ${PROTOCOL_LABEL[provider.protocol]} 还没适配，暂时拉不了模型。`;
+        flashBad = true;
+        await paint();
+        return;
+      }
+
       const key = usableKey(provider);
       if (!key) {
         flash = `「${provider.name}」还没填 API Key。`;
@@ -265,10 +226,10 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
           model: '',
           temperature: 0,
         });
-
         const filtered = list.filter((item) => guessModelKind(item.id) === kind);
+
         if (filtered.length === 0) {
-          flash = `「${provider.name}」没返回${label}模型。换个服务商，或在它的详情页手动添加模型。`;
+          flash = `「${provider.name}」没返回${label}模型。可能这个站子不提供这一类。`;
           flashBad = true;
           await paint();
           return;
@@ -276,42 +237,38 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
 
         const known = new Set(provider.models.map((model) => model.id));
         const picked = await openSheet({
-          title: `选择${label}模型 · ${provider.name}`,
+          title: `拉取${label}模型 · ${provider.name}`,
           items: filtered.map((item) => ({
             id: item.id,
             label: item.id,
             meta: known.has(item.id) ? '已添加' : '',
-            taken: false,
+            taken: known.has(item.id),
           })),
           groupOf: () => provider.name,
-          single: true,
-          confirmLabel: () => '用这个',
-          emptyText: `这个服务商没有${label}模型`,
+          confirmLabel: (count) => (count === 0 ? '添加' : `添加 ${count} 个`),
+          emptyText: `这个站子没有${label}模型`,
         });
 
-        const hit = picked?.[0];
-        if (!hit) {
+        if (!picked) {
           await paint();
           return;
         }
 
-        if (!known.has(hit.id)) {
-          const contextLength = list.find((item) => item.id === hit.id)?.contextLength ?? null;
+        for (const item of picked) {
           provider.models.push({
-            id: hit.id,
-            displayName: hit.id,
+            id: item.id,
             kind,
-            contextLength,
+            displayName: item.id,
+            contextLength: null,
             maxOutput: null,
             enabled: true,
             source: 'fetched',
           });
-          provider.updatedAt = Date.now();
-          await putProvider(provider);
         }
+        provider.updatedAt = Date.now();
+        await putProvider(provider);
 
-        await setKindBinding(kind, { providerId: provider.id, modelId: hit.id });
-        flash = `已设为${label}模型：${hit.id}`;
+        flash = `已添加 ${picked.length} 个模型。去「API 与模型」里选一个作为${label}主模型。`;
         flashBad = false;
         await paint();
       } catch (error) {
@@ -320,54 +277,6 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
         await paint();
       }
     };
-
-    /* ---------- 新建服务商：保存后直接拉取 ---------- */
-    root.querySelectorAll<HTMLElement>('[data-fold]').forEach((head) => {
-      head.addEventListener('click', () => {
-        const expanded = head.getAttribute('aria-expanded') === 'true';
-        head.setAttribute('aria-expanded', String(!expanded));
-        const body = head.nextElementSibling;
-        if (body instanceof HTMLElement) body.hidden = expanded;
-      });
-    });
-
-    must(root, '#np-create').addEventListener('click', () => {
-      void (async () => {
-        const note = find<HTMLElement>(root, '#np-note');
-        const name = must<HTMLInputElement>(root, '#np-name').value.trim() || `${label}服务商`;
-        const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#np-url').value);
-        const key = must<HTMLInputElement>(root, '#np-key').value.trim();
-
-        if (!baseUrl) {
-          setNote(note, 'Base URL 要填。', true);
-          return;
-        }
-
-        const provider = blankProvider(name);
-        provider.baseUrl = baseUrl;
-        provider.keys = key
-          ? [
-              {
-                id: newId(),
-                value: key,
-                label: 'Key 1',
-                enabled: true,
-                weight: 1,
-                callCount: 0,
-                failCount: 0,
-              },
-            ]
-          : [];
-        await putProvider(provider);
-
-        // 按钮写的是「保存并拉取」，那就接着拉，别只保存
-        flash = `已保存「${provider.name}」，正在拉取…`;
-        flashBad = false;
-        await paint();
-
-        await pullFrom(provider);
-      })();
-    });
   };
 
   await paint();

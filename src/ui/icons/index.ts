@@ -52,7 +52,9 @@ export type LineIconName =
   | 'image'
   | 'import'
   | 'mic'
-  | 'video';
+  | 'video'
+  | 'chat'
+  | 'character';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -95,6 +97,15 @@ const LINE: Record<LineIconName, string> = {
     '<circle cx="9" cy="9.6" r="1.6"/>' +
     '<path d="M4.5 17.2l4.6-4.6a1.6 1.6 0 0 1 2.2 0l3.6 3.6"/>' +
     '<path d="M13.6 14.9l1.4-1.4a1.6 1.6 0 0 1 2.2 0l2 2"/>',
+
+  // 气泡：文本
+  chat:
+    '<path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H9l-4.5 3v-3H4.5A1.5 1.5 0 0 1 3 15.5V7a1.5 1.5 0 0 1 1.5-1.5z"/>',
+
+  // 人形：角色
+  character:
+    '<circle cx="12" cy="7.6" r="3.6"/>' +
+    '<path d="M4.8 20.4a7.2 7.2 0 0 1 14.4 0"/>',
 
   // 麦克风：语音
   mic:

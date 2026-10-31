@@ -17,11 +17,6 @@ import './settings.css';
 
 /** 顶部状态栏的开关存在 core/prefs.ts 里，桌面和这里共用同一个来源 */
 
-function providerSummary(count: number): string {
-  if (count === 0) return '还没有添加';
-  return `${count} 个服务商`;
-}
-
 function dataSummary(storage: StorageStats): string {
   const total = storage.characters + storage.conversations + storage.messages;
   if (total === 0) return '还没有数据';
@@ -31,6 +26,7 @@ function dataSummary(storage: StorageStats): string {
 export async function mountSettings(root: HTMLElement): Promise<void> {
   const [providers, storage] = await Promise.all([listProviders(), stats()]);
   const barOn = statusBarVisible();
+  const configuredModules = new Set(providers.map((provider) => provider.kind ?? 'text')).size;
 
   root.innerHTML = `
     <div class="settings">
@@ -44,8 +40,8 @@ export async function mountSettings(root: HTMLElement): Promise<void> {
         <button class="nav-item" type="button" data-go="/settings/providers">
           <span class="nav-item__icon">${line('provider')}</span>
           <span class="nav-item__text">
-            <span class="nav-item__title">API 服务商</span>
-            <span class="nav-item__sub">${providerSummary(providers.length)}</span>
+            <span class="nav-item__title">API 与模型</span>
+            <span class="nav-item__sub">${configuredModules > 0 ? `${configuredModules} 个模块已配置` : '还没有配置'}</span>
           </span>
           <span class="nav-item__tail">${line('chevron', 18)}</span>
         </button>

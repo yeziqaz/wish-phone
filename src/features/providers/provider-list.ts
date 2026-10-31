@@ -1,452 +1,278 @@
-import { deleteProviderRecord, listProviders, putProvider } from '../../core/db';
-import { getBindings } from '../../core/model-bindings';
-import type { ModelKind, Provider } from '../../core/types';
-import { esc, must } from '../../core/dom';
+import { listCharacters, listProviders } from '../../core/db';
+import {
+  getBindings,
+  setCharacterBinding,
+  setKindBinding,
+} from '../../core/model-bindings';
+import type { Character, ModelKind, ModelRef, Provider } from '../../core/types';
+import { MODEL_KIND_LABEL } from '../../core/types';
+import { esc } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
-import { PROTOCOL_LABEL, fromParsed, setPendingParse } from './shared';
-import { parseProvidersText } from './smart-parse';
-import type { ParsedProvider } from './smart-parse';
+import { openSheet } from '../../ui/sheet';
 import './providers.css';
 
 /* ==========================================================================
-   服务商列表
+   API 与模型
 
-   顶部那个「智能添加」是这个页面的核心 —— 用户把站子给的一整段信息
-   粘进来，我们自动认出地址、密钥和模型，省掉手动对着抄。
+   顶层只有四个模块：文本 / 生图 / 语音 / 视频。
+   服务商不再单独摆在外面，而是藏在各自的模块里。
+
+   下面一段是「主模型」：
+     全局 —— 四类各选一个，文本必须，其余可不设
+     角色 —— 给某个角色单独覆盖，不选就跟随全局
    ========================================================================== */
 
-function itemHTML(provider: Provider): string {
-  const count = provider.models.length;
-  const sub = `${PROTOCOL_LABEL[provider.protocol]} · ${
-    count > 0 ? `${count} 个模型` : '还没有模型'
-  }`;
-  return `
-    <div class="swipe" data-row="${esc(provider.id)}">
-      <div class="swipe__actions">
-        <button class="swipe__delete" type="button" data-delete="${esc(provider.id)}">删除</button>
-      </div>
-      <div class="nav-item nav-item--provider${provider.enabled ? '' : ' is-off'}"
-           data-go="/settings/providers/${esc(provider.id)}" role="button" tabindex="0">
-        ${avatarHTML(provider.name, 40)}
-        <span class="nav-item__text">
-          <span class="nav-item__title">${esc(provider.name)}</span>
-          <span class="nav-item__sub">${esc(sub)}</span>
-        </span>
-        <label class="switch" data-switch aria-label="启用这个服务商">
-          <input type="checkbox" data-toggle="${esc(provider.id)}"
-                 ${provider.enabled ? 'checked' : ''}>
-          <span class="switch__track"></span>
-        </label>
-        <span class="nav-item__tail">${line('chevron', 18)}</span>
-      </div>
-    </div>`;
+interface Ctx {
+  providers: Provider[];
+  characters: Character[];
+  bindings: Awaited<ReturnType<typeof getBindings>>;
+  characterId: string;
+  view: 'global' | 'character';
 }
 
-const EMPTY = `
-  <div class="empty">
-    <p class="empty__title">还没有服务商</p>
-    <p class="empty__hint">点右上角的「+」手动添加，<br>或者用上面的「智能添加」粘贴一段信息。</p>
-  </div>`;
+const MODULES: { kind: ModelKind; title: string; icon: 'chat' | 'image' | 'mic' | 'video' }[] = [
+  { kind: 'text', title: '文本 API', icon: 'chat' },
+  { kind: 'image', title: '生图 API', icon: 'image' },
+  { kind: 'voice', title: '语音 API', icon: 'mic' },
+  { kind: 'video', title: '生视频 API', icon: 'video' },
+];
 
-export async function mountProviderList(root: HTMLElement): Promise<void> {
-  const [providers, bindings] = await Promise.all([listProviders(), getBindings()]);
+function refSummary(providers: Provider[], ref: ModelRef | undefined): string {
+  if (!ref) return '';
+  const provider = providers.find((item) => item.id === ref.providerId);
+  const model = provider?.models.find((item) => item.id === ref.modelId);
+  return provider && model ? `${provider.name} · ${model.id}` : '';
+}
 
-  /** 「生图 API」卡片下面那行小字：当前选的是哪个模型 */
-  const kindSummary = (kind: ModelKind): string => {
-    const ref = bindings.byKind[kind];
-    if (!ref) return '未设置';
-    const provider = providers.find((item) => item.id === ref.providerId);
-    const model = provider?.models.find((item) => item.id === ref.modelId);
-    if (!provider || !model) return '未设置';
-    return `${provider.name} · ${model.id}`;
-  };
-
-  const apiRows = (
-    [
-      ['image', '生图 API', 'image'],
-      ['voice', '语音 API', 'mic'],
-      ['video', '生视频 API', 'video'],
-    ] as const
-  )
-    .map(
-      ([kind, title, icon]) => `
-      <button class="nav-item" type="button" data-go="/settings/api/${kind}">
-        <span class="nav-item__icon">${line(icon)}</span>
-        <span class="nav-item__text">
-          <span class="nav-item__title">${title}</span>
-          <span class="nav-item__sub">${esc(kindSummary(kind))}</span>
-        </span>
-        <span class="nav-item__tail">${line('chevron', 18)}</span>
-      </button>`,
-    )
-    .join('');
-
-  root.innerHTML = `
-    <div class="page">
-      <header class="topbar">
-        <button class="topbar__back jelly" type="button" data-go="/settings" aria-label="返回">${line('back', 22)}</button>
-        <h1 class="topbar__title">API 服务商</h1>
-        <button class="topbar__action jelly" type="button" data-go="/settings/providers/new"
-                aria-label="手动新建">${line('plus', 22)}</button>
-      </header>
-
-      <button class="smart-add jelly" type="button" id="smart-toggle">
-        <span class="smart-add__wand">${line('wand', 20)}</span>
-        <span class="smart-add__text">
-          <span class="smart-add__title">智能添加</span>
-          <span class="smart-add__sub">粘贴站子给的一整段信息，自动认出地址、密钥和模型</span>
-        </span>
-      </button>
-
-      <div class="smart-panel" id="smart-panel" hidden>
-        <textarea class="input smart-panel__area" id="smart-text" rows="7"
-                  spellcheck="false" autocomplete="off"
-                  placeholder="站名&#10;https://api.example.com/v1&#10;key1:sk-xxxxxxxxxxxx&#10;&#10;（空一行可以接着写下一个站子）"></textarea>
-        <div class="smart-panel__actions">
-          <button class="btn jelly" type="button" id="smart-cancel">取消</button>
-          <button class="btn btn--primary jelly" type="button" id="smart-run">识别</button>
-        </div>
-        <div class="smart-result" id="smart-result" hidden></div>
-        <p class="smart-panel__note" id="smart-note">
-          识别全程在本地完成，粘进来的内容不会发到任何地方。
-        </p>
-      </div>
-
-      <div class="nav-group api-provider-group">
-        ${providers.length === 0 ? EMPTY : providers.map(itemHTML).join('')}
-      </div>
-
-      <h2 class="api-hub__title">其他 API</h2>
-      <div class="nav-group">${apiRows}</div>
-      <p class="api-hub__hint">生图、语音、生视频各选一个模型；文字模型还是点上面的服务商挑。</p>
-    </div>`;
-
-  const panel = must<HTMLElement>(root, '#smart-panel');
-  const textarea = must<HTMLTextAreaElement>(root, '#smart-text');
-  const note = must<HTMLElement>(root, '#smart-note');
-  const result = must<HTMLElement>(root, '#smart-result');
-
-
-  /* ========================================================================
-     侧滑删除
-
-     手指在列表项上向左滑，右侧露出「删除」。点一下删除键不会马上删，
-     按钮会变成「确认」——再点一次才真的删掉（不可逆操作必须二次确认）。
-     同一时间只允许一行是打开的。
-     ======================================================================== */
-
-  const SWIPE_W = 88;
-  const group = must<HTMLElement>(root, '.nav-group');
-  let openRow: HTMLElement | null = null;
-  let armed: HTMLElement | null = null; // 已经点过一次「确认」的那一行
-  let armedTimer = 0;
-
-  /** 把「确认」状态退回「删除」 */
-  const disarm = (): void => {
-    window.clearTimeout(armedTimer);
-    if (armed) {
-      const button = armed.querySelector<HTMLElement>('[data-delete]');
-      if (button) button.textContent = '删除';
+function modelChoices(ctx: Ctx, kind: ModelKind): { ref: ModelRef; label: string; group: string }[] {
+  const items: { ref: ModelRef; label: string; group: string }[] = [];
+  for (const provider of ctx.providers) {
+    if ((provider.kind ?? 'text') !== kind) continue;
+    for (const model of provider.models) {
+      if ((model.kind ?? 'text') !== kind) continue;
+      items.push({
+        ref: { providerId: provider.id, modelId: model.id },
+        label: model.displayName && model.displayName !== model.id ? model.displayName : model.id,
+        group: provider.name,
+      });
     }
-    armed = null;
-  };
+  }
+  return items;
+}
 
-  const contentOf = (row: HTMLElement | null): HTMLElement | null =>
-    row?.querySelector<HTMLElement>('.nav-item') ?? null;
+function chooseModel(
+  ctx: Ctx,
+  kind: ModelKind,
+  allowFollowGlobal: boolean,
+): Promise<{ ref: ModelRef | null; label: string } | null> {
+  const choices = modelChoices(ctx, kind);
+  const globalLabel = refSummary(ctx.providers, ctx.bindings.byKind[kind]) || '未设置';
 
-  const setShift = (row: HTMLElement, px: number, animate: boolean): void => {
-    const content = contentOf(row);
-    if (!content) return;
-    content.style.transition = animate ? '' : 'none';
-    content.style.transform = px === 0 ? '' : `translateX(${px}px)`;
-  };
-
-  const closeRow = (): void => {
-    if (openRow) {
-      setShift(openRow, 0, true);
-      openRow = null;
-    }
-    disarm();
-  };
-
-  const openRowNow = (row: HTMLElement): void => {
-    if (openRow && openRow !== row) closeRow();
-    openRow = row;
-    setShift(row, -SWIPE_W, true);
-  };
-
-  let startX = 0;
-  let startY = 0;
-  let tracking: HTMLElement | null = null;
-  let horizontal = false;
-  let baseX = 0;
-  // 手指按在「已经滑开的那一行」上，抬手后那一下 click 不该导航
-  let suppressNav = false;
-
-  group.addEventListener('pointerdown', (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('[data-delete]')) return;
-    const nav = target.closest<HTMLElement>('.nav-item');
-    const row = nav?.closest<HTMLElement>('.swipe');
-    if (!row || !nav) return;
-
-    suppressNav = openRow === row;
-    tracking = row;
-    startX = e.clientX;
-    startY = e.clientY;
-    baseX = openRow === row ? -SWIPE_W : 0;
-    horizontal = false;
-  });
-
-  group.addEventListener('pointermove', (e) => {
-    if (!tracking) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    if (!horizontal) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      // 以竖向为主：交给页面滚动，不抢手势
-      if (Math.abs(dy) > Math.abs(dx)) {
-        tracking = null;
-        return;
-      }
-      horizontal = true;
-    }
-
-    setShift(tracking, Math.min(0, Math.max(-SWIPE_W, baseX + dx)), false);
-  });
-
-  const endSwipe = (e: PointerEvent): void => {
-    if (!tracking) return;
-    const row = tracking;
-    tracking = null;
-
-    if (!horizontal) {
-      // 没滑动就是普通点击：如果这一行正开着，点一下关掉
-      if (openRow === row) {
-        closeRow();
-        return;
-      }
-      suppressNav = false;
+  return new Promise((resolve) => {
+    if (choices.length === 0 && !allowFollowGlobal) {
+      resolve(null);
       return;
     }
 
-    const dx = e.clientX - startX;
-    const wasOpen = baseX < 0;
-    // 滑过半程就翻面，否则回到原样
-    const shouldOpen = wasOpen ? dx < SWIPE_W / 2 : dx < -SWIPE_W / 2;
-    if (shouldOpen) openRowNow(row);
-    else closeRow();
-  };
+    const items = [
+      ...(allowFollowGlobal
+        ? [
+            {
+              id: '__global__',
+              label: '跟随全局',
+              meta: globalLabel,
+            },
+          ]
+        : []),
+      ...choices.map((choice) => ({
+        id: `${choice.ref.providerId}::${choice.ref.modelId}`,
+        label: choice.label,
+        meta: choice.ref.modelId,
+      })),
+    ];
 
-  group.addEventListener('pointerup', endSwipe);
-  group.addEventListener('pointercancel', () => {
-    if (!tracking) return;
-    const row = tracking;
-    tracking = null;
-    horizontal = false;
-    if (openRow === row) openRowNow(row);
-    else closeRow();
-  });
-
-  group.addEventListener(
-    'click',
-    (e) => {
-      const target = e.target as HTMLElement;
-
-      // 点开关只是切换启用，不要顺手把页面导航走
-      if (target.closest('[data-switch]')) {
-        e.stopPropagation();
+    void openSheet({
+      title: `选择${MODEL_KIND_LABEL[kind]}模型`,
+      items,
+      groupOf: (item) => (item.id === '__global__' ? '默认' : (choices.find((c) => `${c.ref.providerId}::${c.ref.modelId}` === item.id)?.group ?? '')),
+      single: true,
+      confirmLabel: () => '用这个',
+      emptyText: '还没有可选模型，先去上面模块里拉取',
+    }).then((picked) => {
+      const hit = picked?.[0];
+      if (!hit) {
+        resolve(null);
         return;
       }
+      if (hit.id === '__global__') {
+        resolve({ ref: null, label: '跟随全局' });
+        return;
+      }
+      const choice = choices.find((c) => `${c.ref.providerId}::${c.ref.modelId}` === hit.id);
+      resolve(choice ? { ref: choice.ref, label: choice.label } : null);
+    });
+  });
+}
 
-      const del = target.closest<HTMLElement>('[data-delete]');
-      if (del) {
-        const row = del.closest<HTMLElement>('.swipe');
-        const id = del.dataset.delete ?? '';
-        if (!row || !id) return;
-        if (armed !== row) {
-          // 第一次点：换成「确认」，3 秒不作数就变回去
-          disarm();
-          armed = row;
-          del.textContent = '确认';
-          armedTimer = window.setTimeout(disarm, 3000);
+function moduleRows(ctx: Ctx): string {
+  return MODULES.map((module) => {
+    const count = ctx.providers.filter((provider) => (provider.kind ?? 'text') === module.kind).length;
+    const global = refSummary(ctx.providers, ctx.bindings.byKind[module.kind]) || '未设置';
+    return `
+      <button class="nav-item" type="button" data-go="/settings/api/${module.kind}">
+        <span class="nav-item__icon">${line(module.icon, 20)}</span>
+        <span class="nav-item__text">
+          <span class="nav-item__title">${module.title}</span>
+          <span class="nav-item__sub">${count} 个服务商 · ${esc(global)}</span>
+        </span>
+        <span class="nav-item__tail">${line('chevron', 18)}</span>
+      </button>`;
+  }).join('');
+}
+
+function bindRows(ctx: Ctx): string {
+  const character = ctx.characters.find((item) => item.id === ctx.characterId);
+  const forCharacter = ctx.view === 'character';
+
+  const rows = MODULES.map((module) => {
+    const global = refSummary(ctx.providers, ctx.bindings.byKind[module.kind]) || '未设置';
+    const override = character
+      ? ctx.bindings.characters[character.id]?.[module.kind]
+      : undefined;
+    const value = forCharacter
+      ? override
+        ? refSummary(ctx.providers, override)
+        : `跟随全局（${global}）`
+      : global;
+
+    const required = module.kind === 'text' && !forCharacter && value === '未设置';
+
+    return `
+      <button class="nav-item" type="button" data-pick="${module.kind}">
+        <span class="nav-item__text">
+          <span class="nav-item__title">${MODEL_KIND_LABEL[module.kind]}模型${required ? ' · 必须' : ''}</span>
+          <span class="nav-item__sub">${esc(value)}</span>
+        </span>
+        <span class="nav-item__tail">${line('chevron', 18)}</span>
+      </button>`;
+  }).join('');
+
+  const characterRow = forCharacter
+    ? `
+      <button class="nav-item" type="button" id="pick-character">
+        ${character ? avatarHTML(character.name, 32) : `<span class="nav-item__icon">${line('character', 20)}</span>`}
+        <span class="nav-item__text">
+          <span class="nav-item__title">${character ? esc(character.name) : '选择角色'}</span>
+          <span class="nav-item__sub">${character ? '下面的模型只对这个角色生效' : '先选一个角色'}</span>
+        </span>
+        <span class="nav-item__tail">${line('chevron', 18)}</span>
+      </button>`
+    : '';
+
+  return `
+    <div class="nav-group">${characterRow}${rows}</div>
+    ${forCharacter && !character ? '<p class="field__note">还没有角色。先去角色页建一个。</p>' : ''}`;
+}
+
+export async function mountProviderList(root: HTMLElement): Promise<void> {
+  const state: Ctx = {
+    providers: await listProviders(),
+    characters: await listCharacters(),
+    bindings: await getBindings(),
+    characterId: '',
+    view: 'global',
+  };
+  state.characterId = state.characters[0]?.id ?? '';
+
+  const paint = (): void => {
+    root.innerHTML = `
+      <div class="page">
+        <header class="topbar">
+          <button class="topbar__back jelly" type="button" data-go="/settings" aria-label="返回">${line('back', 22)}</button>
+          <h1 class="topbar__title">API 与模型</h1>
+        </header>
+
+        <p class="api-hub__hint">先选一个模块，把站子和模型加进去；再在下面选主模型。</p>
+
+        <div class="nav-group">${moduleRows(state)}</div>
+
+        <h2 class="api-hub__title">主模型</h2>
+        <div class="segmented api-scope" role="radiogroup" aria-label="主模型作用范围">
+          <button type="button" data-scope="global" aria-checked="${state.view === 'global'}">全局</button>
+          <button type="button" data-scope="character" aria-checked="${state.view === 'character'}">角色</button>
+        </div>
+
+        ${bindRows(state)}
+        <p class="api-hub__hint">
+          ${state.view === 'global'
+            ? '文本模型是必须的；生图、语音、视频可以不设。'
+            : '不选就跟随全局；选了之后只对这个角色生效。'}
+        </p>
+      </div>`;
+
+    root.querySelectorAll<HTMLElement>('[data-scope]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const scope = button.dataset.scope === 'character' ? 'character' : 'global';
+        if (scope === state.view) return;
+        state.view = scope;
+        paint();
+      });
+    });
+
+    root.querySelectorAll<HTMLElement>('[data-pick]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const kind = button.dataset.pick as ModelKind | undefined;
+        if (!kind) return;
+        const forCharacter = state.view === 'character';
+
+        if (forCharacter && !state.characters.some((item) => item.id === state.characterId)) {
           return;
         }
+
+        // 先去选一个模型；没有模型时给一句人话
+        if (modelChoices(state, kind).length === 0) {
+          const note = document.createElement('p');
+          note.className = 'field__note is-bad';
+          note.textContent = `还没有${MODEL_KIND_LABEL[kind]}模型，先点上面的「${MODEL_KIND_LABEL[kind]} API」拉取。`;
+          button.after(note);
+          return;
+        }
+
         void (async () => {
-          disarm();
-          closeRow();
-          await deleteProviderRecord(id);
-          await refreshList();
-        })();
-        return;
-      }
-
-      if (!target.closest('.nav-item')) return;
-      // 刚才那一下是滑动，或者是点「开着的行 / 别的行」想收起来 —— 都不该导航
-      if (horizontal || suppressNav || openRow) {
-        if (openRow) closeRow();
-        horizontal = false;
-        suppressNav = false;
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true,
-  );
-
-  // 点页面别处收起
-  root.addEventListener('pointerdown', (e) => {
-    if (!openRow) return;
-    if ((e.target as HTMLElement).closest('.swipe')) return;
-    closeRow();
-  });
-
-  // 开关：改完立刻落库，列表上那一行同时变灰
-  group.addEventListener('change', (e) => {
-    const box = (e.target as HTMLInputElement).closest<HTMLInputElement>('[data-toggle]');
-    if (!box) return;
-    void (async () => {
-      const id = box.dataset.toggle ?? '';
-      const found = (await listProviders()).find((item) => item.id === id);
-      if (!found) return;
-      found.enabled = box.checked;
-      found.updatedAt = Date.now();
-      await putProvider(found);
-      box.closest('.nav-item')?.classList.toggle('is-off', !box.checked);
-    })();
-  });
-
-  must(root, '#smart-toggle').addEventListener('click', () => {
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) textarea.focus();
-  });
-
-  /** 重新渲染下面的列表。不靠 location.hash —— 已经在列表页时同一个 hash 不会触发跳转 */
-  const refreshList = async (): Promise<void> => {
-    const providers = await listProviders();
-    const group = root.querySelector<HTMLElement>('.nav-group');
-    if (group) {
-      group.innerHTML = providers.length === 0 ? EMPTY : providers.map(itemHTML).join('');
-    }
-  };
-
-  const resetNote = (): void => {
-    note.textContent = '识别全程在本地完成，粘进来的内容不会发到任何地方。';
-    note.className = 'smart-panel__note';
-  };
-
-  must(root, '#smart-cancel').addEventListener('click', () => {
-    panel.hidden = true;
-    textarea.value = '';
-    result.hidden = true;
-    result.innerHTML = '';
-    resetNote();
-  });
-
-  /** 把认出来的东西按「站名 / 地址 / 密钥」摆出来，让用户先看一眼 */
-  const showResult = (list: ParsedProvider[]): void => {
-    const row = (label: string, value: string): string =>
-      `<div class="smart-result__row">
-         <span class="smart-result__label">${label}</span>
-         <span class="smart-result__value">${esc(value)}</span>
-       </div>`;
-
-    const keyText = (count: number): string =>
-      count === 0 ? '没认出来' : count === 1 ? '1 个' : `${count} 个`;
-
-    if (list.length === 1 && list[0]) {
-      const one = list[0];
-      result.innerHTML = `
-        ${row('站名', one.name || '没认出来')}
-        ${row('地址', one.baseUrl || '没认出来')}
-        ${row('密钥', keyText(one.apiKeys.length))}
-        <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
-          用这些信息新建
-        </button>`;
-    } else {
-      // 一次认出好几个站子：逐个列出来，一起导入
-      result.innerHTML = `
-        <p class="smart-result__title">认出 ${list.length} 个站子</p>
-        ${list
-          .map(
-            (one, index) => `
-          <div class="smart-result__card">
-            <span class="smart-result__index">${index + 1}</span>
-            <div class="smart-result__lines">
-              <span class="smart-result__name">${esc(one.name || '未命名')}</span>
-              <span class="smart-result__url">${esc(one.baseUrl || '没有地址')}</span>
-              <span class="smart-result__keys">${keyText(one.apiKeys.length)}密钥</span>
-            </div>
-          </div>`,
-          )
-          .join('')}
-        <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
-          全部导入（${list.length} 个）
-        </button>`;
-    }
-
-    result.hidden = false;
-
-    // 结果出来之后，导入按钮才是唯一的主行动
-    root.querySelector('#smart-run')?.classList.remove('btn--primary');
-
-    must(root, '#smart-go').addEventListener('click', () => {
-      void (async () => {
-        if (list.length === 1) {
-          setPendingParse(list);
-          location.hash = '/settings/providers/new';
-          return;
-        }
-        // 多个站子：直接一起建好，不用一个个进详情页
-        const button = root.querySelector<HTMLButtonElement>('#smart-go');
-        if (button) button.disabled = true;
-        try {
-          for (const one of list) {
-            await putProvider(fromParsed(one));
+          const picked = await chooseModel(state, kind, forCharacter);
+          if (!picked) return;
+          if (forCharacter) {
+            await setCharacterBinding(state.characterId, kind, picked.ref);
+          } else {
+            await setKindBinding(kind, picked.ref);
           }
-          await refreshList();
+          state.bindings = await getBindings();
+          paint();
+        })();
+      });
+    });
 
-          // 收工：收起面板、清空输入，别让用户以为还能再点一次
-          textarea.value = '';
-          result.hidden = true;
-          result.innerHTML = '';
-          panel.hidden = true;
-          resetNote();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          note.textContent = `导入失败：${message}`;
-          note.className = 'smart-panel__note is-bad';
-          if (button) button.disabled = false;
-        }
+    root.querySelector<HTMLElement>('#pick-character')?.addEventListener('click', () => {
+      void (async () => {
+        const picked = await openSheet({
+          title: '选择角色',
+          items: state.characters.map((character) => ({
+            id: character.id,
+            label: character.name || '未命名',
+            meta: character.relationToUser || '',
+          })),
+          single: true,
+          confirmLabel: () => '用这个',
+          emptyText: '还没有角色',
+        });
+        const hit = picked?.[0];
+        if (!hit) return;
+        state.characterId = hit.id;
+        paint();
       })();
     });
   };
 
-  must(root, '#smart-run').addEventListener('click', () => {
-    const text = textarea.value.trim();
-    if (!text) {
-      note.textContent = '先把内容粘进来。';
-      note.className = 'smart-panel__note is-bad';
-      return;
-    }
-
-    const list = parseProvidersText(text);
-
-    // 一个字段都没认出来就别往下了，省得用户白跑一趟
-    const first = list[0];
-    if (!first || (!first.baseUrl && first.apiKeys.length === 0)) {
-      result.hidden = true;
-      root.querySelector('#smart-run')?.classList.add('btn--primary');
-      note.textContent = '没能认出地址或密钥，请点右上角「+」手动填写。';
-      note.className = 'smart-panel__note is-bad';
-      return;
-    }
-
-
-    resetNote();
-    showResult(list);
-  });
+  paint();
 }

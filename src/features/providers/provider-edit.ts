@@ -1,5 +1,5 @@
-import { getProvider, newId, putProvider } from '../../core/db';
-import type { ApiProtocol, Provider, ProviderModel } from '../../core/types';
+import { deleteProviderRecord, getProvider, newId, putProvider } from '../../core/db';
+import type { ApiProtocol, ModelKind, Provider, ProviderModel } from '../../core/types';
 import { MODEL_KIND_LABEL } from '../../core/types';
 import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
@@ -8,11 +8,12 @@ import { openSheet } from '../../ui/sheet';
 import { chat, listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
 import { ApiError } from '../../ai/errors';
 import {
-  ALL_PROTOCOLS,
   PROTOCOL_LABEL,
   PROTOCOL_READY,
   blankProvider,
   fromParsed,
+  guessModelKind,
+  protocolsForKind,
   takePendingParse,
 } from './shared';
 import './providers.css';
@@ -123,12 +124,17 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export async function mountProviderEdit(root: HTMLElement, id: string): Promise<void> {
+export async function mountProviderEdit(
+  root: HTMLElement,
+  id: string,
+  kindParam: ModelKind = 'text',
+): Promise<void> {
   let provider: Provider;
 
   if (id === 'new') {
     const parsed = takePendingParse()[0];
-    provider = parsed ? fromParsed(parsed) : blankProvider();
+    provider = parsed ? fromParsed(parsed) : blankProvider('新服务商', kindParam);
+    provider.kind = kindParam;
   } else {
     const existing = await getProvider(id);
     if (!existing) {
@@ -162,12 +168,12 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
   root.innerHTML = `
     <div class="page">
       <header class="topbar">
-        <button class="topbar__back jelly" type="button" data-go="/settings/providers" aria-label="返回">${line('back', 22)}</button>
+        <button class="topbar__back jelly" type="button" data-go="/settings/api/${p.kind ?? 'text'}" aria-label="返回">${line('back', 22)}</button>
         <span id="edit-avatar">${avatarHTML(p.name, 34)}</span>
         <h1 class="topbar__title" id="edit-title">${esc(p.name)}</h1>
       </header>
 
-      ${quick ? '<p class="field__note field__note--top">先填基础信息，点「完成」保存。模型、生成参数等更细的设置，保存后点进这个服务商再调。</p>' : ''}
+      ${quick ? `<p class="field__note field__note--top">这个服务商属于「${MODEL_KIND_LABEL[p.kind ?? 'text']} API」。先填基础信息，保存后再拉取模型。</p>` : ''}
 
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="true">
@@ -183,11 +189,11 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           <label class="field field--row">
             <span class="field__label">API 协议</span>
             <select class="input" id="p-protocol">
-              ${ALL_PROTOCOLS.map((proto) => {
-                const ready = PROTOCOL_READY[proto];
-                return `<option value="${proto}"${proto === p.protocol ? ' selected' : ''}>${
-                  PROTOCOL_LABEL[proto]
-                }${ready ? '' : '（还没做）'}</option>`;
+              ${protocolsForKind(p.kind ?? 'text').map((protocol) => {
+                const ready = PROTOCOL_READY[protocol.id];
+                return `<option value="${protocol.id}"${protocol.id === p.protocol ? ' selected' : ''}>${
+                  protocol.label
+                }${ready ? '' : '（还没适配）'}</option>`;
               }).join('')}
             </select>
           </label>
@@ -260,8 +266,9 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           <p class="field__note" id="p-model-note"></p>
           <div class="model-list" id="p-models"></div>
         </div>
-      </section>
+      </section>`}
 
+      ${!quick && (p.kind ?? 'text') === 'text' ? `
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="false">
           生成设置<span class="fold__chevron">${line('chevron', 16)}</span>
@@ -301,14 +308,19 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
             当前版本聊天还没做，这个开关先把偏好存下来，聊天那一步再接上。
           </p>
         </div>
-      </section>`}
+      </section>` : ''}
 
       <div class="row-actions row-actions--main">
         <button class="btn btn--primary jelly" type="button" id="p-save">${quick ? '完成' : '保存'}</button>
       </div>
       <p class="field__note" id="p-save-result"></p>
 
-      ${quick ? '' : '<p class="page-foot">列表处左滑可删除服务商</p>'}
+      ${quick ? '' : `
+      <div class="danger-zone">
+        <h2 class="danger-zone__title">删除这个服务商</h2>
+        <p class="danger-zone__hint">Key 和模型会一起删掉，不能恢复。</p>
+        <button class="btn btn--danger jelly" type="button" id="p-delete">删除</button>
+      </div>`}
     </div>`;
 }
 
@@ -571,6 +583,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                    value="${model.maxOutput ?? ''}" placeholder="例如 4096">
           </label>
         </div>
+        ${provider.kind === 'text' ? `
         <div class="model-row__caps">
           <span class="model-field__label">能力</span>
           ${CAP_LIST.map((cap) => {
@@ -583,7 +596,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         <button class="btn btn--sm btn--secondary jelly model-row__test" type="button"
                 data-model-test="${index}">${line('zap', 16)} 测试这个模型</button>
         <p class="model-row__hint">会发一次真实请求，消耗少量 token。</p>
-        <p class="model-row__result"></p>
+        <p class="model-row__result"></p>` : ''}
       </div>
     </div>`;
 
@@ -721,6 +734,12 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         return;
       }
 
+      if (!PROTOCOL_READY[provider.protocol]) {
+        note.textContent = `这个协议（${PROTOCOL_LABEL[provider.protocol]}）还没适配，暂时拉不了模型。`;
+        note.className = 'field__note is-bad';
+        return;
+      }
+
       note.textContent = '正在拉取…';
       note.className = 'field__note';
 
@@ -744,14 +763,23 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
           temperature: 0,
         });
 
+        const modelKind = provider.kind ?? 'text';
+        const filtered = list.filter((item) => guessModelKind(item.id) === modelKind);
+
+        if (filtered.length === 0) {
+          note.textContent = `拉到 ${list.length} 个模型，但没有一个是${MODEL_KIND_LABEL[modelKind]}模型。`;
+          note.className = 'field__note is-bad';
+          return;
+        }
+
         const known = new Set(provider.models.map((m) => m.id));
-        note.textContent = `拉到 ${list.length} 个，挑要用的：`;
+        note.textContent = `拉到 ${list.length} 个，其中 ${filtered.length} 个是${MODEL_KIND_LABEL[modelKind]}模型：`;
         note.className = 'field__note';
 
         // 先让用户在抽屉里挑，勾中的才进列表
         const picked = await openSheet({
           title: targetKey ? `选择模型 · ${keyNameOf(targetKey)}` : '选择模型',
-          items: list.map((item) => ({
+          items: filtered.map((item) => ({
             id: item.id,
             label: item.id,
             meta: item.contextLength ? `${Math.round(item.contextLength / 1000)}K` : '',
@@ -768,11 +796,11 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
           return;
         }
 
-        const lengthOf = new Map(list.map((item) => [item.id, item.contextLength ?? null]));
+        const lengthOf = new Map(filtered.map((item) => [item.id, item.contextLength ?? null]));
         for (const item of picked) {
           provider.models.push({
             id: item.id,
-            kind: 'text',
+            kind: modelKind,
             displayName: item.id,
             contextLength: lengthOf.get(item.id) ?? null,
             maxOutput: null,
@@ -961,7 +989,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       try {
         await putProvider(provider);
         if (quick) {
-          location.hash = '/settings/providers';
+          location.hash = `/settings/api/${provider.kind ?? 'text'}`;
           return;
         }
         result.textContent = '已保存。';
@@ -978,4 +1006,24 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     })();
   });
 
+  /* ---------- 删除服务商（点一次变确认） ---------- */
+  const deleteButton = find<HTMLButtonElement>(root, '#p-delete');
+  let armed = false;
+  let timer = 0;
+  deleteButton?.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      deleteButton.textContent = '确认删除';
+      timer = window.setTimeout(() => {
+        armed = false;
+        deleteButton.textContent = '删除';
+      }, 3000);
+      return;
+    }
+    window.clearTimeout(timer);
+    void (async () => {
+      await deleteProviderRecord(provider.id);
+      location.hash = `/settings/api/${provider.kind ?? 'text'}`;
+    })();
+  });
 }

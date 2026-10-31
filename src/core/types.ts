@@ -228,7 +228,15 @@ export interface SettingRecord {
  * 第一版只有 openai 真正实现（含自定义路径）；gemini / claude 的原生格式
  * 是两套完全不同的请求与响应结构，排在后面的批次。
  */
-export type ApiProtocol = 'openai' | 'gemini' | 'claude' | 'custom';
+export type ApiProtocol =
+  | 'openai'
+  | 'gemini'
+  | 'claude'
+  | 'novelai'
+  | 'elevenlabs'
+  | 'minimax'
+  | 'fishaudio'
+  | 'custom';
 
 /**
  * 一个 Key。
@@ -284,6 +292,11 @@ export interface Provider {
   id: string;
   name: string;
   protocol: ApiProtocol;
+  /**
+   * 这个服务商属于哪个模块：文本 / 生图 / 语音 / 视频。
+   * 老数据没有就按文本处理。
+   */
+  kind?: ModelKind;
   baseUrl: string;
   /** 默认 '/chat/completions'，非标准接口可以改 */
   apiPath: string;
