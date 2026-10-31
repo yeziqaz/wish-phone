@@ -24,6 +24,10 @@ import './providers.css';
    下面的模型 / 生成设置 / 删除，是给愿意细调的人准备的。
    ========================================================================== */
 
+/** 没填 Key 时的提示。不发注定失败的请求，先把话说清楚 */
+const NO_KEY_NOTE =
+  '还没填 API Key。大多数站子必须填；如果这个服务不需要 Key，随便填一个值就行。';
+
 /** 模型能干什么，目前这几个够用 */
 const CAP_LIST = ['视觉', '推理', '工具'] as const;
 
@@ -718,6 +722,11 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         note.className = 'field__note is-bad';
         return;
       }
+      if (!firstKey(provider)) {
+        note.textContent = NO_KEY_NOTE;
+        note.className = 'field__note is-bad';
+        return;
+      }
 
       note.textContent = '正在拉取…';
       note.className = 'field__note';
@@ -833,6 +842,12 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         ? (provider.keys.find((k) => k.id === model.keyId)?.value ?? firstKey(provider))
         : firstKey(provider);
 
+    if (!ownerKey) {
+      setText(meta, '缺 Key');
+      setPanel(NO_KEY_NOTE, true);
+      return;
+    }
+
     try {
       const started = Date.now();
       await chat([{ role: 'user', content: '回复一个字：好' }], {
@@ -876,6 +891,11 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
       if (!baseUrl) {
         result.textContent = '先把 Base URL 填上。';
+        result.className = 'field__note is-bad';
+        return;
+      }
+      if (!firstKey(provider)) {
+        result.textContent = NO_KEY_NOTE;
         result.className = 'field__note is-bad';
         return;
       }
