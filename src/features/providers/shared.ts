@@ -1,5 +1,5 @@
 import { newId } from '../../core/db';
-import type { ApiProtocol, Provider } from '../../core/types';
+import type { ApiProtocol, ModelKind, Provider } from '../../core/types';
 import type { ParsedProvider } from './smart-parse';
 
 /**
@@ -30,7 +30,7 @@ export const PROTOCOLS: ProtocolDef[] = [
   { id: 'custom', label: '自定义协议', kinds: ['text', 'image', 'voice', 'video'], ready: true },
 ];
 
-export function protocolsForKind(kind: import('../../core/types').ModelKind): ProtocolDef[] {
+export function protocolsForKind(kind: ModelKind): ProtocolDef[] {
   return PROTOCOLS.filter((protocol) => protocol.kinds.includes(kind));
 }
 
@@ -50,7 +50,18 @@ export const PROTOCOL_READY: Record<ApiProtocol, boolean> = Object.fromEntries(
 export const ALL_PROTOCOLS: ApiProtocol[] = PROTOCOLS.map((protocol) => protocol.id);
 
 /** 一个空白的服务商 */
-export function blankProvider(name = '新服务商', kind: import('../../core/types').ModelKind = 'text'): Provider {
+const DEFAULT_PATH: Record<ModelKind, string> = {
+  text: '/chat/completions',
+  image: '/images/generations',
+  voice: '/audio/speech',
+  video: '',
+};
+
+export function defaultApiPath(kind: ModelKind): string {
+  return DEFAULT_PATH[kind];
+}
+
+export function blankProvider(name = '新服务商', kind: ModelKind = 'text'): Provider {
   const now = Date.now();
   return {
     id: newId(),
@@ -58,7 +69,7 @@ export function blankProvider(name = '新服务商', kind: import('../../core/ty
     protocol: 'openai',
     kind,
     baseUrl: '',
-    apiPath: '/chat/completions',
+    apiPath: DEFAULT_PATH[kind],
     multiKey: false,
     keyMode: 'rotate',
     keys: [],

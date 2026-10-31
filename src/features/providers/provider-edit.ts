@@ -236,7 +236,9 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           <label class="field field--row">
             <span class="field__label">API 路径</span>
             <input class="input" id="p-path" type="text" autocomplete="off" spellcheck="false"
-                   value="${esc(p.apiPath)}" placeholder="/chat/completions">
+                   value="${esc(p.apiPath)}"
+                   placeholder="${(p.kind ?? 'text') === 'text' ? '/chat/completions' : (p.kind ?? 'text') === 'image' ? '/images/generations' : (p.kind ?? 'text') === 'voice' ? '/audio/speech' : '按站子文档填'}">
+            <span class="field__hint">${(p.kind ?? 'text') === 'text' ? '聊天接口路径。' : '以后真正调用生图 / 语音 / 视频时用这一项。'}</span>
           </label>
 
           ${quick ? '' : `
@@ -569,6 +571,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                  value="${esc(model.displayName === model.id ? '' : model.displayName)}"
                  placeholder="可选">
         </label>
+        ${provider.kind === 'text' ? `
         <div class="model-field__pair">
           <label class="model-field">
             <span class="model-field__label">上下文窗口</span>
@@ -582,7 +585,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                    data-model-field="maxOutput" data-index="${index}"
                    value="${model.maxOutput ?? ''}" placeholder="例如 4096">
           </label>
-        </div>
+        </div>` : ''}
         ${provider.kind === 'text' ? `
         <div class="model-row__caps">
           <span class="model-field__label">能力</span>

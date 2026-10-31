@@ -8,7 +8,7 @@ import { line } from '../../ui/icons';
 import { openSheet } from '../../ui/sheet';
 import { listModels, normalizeBaseUrl } from '../../ai/client';
 import { ApiError } from '../../ai/errors';
-import { PROTOCOL_LABEL, PROTOCOL_READY, fromParsed, guessModelKind } from './shared';
+import { PROTOCOL_LABEL, PROTOCOL_READY, defaultApiPath, fromParsed, guessModelKind } from './shared';
 import { parseProvidersText } from './smart-parse';
 import './providers.css';
 
@@ -186,6 +186,7 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
         for (const item of parsed) {
           const provider = fromParsed(item);
           provider.kind = kind;
+          provider.apiPath = defaultApiPath(kind);
           await putProvider(provider);
         }
 
