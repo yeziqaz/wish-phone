@@ -88,6 +88,15 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     if (!panel.hidden) textarea.focus();
   });
 
+  /** 重新渲染下面的列表。不靠 location.hash —— 已经在列表页时同一个 hash 不会触发跳转 */
+  const refreshList = async (): Promise<void> => {
+    const providers = await listProviders();
+    const group = root.querySelector<HTMLElement>('.nav-group');
+    if (group) {
+      group.innerHTML = providers.length === 0 ? EMPTY : providers.map(itemHTML).join('');
+    }
+  };
+
   const resetNote = (): void => {
     note.textContent = '识别全程在本地完成，粘进来的内容不会发到任何地方。';
     note.className = 'smart-panel__note';
@@ -162,7 +171,15 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
           for (const one of list) {
             await putProvider(fromParsed(one));
           }
-          location.hash = '/settings/providers';
+          await refreshList();
+
+          // 收工：收起面板、清空输入，别让用户以为还能再点一次
+          textarea.value = '';
+          result.hidden = true;
+          result.innerHTML = '';
+          panel.hidden = true;
+          resetNote();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           note.textContent = `导入失败：${message}`;
