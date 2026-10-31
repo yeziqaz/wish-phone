@@ -595,8 +595,6 @@
 
 .model-row__test {
   width: 100%;
-  min-height: 40px;
-  font-size: var(--fs-sm);
 }
 
 .model-row__result {

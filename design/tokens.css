@@ -239,6 +239,13 @@ html, body {
   border-color: var(--accent);
 }
 
+/* 小一号：页面里的次要动作，字号收小但高度不变（触控仍是 44） */
+.btn--sm {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-normal);
+  padding: 0 var(--sp-3);
+}
+
 /* 次要：浅灰底、无边框，和主要并排时的备选操作 */
 .btn--secondary {
   background: var(--surface-2);

@@ -233,7 +233,7 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
 
           ${quick ? '' : `
           <div class="row-actions">
-            <button class="btn jelly" type="button" id="p-test">测试连接</button>
+            <button class="btn btn--sm jelly" type="button" id="p-test">测试连接</button>
           </div>
           <p class="field__note" id="p-test-result"></p>`}
         </div>
@@ -578,7 +578,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                             aria-pressed="${on}">${cap}</button>`;
           }).join('')}
         </div>
-        <button class="btn btn--secondary jelly model-row__test" type="button"
+        <button class="btn btn--sm btn--secondary jelly model-row__test" type="button"
                 data-model-test="${index}">${line('zap', 16)} 测试这个模型</button>
         <p class="model-row__hint">会发一次真实请求，消耗少量 token。</p>
         <p class="model-row__result"></p>
