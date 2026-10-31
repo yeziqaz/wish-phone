@@ -25,15 +25,20 @@ function itemHTML(provider: Provider): string {
       <div class="swipe__actions">
         <button class="swipe__delete" type="button" data-delete="${esc(provider.id)}">删除</button>
       </div>
-      <button class="nav-item${provider.enabled ? '' : ' is-off'}" type="button"
-              data-go="/settings/providers/${esc(provider.id)}">
+      <div class="nav-item nav-item--provider${provider.enabled ? '' : ' is-off'}"
+           data-go="/settings/providers/${esc(provider.id)}" role="button" tabindex="0">
         ${avatarHTML(provider.name, 40)}
         <span class="nav-item__text">
           <span class="nav-item__title">${esc(provider.name)}</span>
           <span class="nav-item__sub">${esc(sub)}</span>
         </span>
+        <label class="switch" data-switch aria-label="启用这个服务商">
+          <input type="checkbox" data-toggle="${esc(provider.id)}"
+                 ${provider.enabled ? 'checked' : ''}>
+          <span class="switch__track"></span>
+        </label>
         <span class="nav-item__tail">${line('chevron', 18)}</span>
-      </button>
+      </div>
     </div>`;
 }
 
@@ -215,6 +220,12 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     (e) => {
       const target = e.target as HTMLElement;
 
+      // 点开关只是切换启用，不要顺手把页面导航走
+      if (target.closest('[data-switch]')) {
+        e.stopPropagation();
+        return;
+      }
+
       const del = target.closest<HTMLElement>('[data-delete]');
       if (del) {
         const row = del.closest<HTMLElement>('.swipe');
@@ -255,6 +266,21 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     if (!openRow) return;
     if ((e.target as HTMLElement).closest('.swipe')) return;
     closeRow();
+  });
+
+  // 开关：改完立刻落库，列表上那一行同时变灰
+  group.addEventListener('change', (e) => {
+    const box = (e.target as HTMLInputElement).closest<HTMLInputElement>('[data-toggle]');
+    if (!box) return;
+    void (async () => {
+      const id = box.dataset.toggle ?? '';
+      const found = (await listProviders()).find((item) => item.id === id);
+      if (!found) return;
+      found.enabled = box.checked;
+      found.updatedAt = Date.now();
+      await putProvider(found);
+      box.closest('.nav-item')?.classList.toggle('is-off', !box.checked);
+    })();
   });
 
   must(root, '#smart-toggle').addEventListener('click', () => {

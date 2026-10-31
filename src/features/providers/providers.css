@@ -15,11 +15,11 @@
 
 /* ---------- 侧滑删除 ---------- */
 
+/* 外层 .nav-group 已经是圆角容器了，这里不要再圆一次 ——
+   滑出来的删除键要的是方正的一块红色 */
 .swipe {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--border-w);
 }
 
 /* 删除键藏在右侧，滑开才露出来 */
@@ -56,6 +56,22 @@
 
 .swipe .nav-item:active {
   background: var(--surface-2);
+}
+
+/* 停用的服务商：整行淡下去，但开关本身保持清楚 */
+.nav-item--provider {
+  cursor: pointer;
+}
+
+.nav-item--provider.is-off .nav-item__title,
+.nav-item--provider.is-off .nav-item__sub,
+.nav-item--provider.is-off .nav-item__tail,
+.nav-item--provider.is-off .avatar {
+  opacity: 0.45;
+}
+
+.nav-item--provider .switch {
+  margin-right: var(--sp-1);
 }
 
 /* ---------- 智能添加 ---------- */
