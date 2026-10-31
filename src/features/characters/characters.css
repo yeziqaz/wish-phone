@@ -1,0 +1,68 @@
+/* ==========================================================================
+   角色：列表 + 编辑
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+/* ---------- 列表 ---------- */
+
+.char-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.char-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.char-card__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.char-card__name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.char-card__desc {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.char-card__meta {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+.char-card__tail {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}

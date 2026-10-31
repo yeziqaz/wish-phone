@@ -280,3 +280,106 @@
     transition-duration: 1ms;
   }
 }
+
+/* ==========================================================================
+   页面骨架与表单（服务商、角色等内页共用）
+   ========================================================================== */
+
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding:
+    calc(env(safe-area-inset-top) + var(--sp-4))
+    var(--sp-5)
+    calc(env(safe-area-inset-bottom) + var(--sp-6));
+}
+
+.field {
+  display: block;
+  margin-bottom: var(--sp-3);
+}
+
+.field__label {
+  display: block;
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.field__hint {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.field__note {
+  margin: var(--sp-2) 0;
+  min-height: 1.2em;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.field__note.is-ok {
+  color: var(--success);
+  font-weight: var(--fw-medium);
+}
+
+.field__note.is-bad {
+  color: var(--danger);
+}
+
+/* 长文本框：和 .input 同一套外观，但可以上下拉伸 */
+.textarea {
+  min-height: 0;
+  padding: var(--sp-2) var(--sp-3);
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+
+.row-actions--main .btn {
+  flex: 1;
+}
+
+/* 页面底部小字备注：居中、浅、不加底 */
+.page-foot {
+  margin: var(--sp-6) 0 0;
+  text-align: center;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-4);
+}
+
+/* 空状态 */
+.empty {
+  padding: var(--sp-8) var(--sp-4);
+  text-align: center;
+}
+
+.empty__title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.empty__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* [hidden] 在带 display 的类规则面前会失效，必须显式写一遍 */
+[hidden] {
+  display: none !important;
+}

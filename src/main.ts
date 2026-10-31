@@ -6,6 +6,8 @@ import { mountDesktop } from './features/desktop/desktop';
 import { mountLockscreen } from './features/lockscreen/lockscreen';
 import { mountProviderEdit } from './features/providers/provider-edit';
 import { mountProviderList } from './features/providers/provider-list';
+import { mountCharacterList } from './features/characters/character-list';
+import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
 import { mountSettings } from './features/settings/settings';
 
@@ -37,7 +39,10 @@ function mountPlaceholder(title: string): void {
 }
 
 route('/desktop', () => mountDesktop(app));
-route('/character', () => mountPlaceholder('角色'));
+route('/character', () => void mountCharacterList(app));
+// 注意：'/character/new' 必须排在 '/character/:id' 前面，否则 new 会被当成 id
+route('/character/new', () => void mountCharacterEdit(app, 'new'));
+route('/character/:id', ({ params }) => void mountCharacterEdit(app, params.id ?? ''));
 route('/chat', () => mountPlaceholder('聊天'));
 route('/help', () => mountPlaceholder('帮助'));
 

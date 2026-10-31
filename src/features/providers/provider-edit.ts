@@ -306,10 +306,7 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
       </div>
       <p class="field__note" id="p-save-result"></p>
 
-      ${quick ? '' : `
-      <p class="field__note field__note--top">
-        要删除这个服务商，回列表把它向左滑。
-      </p>`}
+      ${quick ? '' : '<p class="page-foot">列表处左滑可删除服务商</p>'}
     </div>`;
 }
 

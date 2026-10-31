@@ -3,15 +3,6 @@
    ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
    ========================================================================== */
 
-.page {
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding:
-    calc(env(safe-area-inset-top) + var(--sp-4))
-    var(--sp-5)
-    calc(env(safe-area-inset-bottom) + var(--sp-6));
-}
 
 /* ---------- 侧滑删除 ---------- */
 
@@ -73,6 +64,8 @@
 .nav-item--provider .switch {
   margin-right: var(--sp-1);
 }
+
+/* 页面底部的小字备注：居中、浅、不加底 */
 
 /* ---------- 智能添加 ---------- */
 
@@ -156,17 +149,7 @@
 
 /* ---------- 表单字段 ---------- */
 
-.field {
-  display: block;
-  margin-bottom: var(--sp-3);
-}
 
-.field__label {
-  display: block;
-  margin-bottom: var(--sp-1);
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
-}
 
 /* 标签在左、输入框在右，一项只占一行 */
 .field--row {
@@ -198,21 +181,7 @@
   gap: var(--sp-2);
 }
 
-.field__hint {
-  display: block;
-  margin-top: var(--sp-2);
-  font-size: var(--fs-caption);
-  line-height: 1.5;
-  color: var(--ink-3);
-}
 
-.field__note {
-  margin: var(--sp-2) 0;
-  min-height: 1.2em;
-  font-size: var(--fs-caption);
-  line-height: 1.5;
-  color: var(--ink-3);
-}
 
 .field__note--top {
   margin: 0 0 var(--sp-4);
@@ -221,14 +190,7 @@
   border-radius: var(--radius-md);
 }
 
-.field__note.is-ok {
-  color: var(--success);
-  font-weight: var(--fw-medium);
-}
 
-.field__note.is-bad {
-  color: var(--danger);
-}
 
 .field__note strong {
   font-weight: var(--fw-semibold);
@@ -449,12 +411,6 @@
 
 .field--switch .switch {
   flex-shrink: 0;
-}
-
-/* [hidden] 在带 display 的类规则面前会失效，必须显式写一遍 */
-.field[hidden],
-p[hidden] {
-  display: none;
 }
 
 /* ---------- 模型行 ---------- */
@@ -709,19 +665,11 @@ p[hidden] {
   background: var(--surface);
 }
 
-.row-actions {
-  display: flex;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
-}
 
 .row-actions--main {
   margin-top: var(--sp-5);
 }
 
-.row-actions--main .btn {
-  flex: 1;
-}
 
 /* ---------- 滑块 ---------- */
 
