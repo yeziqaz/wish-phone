@@ -49,7 +49,8 @@ export type LineIconName =
   | 'zap'
   | 'world'
   | 'pencil'
-  | 'image';
+  | 'image'
+  | 'import';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -92,6 +93,12 @@ const LINE: Record<LineIconName, string> = {
     '<circle cx="9" cy="9.6" r="1.6"/>' +
     '<path d="M4.5 17.2l4.6-4.6a1.6 1.6 0 0 1 2.2 0l3.6 3.6"/>' +
     '<path d="M13.6 14.9l1.4-1.4a1.6 1.6 0 0 1 2.2 0l2 2"/>',
+
+  // 导入：箭头进托盘
+  import:
+    '<path d="M12 3v12"/>' +
+    '<path d="m7.5 10.5 4.5 4.5 4.5-4.5"/>' +
+    '<path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/>',
 
   // 铅笔：编辑
   pencil:

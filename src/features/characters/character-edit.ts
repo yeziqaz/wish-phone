@@ -221,7 +221,12 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   const syncGallery = (): void => {
     const photo = photos[current];
     const total = photos.length;
-    countLabel.textContent = total === 0 ? '还没有照片' : `${current + 1} / ${total} · 左滑看下一张`;
+    countLabel.textContent =
+      total === 0
+        ? '还没有照片'
+        : total === 1
+          ? '1 / 1'
+          : `${current + 1} / ${total} · 左滑看下一张`;
     promptInput.value = photo?.prompt ?? '';
     promptInput.disabled = !photo;
     removeButton.disabled = !photo;

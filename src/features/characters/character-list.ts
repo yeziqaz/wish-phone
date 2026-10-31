@@ -88,20 +88,6 @@ function worldTabsHTML(state: ListState): string {
     </div>`;
 }
 
-function worldLineHTML(state: ListState): string {
-  const desc = `<span class="world-line__desc">${esc(state.world.description || state.branch.name)}</span>`;
-
-  if (worldMode(state.world) === 'independent') {
-    return `
-      <div class="world-line">
-        <span class="world-line__tag">角色独立</span>
-        ${desc}
-      </div>`;
-  }
-
-  return `<div class="world-line">${desc}</div>`;
-}
-
 function listHTML(state: ListState): string {
   if (state.characters.length === 0) {
     return `
@@ -139,20 +125,16 @@ export async function mountCharacterList(root: HTMLElement): Promise<void> {
         <header class="topbar">
           <button class="topbar__back jelly" type="button" data-go="/desktop" aria-label="返回">${line('back', 22)}</button>
           <h1 class="topbar__title">角色</h1>
-          <button class="topbar__action jelly" type="button" data-go="/character/new"
-                  aria-label="新建角色">${line('plus', 22)}</button>
+          ${worldMode(state.world) === 'independent' ? '<span class="world-line__tag">角色独立</span>' : ''}
+          <div class="topbar__actions">
+            <button class="topbar__action jelly" type="button" id="import-toggle"
+                    aria-label="导入角色卡">${line('import', 22)}</button>
+            <button class="topbar__action jelly" type="button" data-go="/character/new"
+                    aria-label="新建角色">${line('plus', 22)}</button>
+          </div>
         </header>
 
         ${worldTabsHTML(state)}
-        ${worldLineHTML(state)}
-
-        <button class="card-import jelly" type="button" id="import-toggle">
-          <span class="card-import__icon">${line('plus', 18)}</span>
-          <span class="card-import__text">
-            <span class="card-import__title">导入角色卡</span>
-            <span class="card-import__sub">支持 PNG 卡和 JSON 卡，别人的卡直接能用</span>
-          </span>
-        </button>
         <input type="file" id="import-file" accept=".png,.json,image/png,application/json" hidden>
         <p class="field__note" id="import-note"></p>
 
