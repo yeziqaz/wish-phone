@@ -1,5 +1,6 @@
 import './sheet.css';
 import { esc } from '../core/dom';
+import { line } from './icons';
 
 /* ==========================================================================
    底部抽屉（bottom sheet）
@@ -92,7 +93,8 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
         const shown = groupItems.filter(hit);
         if (shown.length === 0) continue;
         shownTotal += shown.length;
-        const allPicked = shown.every((item) => item.taken || selected.has(item.id));
+        const pickable = shown.filter((item) => !item.taken);
+        const allPicked = pickable.length > 0 && pickable.every((item) => selected.has(item.id));
         html.push(`
           <section class="sheet__group">
             ${
@@ -100,8 +102,12 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
                 ? `<div class="sheet__group-head">
                      <span class="sheet__group-name">${esc(name)}</span>
                      <span class="sheet__group-count">${shown.length}</span>
-                     <button class="sheet__group-all" type="button" data-group-all="${esc(name)}"
-                             ${allPicked ? 'disabled' : ''}>${allPicked ? '已全选' : '全选'}</button>
+                     <button class="sheet__check${allPicked ? ' is-on' : ''}" type="button"
+                             data-group-all="${esc(name)}" aria-pressed="${allPicked}"
+                             aria-label="${allPicked ? '取消全选本组' : '全选本组'}"
+                             ${pickable.length === 0 ? 'disabled' : ''}>
+                       ${allPicked ? line('check', 14) : ''}
+                     </button>
                    </div>`
                 : ''
             }
@@ -157,8 +163,16 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
       const all = target.closest<HTMLElement>('[data-group-all]');
       if (all) {
         const name = all.dataset.groupAll ?? '';
-        const groupItems = (groups.get(name) ?? []).filter((item) => !item.taken && hitForQuery(item));
-        for (const item of groupItems) selected.add(item.id);
+        const groupItems = (groups.get(name) ?? []).filter(
+          (item) => !item.taken && hitForQuery(item),
+        );
+        // 已经是全选状态再点一下就是取消全选
+        const allPicked =
+          groupItems.length > 0 && groupItems.every((item) => selected.has(item.id));
+        for (const item of groupItems) {
+          if (allPicked) selected.delete(item.id);
+          else selected.add(item.id);
+        }
         paint(currentQuery());
         syncConfirm();
       }

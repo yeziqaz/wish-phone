@@ -107,7 +107,7 @@
 }
 
 .data-page__result.is-ok {
-  color: var(--ink);
+  color: var(--success);
   font-weight: var(--fw-medium);
 }
 

@@ -132,24 +132,35 @@
   color: var(--ink-3);
 }
 
-.sheet__group-all {
+/* 全选：一个方框，勾上就是全选，再点一下取消 */
+.sheet__check {
   margin-left: auto;
-  min-height: 32px;
-  padding: 0 var(--sp-3);
-  font: inherit;
-  font-size: var(--fs-caption);
-  color: var(--accent);
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent-ink);
   background: none;
-  border: var(--border-w) solid var(--line-strong);
-  border-radius: var(--radius-sm);
+  border: var(--border-w-strong) solid var(--line-strong);
+  border-radius: var(--radius-xs);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.sheet__group-all:disabled {
-  color: var(--ink-3);
+.sheet__check.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.sheet__check:disabled {
   border-color: var(--line);
+  background: none;
   cursor: default;
+}
+
+.sheet__check:empty::after {
+  content: '';
 }
 
 /* ---------- 一项 ---------- */

@@ -515,8 +515,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   // 默认每个模型只占一行；点名字才展开编辑框
   const openModels = new Set<number>();
-  // 折起来的模型组（默认全展开，点组头才合拢）
-  const closedGroups = new Set<string>();
   let query = '';
   const matches = (model: ProviderModel): boolean =>
     !query ||
@@ -560,39 +558,9 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         '<p class="field__note">还没有模型。点上面的「拉取」自动获取，或「+ 手动」添加。</p>';
       return;
     }
-
-    // 分组模式按 Key 归堆；否则按系列归堆
-    const groups = new Map<string, { index: number; model: ProviderModel }[]>();
-    provider.models.forEach((model, index) => {
-      const name = groupMode() ? keyNameOf(model.keyId) || '未分配 Key' : modelSeries(model.id);
-      const list = groups.get(name);
-      if (list) list.push({ index, model });
-      else groups.set(name, [{ index, model }]);
-    });
-
-    // 按 Key 分组时组的顺序跟着 Key 走，不随模型顺序乱跳
-    let entries = [...groups.entries()];
-    if (groupMode()) {
-      const order = [...provider.keys.map((key) => keyNameOf(key.id)), '未分配 Key'];
-      entries = entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
-    }
-
-    box.innerHTML = entries
-      .map(
-        ([name, items]) => `
-      <section class="model-group" data-group-name="${esc(name)}">
-        <button class="model-group__head" type="button" data-group-toggle
-                aria-expanded="${closedGroups.has(name) ? 'false' : 'true'}">
-          <span class="model-group__name">${esc(name)}</span>
-          <span class="model-group__count">${items.length}</span>
-          <span class="model-group__chevron">${line('chevron', 16)}</span>
-        </button>
-        <div class="model-group__body"${closedGroups.has(name) ? ' hidden' : ''}>
-          ${items.map(({ index, model }) => modelRowHTML(model, index)).join('')}
-        </div>
-      </section>`,
-      )
-      .join('');
+    // 已经加进列表的模型就一行一个，不再分组 ——
+    // 分组是为了在几十个里挑，挑完就没必要了
+    box.innerHTML = provider.models.map((model, index) => modelRowHTML(model, index)).join('');
   };
 
   renderModels();
@@ -630,21 +598,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   find(root, '#p-models')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
 
-    // 组头：合拢 / 展开
-    const groupHead = target.closest<HTMLElement>('[data-group-toggle]');
-    if (groupHead) {
-      const section = groupHead.closest<HTMLElement>('.model-group');
-      const name = section?.dataset.groupName ?? '';
-      const body = section?.querySelector<HTMLElement>('.model-group__body');
-      if (!body) return;
-      const willClose = !body.hidden;
-      body.hidden = willClose;
-      groupHead.setAttribute('aria-expanded', String(!willClose));
-      if (willClose) closedGroups.add(name);
-      else closedGroups.delete(name);
-      return;
-    }
-
     const test = target.closest<HTMLElement>('[data-model-test]');
     if (test) {
       void runModelTest(Number(test.dataset.modelTest ?? '-1'));
@@ -677,22 +630,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     root.querySelectorAll<HTMLElement>('.model-row').forEach((row) => {
       const model = provider.models[Number(row.dataset.index ?? '-1')];
       row.hidden = model ? !matches(model) : true;
-    });
-    // 搜索时组一律展开；整组都不匹配就把这组收起来
-    root.querySelectorAll<HTMLElement>('.model-group').forEach((section) => {
-      const rows = [...section.querySelectorAll<HTMLElement>('.model-row')];
-      const shown = rows.filter((row) => !row.hidden).length;
-      section.hidden = shown === 0;
-      const body = section.querySelector<HTMLElement>('.model-group__body');
-      const head = section.querySelector<HTMLElement>('[data-group-toggle]');
-      if (query) {
-        if (body) body.hidden = false;
-        head?.setAttribute('aria-expanded', 'true');
-      } else if (body) {
-        const name = section.dataset.groupName ?? '';
-        body.hidden = closedGroups.has(name);
-        head?.setAttribute('aria-expanded', String(!closedGroups.has(name)));
-      }
     });
   });
 

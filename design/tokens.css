@@ -14,14 +14,29 @@
   --surface-2:     #f4f4f5;  /* 次级面：凹槽、hover、分组底 */
   --line:          #e8e8ea;  /* 常规描边 1px */
   --line-strong:   #d0d0d5;  /* 强调描边、可点击控件的边界 */
+  /* 灰阶四档分工（详见 design/STYLE.md §灰阶）：
+     --ink   主要文字        --ink-2 次要文字
+     --ink-3 辅助说明（正文级，必须够深）
+     --ink-4 占位符 / 不可用（只用于不需要读清的地方） */
   --ink:           #111114;  /* 主文字、标题 */
-  --ink-2:         #55555e;  /* 次要文字 */
-  --ink-3:         #8e8e97;  /* 弱化文字、占位符、禁用 */
+  --ink-2:         #55555e;  /* 次要文字：说明、时间 */
+  --ink-3:         #6f6f79;  /* 辅助说明，白底对比度 ≈ 4.9:1 */
+  --ink-4:         #8a8a92;  /* 占位符、禁用态，白底 ≈ 3.4:1 */
   --inverse-bg:    #111114;  /* 反色块底 */
   --inverse-ink:   #ffffff;  /* 反色块上的文字 */
   --accent:        #111114;  /* 强调色：默认等同 ink，换色卡只改这一个 */
   --accent-ink:    #ffffff;  /* 强调色上的文字 */
-  --danger:        #d64545;  /* 危险：仅删除 / 错误 */
+
+  /* 语义色：同色一浅一深，浅的做底、深的写字。
+     只用于「状态反馈」，不许拿来装饰。 */
+  --success:       #1c7a4a;
+  --success-bg:    #e9f6ee;
+  --warning:       #9a6b12;
+  --warning-bg:    #fdf4e0;
+  --info:          #2358a8;
+  --info-bg:       #eaf1fc;
+  --danger:        #c0392b;  /* 危险：仅删除 / 错误 */
+  --danger-bg:     #fdeceb;
 
   /* 半透明（遮罩、纹理用） */
   --ink-a04:  rgb(17 17 20 / 0.04);
@@ -107,13 +122,23 @@
   --line:        #2a2a2f;
   --line-strong: #3a3a41;
   --ink:         #f2f2f4;
-  --ink-2:       #a8a8b0;
-  --ink-3:       #6e6e77;
+  --ink-2:       #b4b4bc;
+  --ink-3:       #9a9aa3;
+  --ink-4:       #62626b;
   --inverse-bg:  #fafafa;
   --inverse-ink: #111114;
   --accent:      #f2f2f4;
   --accent-ink:  #111114;
-  --danger:      #ff6b6b;
+
+  /* 深色下语义色要提亮，底色要压暗，否则对比度不够 */
+  --success:     #52c98a;
+  --success-bg:  #14281d;
+  --warning:     #e0b25a;
+  --warning-bg:  #2a2317;
+  --info:        #74a6ea;
+  --info-bg:     #16202f;
+  --danger:      #ff8a80;
+  --danger-bg:   #2c1717;
 
   --ink-a04: rgb(255 255 255 / 0.04);
   --ink-a06: rgb(255 255 255 / 0.06);
@@ -195,7 +220,7 @@ html, body {
 .btn--danger { color: var(--danger); border-color: var(--danger); }
 
 .btn[disabled], .btn[aria-disabled="true"] {
-  color: var(--ink-3);
+  color: var(--ink-4);
   border-color: var(--line);
   background: var(--surface-2);
   pointer-events: none;
@@ -239,7 +264,7 @@ html, body {
   border-radius: var(--radius-md);
   outline: none;
 }
-.input::placeholder { color: var(--ink-3); }
+.input::placeholder { color: var(--ink-4); }
 .input:focus { border-color: var(--accent); }
 
 /* 标签 / 徽标 */

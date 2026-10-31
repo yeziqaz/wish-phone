@@ -32,14 +32,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 图标只是标识，不用反色块 —— 一屏的强调色留给「识别」那个主按钮 */
 .smart-add__wand {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  color: var(--accent-ink);
-  background: var(--accent);
+  color: var(--ink-2);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
   border-radius: var(--radius-full);
 }
 
@@ -159,7 +161,7 @@
 }
 
 .field__note.is-ok {
-  color: var(--ink);
+  color: var(--success);
   font-weight: var(--fw-medium);
 }
 
@@ -444,12 +446,11 @@ p[hidden] {
 }
 
 .model-row__act--del {
-  color: var(--ink-4, var(--ink-3));
+  color: var(--ink-3);
 }
 
 .model-row__meta.is-ok {
-  color: var(--ink);
-  font-weight: var(--fw-medium);
+  color: var(--success);
 }
 
 .model-row__meta.is-bad {

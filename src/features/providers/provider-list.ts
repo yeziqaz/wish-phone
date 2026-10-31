@@ -123,6 +123,9 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
       </button>`;
     result.hidden = false;
 
+    // 结果出来之后，「用这些信息新建」才是唯一的主行动
+    root.querySelector('#smart-run')?.classList.remove('btn--primary');
+
     must(root, '#smart-go').addEventListener('click', () => {
       if (!recognized) return;
       setPendingParse(recognized);
@@ -143,6 +146,7 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     // 一个字段都没认出来就别往下了，省得用户白跑一趟
     if (!parsed.baseUrl && parsed.apiKeys.length === 0) {
       result.hidden = true;
+      root.querySelector('#smart-run')?.classList.add('btn--primary');
       note.textContent = '没能认出地址或密钥，请点右上角「+」手动填写。';
       note.className = 'smart-panel__note is-bad';
       return;
