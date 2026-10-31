@@ -68,26 +68,6 @@
   color: var(--ink);
 }
 
-/* 危险区：清空数据 */
-.danger-zone {
-  margin-top: auto;
-  padding-top: var(--sp-5);
-}
-
-.danger-zone__title {
-  margin: 0 0 var(--sp-2);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  color: var(--danger);
-}
-
-.danger-zone__hint {
-  margin: 0 0 var(--sp-3);
-  font-size: var(--fs-caption);
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-
 /* 二次确认：输入关键词才能按下去 */
 .confirm-row {
   display: flex;

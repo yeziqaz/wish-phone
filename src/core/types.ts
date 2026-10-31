@@ -99,6 +99,54 @@ export interface Character {
 
   /** 头像在本地保存的标识（PNG 卡的原图，或用户单独设的头像） */
   avatarKey?: string;
+
+  /**
+   * 这个角色属于哪个世界 / 哪条时间线。
+   * 老数据没有这两项时，启动时会自动归到「默认世界 · 主线」（见 core/worlds.ts）。
+   */
+  worldId?: string;
+  branchId?: string;
+
+  /**
+   * 和「我」（user）的关系，比如「男朋友」「哥哥」「闺蜜」「同事」。
+   * 用来自动生成关系图；不是在所有故事里都成立，但先留着。
+   */
+  relationToUser?: string;
+
+  /** 内置角色（wuli）。内置角色不能被当成普通卡删掉 */
+  builtin?: boolean;
+}
+
+/* ---------- 世界（世界观 / 卷宗） ---------- */
+
+/**
+ * 一个世界 = 一个「卷宗」。
+ *
+ * 设计意图（2026-10-31 和用户对齐）：
+ *   同一个世界里的角色可以互相认识；不同世界之间完全不互通。
+ *   一个世界可以有多条「时间线」（平行时空），每条时间线里的角色是各存一份的。
+ *   切换时间线 = 换一份世界状态，大的世界观设定不变。
+ */
+export interface World {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  name: string;
+  /** 世界观设定：年代、地点、规则。写给人看，也进提示词 */
+  description: string;
+  /** 当前正在看的时间线。删分支时记得改这里 */
+  activeBranchId: string;
+}
+
+/** 一条时间线（平行时空）。默认每个世界有一条「主线」 */
+export interface Branch {
+  id: string;
+  worldId: string;
+  createdAt: number;
+  updatedAt: number;
+  name: string;
+  /** 这条线和其他线哪里不一样，比如「这一条里男朋友是陈默」 */
+  note: string;
 }
 
 /* ---------- 会话与消息 ---------- */

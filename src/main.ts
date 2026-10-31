@@ -10,6 +10,9 @@ import { mountCharacterList } from './features/characters/character-list';
 import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
 import { mountSettings } from './features/settings/settings';
+import { mountWorldList } from './features/worlds/world-list';
+import { mountWorldEdit } from './features/worlds/world-edit';
+import { ensureDefaults } from './features/characters/defaults';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
@@ -48,6 +51,9 @@ route('/help', () => mountPlaceholder('帮助'));
 
 route('/settings', () => void mountSettings(app));
 route('/settings/data', () => void mountDataStore(app));
+route('/settings/worlds', () => void mountWorldList(app));
+route('/world/new', () => void mountWorldEdit(app, 'new'));
+route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
 route('/settings/providers', () => void mountProviderList(app));
 // ⚠️ 'new' 必须注册在 ':id' 前面 —— 路由匹配按注册顺序走
 route('/settings/providers/new', () => void mountProviderEdit(app, 'new'));
@@ -66,6 +72,9 @@ app.addEventListener('click', (e) => {
 void migrateLegacyApiConfig();
 // 偏好读进内存，桌面才知道顶部状态栏该不该显示
 void loadPrefs();
+// 内置世界 + 内置角色（wuli）。幂等；失败不挡桌面，
+// 角色页会再试一次并显示提示（不在这里打日志，见 AGENTS §5）
+void ensureDefaults().catch(() => {});
 
 if (!location.hash) navigate(HOME);
 startRouter();

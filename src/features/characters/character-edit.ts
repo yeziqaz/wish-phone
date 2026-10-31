@@ -1,4 +1,5 @@
-import { getCharacter, putCharacter } from '../../core/db';
+import { getCharacter, getWorld, listBranches, putCharacter } from '../../core/db';
+import { ensureWorlds, resolveBranch } from '../../core/worlds';
 import type { Character } from '../../core/types';
 import { esc, find, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
@@ -18,6 +19,11 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
 
   if (id === 'new') {
     character = blankCharacter();
+    // 新角色落在当前世界 + 当前时间线
+    const world = await ensureWorlds();
+    const branch = await resolveBranch(world);
+    character.worldId = world.id;
+    character.branchId = branch?.id;
   } else {
     const found = await getCharacter(id);
     if (!found) {
@@ -36,11 +42,15 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
 
   const isNew = id === 'new';
 
+  const world = character.worldId ? await getWorld(character.worldId) : undefined;
+  const branches = world ? await listBranches(world.id) : [];
+  const branch = branches.find((b) => b.id === character.branchId);
+
   root.innerHTML = `
     <div class="page">
       <header class="topbar">
         <button class="topbar__back jelly" type="button" data-go="/character" aria-label="返回">${line('back', 22)}</button>
-        <span id="c-avatar">${avatarHTML(character.name || '未命名', 34)}</span>
+        <span id="c-avatar">${avatarHTML(character.name || '未命名', 34, character.avatarKey)}</span>
         <h1 class="topbar__title" id="c-title">${esc(character.name || '新角色')}</h1>
       </header>
 
@@ -54,6 +64,22 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
             <input class="input" id="c-name" type="text" autocomplete="off"
                    spellcheck="false" value="${esc(character.name)}" placeholder="角色的名字">
           </label>
+
+          <label class="field">
+            <span class="field__label">和我的关系</span>
+            <input class="input" id="c-relation" type="text" autocomplete="off"
+                   spellcheck="false" value="${esc(character.relationToUser ?? '')}"
+                   placeholder="男朋友 / 哥哥 / 闺蜜 / 同事…">
+            <span class="field__hint">写清楚「你」和 TA 是什么关系，以后同一世界里的角色才串得起来。</span>
+          </label>
+
+          <div class="field">
+            <span class="field__label">所在世界</span>
+            <p class="field__hint">
+              ${world ? `${esc(world.name)}${branch ? ` · ${esc(branch.name)}` : ''}` : '默认世界 · 主线'}
+            </p>
+            ${world ? `<div><button class="btn btn--link" type="button" data-go="/world/${esc(world.id)}">打开世界设定</button></div>` : ''}
+          </div>
 
           <label class="field">
             <span class="field__label">描述</span>
@@ -140,7 +166,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   nameInput.addEventListener('input', () => {
     const value = nameInput.value.trim() || '未命名';
     title.textContent = value;
-    avatarSlot.innerHTML = avatarHTML(value, 34);
+    avatarSlot.innerHTML = avatarHTML(value, 34, character.avatarKey);
   });
 
   /* ---------- 折叠卡片 ---------- */
@@ -162,6 +188,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
       const result = must<HTMLElement>(root, '#c-save-result');
 
       character.name = nameInput.value.trim();
+      character.relationToUser = read('#c-relation').trim();
       character.description = read('#c-description');
       character.personality = read('#c-personality');
       character.scenario = read('#c-scenario');

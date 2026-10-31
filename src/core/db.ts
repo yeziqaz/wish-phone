@@ -14,15 +14,17 @@
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 import type {
+  Branch,
   Character,
   Conversation,
   Message,
   Provider,
   SettingRecord,
+  World,
 } from './types';
 
 const DB_NAME = 'wish-phone';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 interface WishDB extends DBSchema {
   characters: {
@@ -49,6 +51,16 @@ interface WishDB extends DBSchema {
     key: string;
     value: Provider;
     indexes: { byUpdatedAt: number };
+  };
+  worlds: {
+    key: string;
+    value: World;
+    indexes: { byUpdatedAt: number };
+  };
+  branches: {
+    key: string;
+    value: Branch;
+    indexes: { byWorld: string };
   };
 }
 
@@ -81,8 +93,19 @@ export function db(): Promise<IDBPDatabase<WishDB>> {
         providers.createIndex('byUpdatedAt', 'updatedAt');
       }
 
+      // v2 → v3：加「世界」和「时间线（平行时空）」两张表。
+      // 角色表不加索引：本地数据量很小，按分支过滤在内存里做更简单，
+      // 也避免给老库加索引时出错。角色记录本身只是多了几个可选字段。
+      if (oldVersion < 3) {
+        const worlds = database.createObjectStore('worlds', { keyPath: 'id' });
+        worlds.createIndex('byUpdatedAt', 'updatedAt');
+
+        const branches = database.createObjectStore('branches', { keyPath: 'id' });
+        branches.createIndex('byWorld', 'worldId');
+      }
+
       // 将来加字段时在这里续写，例如：
-      // if (oldVersion < 3) {
+      // if (oldVersion < 4) {
       //   tx.objectStore('characters').createIndex('byName', 'name');
       // }
       // ⛔ 永远不要 deleteObjectStore —— 那是直接抹掉用户的数据。
@@ -142,6 +165,78 @@ export async function deleteCharacter(id: string): Promise<void> {
     await deleteConversation(conversation.id);
   }
   await database.delete('characters', id);
+}
+
+/* ============================ 世界 / 时间线 ============================ */
+
+export async function listWorlds(): Promise<World[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('worlds', 'byUpdatedAt');
+  return all.reverse();
+}
+
+export function getWorld(id: string): Promise<World | undefined> {
+  return db().then((database) => database.get('worlds', id));
+}
+
+export async function putWorld(world: World): Promise<void> {
+  const database = await db();
+  await database.put('worlds', world);
+}
+
+export async function listBranches(worldId: string): Promise<Branch[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('branches', 'byWorld', worldId);
+  return all.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function getBranch(id: string): Promise<Branch | undefined> {
+  return db().then((database) => database.get('branches', id));
+}
+
+export async function putBranch(branch: Branch): Promise<void> {
+  const database = await db();
+  await database.put('branches', branch);
+}
+
+/** 某个时间线里的全部角色。按最近修改排序 */
+export async function listCharactersInBranch(
+  worldId: string,
+  branchId: string,
+): Promise<Character[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('characters', 'byUpdatedAt');
+  return all
+    .filter((c) => c.branchId === branchId && c.worldId === worldId)
+    .reverse();
+}
+
+/** 数某个时间线里有几个角色。列表上显示 x 个用 */
+export async function countCharactersInBranch(branchId: string): Promise<number> {
+  const database = await db();
+  const all = await database.getAll('characters');
+  return all.filter((c) => c.branchId === branchId).length;
+}
+
+/**
+ * 删除一条时间线，连同这条线里的角色。
+ * 世界本身由调用方决定要不要一起删；这里只管分支内部的数据。
+ */
+export async function deleteBranchData(branchId: string): Promise<void> {
+  const database = await db();
+  const characters = await database.getAll('characters');
+  for (const character of characters) {
+    if (character.branchId === branchId) await deleteCharacter(character.id);
+  }
+  await database.delete('branches', branchId);
+}
+
+/** 删除一个世界：先删各条时间线和里面的角色，再删世界本体 */
+export async function deleteWorldData(worldId: string): Promise<void> {
+  const branches = await listBranches(worldId);
+  for (const branch of branches) await deleteBranchData(branch.id) /* 分支里的角色一起删 */;
+  const database = await db();
+  await database.delete('worlds', worldId);
 }
 
 /* ============================ 会话 ============================ */
@@ -295,7 +390,7 @@ export async function deleteProviderRecord(id: string): Promise<void> {
 export async function clearAll(): Promise<void> {
   const database = await db();
   const tx = database.transaction(
-    ['characters', 'conversations', 'messages', 'providers', 'settings'],
+    ['characters', 'conversations', 'messages', 'providers', 'settings', 'worlds', 'branches'],
     'readwrite',
   );
   await Promise.all([
@@ -304,6 +399,8 @@ export async function clearAll(): Promise<void> {
     tx.objectStore('messages').clear(),
     tx.objectStore('providers').clear(),
     tx.objectStore('settings').clear(),
+    tx.objectStore('worlds').clear(),
+    tx.objectStore('branches').clear(),
   ]);
   await tx.done;
 }

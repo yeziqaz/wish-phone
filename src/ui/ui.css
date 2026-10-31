@@ -388,3 +388,40 @@
 [hidden] {
   display: none !important;
 }
+
+/* 有图头像：图片铺满圆，描边还在，但底色透出来 */
+.avatar--image {
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ---------- 危险区 ----------
+   删除数据、删除世界这类不可逆操作统一放这里。
+   红只给危险，不拿来做强调。 */
+
+.danger-zone {
+  margin-top: auto;
+  padding-top: var(--sp-5);
+}
+
+.danger-zone__title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--danger);
+}
+
+.danger-zone__hint {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}

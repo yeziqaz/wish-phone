@@ -1,0 +1,150 @@
+/* ==========================================================================
+   世界观：列表 + 详情（时间线）
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+/* ---------- 列表 ---------- */
+
+.world-list__hint {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.world-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  width: 100%;
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  padding-right: calc(var(--sp-4) + 18px);
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.world-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.world-card__name {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-card__now {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-radius: var(--radius-full);
+}
+
+.world-card__desc {
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-card__meta {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+.world-card__tail {
+  position: absolute;
+  right: var(--sp-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+/* ---------- 详情：时间线 ---------- */
+
+.branch-list {
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.branch-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-top: 1px dashed var(--line);
+}
+
+.branch-item:first-child {
+  border-top: 0;
+}
+
+.branch-item__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.branch-item__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.branch-item__name {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+}
+
+.branch-item__now {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-radius: var(--radius-full);
+}
+
+.branch-item__note,
+.branch-item__meta {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.branch-item__meta {
+  color: var(--ink-4);
+}
+
+.branch-item__go {
+  flex-shrink: 0;
+  min-width: var(--tap-min);
+}
+
+/* 复制新时空的表单：藏在按钮后面，展开才出现 */
+.fork-form {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
