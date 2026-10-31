@@ -7,11 +7,17 @@
  *    这里用的是确定性的规则，快、免费、离线可用。
  */
 
+/** 一个密钥。label 是用户写在前面的名字，例如「key1:sk-xxx」里的 key1 */
+export interface ParsedKey {
+  label: string;
+  value: string;
+}
+
 export interface ParsedProvider {
   name: string;
   baseUrl: string;
   /** 可能有好几个 —— 有的站给两个号，或者按模型系列发 Key */
-  apiKeys: string[];
+  apiKeys: ParsedKey[];
   models: string[];
   /** 解析结果的说明，给用户看我们认出了什么 */
   notes: string[];
@@ -44,33 +50,37 @@ function pickUrl(text: string): string {
 
 /**
  * 找密钥。一个站可能给好几个，所以这里全部找出来，不是只取第一个。
- * 顺序：明确标注的 → sk- 前缀的 → 孤立的超长串。
+ *
+ * 「key1:sk-xxx」「密钥2：sk-yyy」「大号:sk-zzz」这种，冒号前面那截
+ * 就是用户自己起的名字，要原样留着，别回头又变成 Key 1、Key 2。
  */
-function pickKeys(text: string): string[] {
-  const found: string[] = [];
+function pickKeys(text: string): ParsedKey[] {
+  const found: ParsedKey[] = [];
   const seen = new Set<string>();
-  const push = (value: string): void => {
+  const push = (value: string, label: string): void => {
     const trimmed = value.trim().replace(/[.,;'"]+$/, '');
     if (trimmed.length < 8 || seen.has(trimmed)) return;
     seen.add(trimmed);
-    found.push(trimmed);
+    found.push({ label: label.trim(), value: trimmed });
   };
 
+  // 1) 整行是「名字:密钥」——名字优先用这里的
   for (const match of text.matchAll(
-    /(?:api[\s_-]?key|secret|token|密钥|key)\s*\d*\s*[:：=]\s*["']?([A-Za-z0-9_\-.]{8,})/gi,
+    /^[ \t]*([^\s:：=]{1,24})[ \t]*[:：=][ \t]*["']?(sk-[A-Za-z0-9_-]{8,}|[A-Za-z0-9_-]{20,})[ \t]*$/gm,
   )) {
-    push(match[1] ?? '');
+    push(match[2] ?? '', match[1] ?? '');
   }
 
+  // 2) 其它带 sk- 前缀的
   for (const match of text.matchAll(/\bsk-[A-Za-z0-9_-]{8,}\b/g)) {
-    push(match[0]);
+    push(match[0], '');
   }
 
-  // 长串要先把网址剔掉，否则域名路径会被当成 Key
+  // 3) 孤立的超长串（先把网址剔掉，否则域名路径会被当成 Key）
   const withoutUrls = text.replace(URL_RE, ' ');
   for (const match of withoutUrls.matchAll(/\b[A-Za-z0-9_-]{32,}\b/g)) {
     if (/^\d+$/.test(match[0])) continue;
-    push(match[0]);
+    push(match[0], '');
   }
 
   return found;
@@ -209,17 +219,23 @@ function fromJson(json: Record<string, unknown>): ParsedProvider | null {
 
   const name = str(json.name ?? json.title ?? json.provider);
 
-  const apiKeys: string[] = [];
+  const apiKeys: ParsedKey[] = [];
   const keyRaw =
     json.api_keys ?? json.apiKeys ?? json.api_key ?? json.apiKey ?? json.key ?? json.token;
   if (Array.isArray(keyRaw)) {
     for (const item of keyRaw) {
-      const value = str(item);
-      if (value) apiKeys.push(value);
+      if (item && typeof item === 'object') {
+        const record = item as Record<string, unknown>;
+        const value = str(record.key ?? record.value ?? record.api_key);
+        if (value) apiKeys.push({ label: str(record.name ?? record.label), value });
+      } else {
+        const value = str(item);
+        if (value) apiKeys.push({ label: '', value });
+      }
     }
   } else {
     const value = str(keyRaw);
-    if (value) apiKeys.push(value);
+    if (value) apiKeys.push({ label: '', value });
   }
 
   const models: string[] = [];

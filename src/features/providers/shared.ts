@@ -60,11 +60,12 @@ export function fromParsed(parsed: ParsedProvider): Provider {
   const provider = blankProvider(parsed.name || '新服务商');
   provider.baseUrl = parsed.baseUrl;
 
-  // 认出几个 Key 就带几个；超过一个就自动开多 Key 模式
-  provider.keys = parsed.apiKeys.map((value) => ({
+  // 认出几个 Key 就带几个；超过一个就自动开多 Key 模式。
+  // 名字用原文里写的那个（「key1:」「大号:」前面的字），没写就留空，交给界面补默认名
+  provider.keys = parsed.apiKeys.map((item) => ({
     id: newId(),
-    value,
-    label: '',
+    value: item.value,
+    label: item.label,
     enabled: true,
     weight: 1,
     callCount: 0,
