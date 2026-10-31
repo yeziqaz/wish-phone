@@ -1,10 +1,4 @@
-import {
-  listBranches,
-  listCharacters,
-  listCharactersInBranch,
-  listWorlds,
-  putCharacter,
-} from '../../core/db';
+import { listCharactersInBranch, listWorlds, putCharacter } from '../../core/db';
 import { esc, must } from '../../core/dom';
 import { resolveActiveWorld, resolveBranch, switchTimeline, worldMode } from '../../core/worlds';
 import type { Branch, Character, World } from '../../core/types';
@@ -28,34 +22,19 @@ import './characters.css';
 interface ListState {
   worlds: World[];
   world: World;
-  branches: Branch[];
   branch: Branch;
   characters: Character[];
-  counts: Map<string, number>;
-}
-
-function countIn(all: Character[], world: World): number {
-  return all.filter(
-    (c) => c.worldId === world.id && c.branchId === world.activeBranchId,
-  ).length;
 }
 
 async function loadState(): Promise<ListState | null> {
-  const [worlds, all] = await Promise.all([listWorlds(), listCharacters()]);
+  const worlds = await listWorlds();
   const world = await resolveActiveWorld(worlds);
   if (!world) return null;
   const branch = await resolveBranch(world);
   if (!branch) return null;
 
-  const [branches, characters] = await Promise.all([
-    listBranches(world.id),
-    listCharactersInBranch(world.id, branch.id),
-  ]);
-
-  const counts = new Map<string, number>();
-  for (const item of worlds) counts.set(item.id, countIn(all, item));
-
-  return { worlds, world, branches, branch, characters, counts };
+  const characters = await listCharactersInBranch(world.id, branch.id);
+  return { worlds, world, branch, characters };
 }
 
 function cardHTML(character: Character): string {
@@ -80,9 +59,7 @@ function worldTabsHTML(state: ListState): string {
   const tabs = state.worlds
     .map((world) => {
       const active = world.id === state.world.id;
-      const label = `
-        <span class="world-tab__name">${esc(world.name)}</span>
-        <span class="world-tab__count">${state.counts.get(world.id) ?? 0}</span>`;
+      const label = `<span class="world-tab__name">${esc(world.name)}</span>`;
 
       // 当前世界：整颗胶囊是「已选中」，右侧单独给一个铅笔进世界编辑。
       // 不加「管理」按钮 —— 用户说不想为改设定跑一趟设置。
@@ -122,22 +99,7 @@ function worldLineHTML(state: ListState): string {
       </div>`;
   }
 
-  const left =
-    state.branches.length > 1
-      ? `<div class="branch-row" role="tablist" aria-label="时间线">
-           ${state.branches
-             .map((branch) => {
-               const active = branch.id === state.branch.id;
-               return `<button class="branch-chip${active ? ' is-active' : ''}" type="button"
-                        data-branch="${esc(branch.id)}" role="tab" aria-selected="${active}">
-                        ${esc(branch.name)}
-                      </button>`;
-             })
-             .join('')}
-         </div>`
-      : desc;
-
-  return `<div class="world-line">${left}</div>`;
+  return `<div class="world-line">${desc}</div>`;
 }
 
 function listHTML(state: ListState): string {
@@ -205,14 +167,6 @@ export async function mountCharacterList(root: HTMLElement): Promise<void> {
         if (!world) return;
         // 切到这个世界上一次在看的那条时间线
         void switchTimeline(world.id, world.activeBranchId).then(paint);
-      });
-    });
-
-    root.querySelectorAll<HTMLElement>('[data-branch]').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        const id = chip.dataset.branch ?? '';
-        if (!id || id === state.branch.id) return;
-        void switchTimeline(state.world.id, id).then(paint);
       });
     });
 

@@ -1,4 +1,5 @@
 import { esc } from '../../core/dom';
+import type { PhotoRatio } from '../../core/types';
 
 /**
  * 角色照片：选图 → 裁切 → 存成 data URL。
@@ -13,7 +14,7 @@ import { esc } from '../../core/dom';
  *   导出时把可见区域换算回原图坐标就行。
  */
 
-export type PhotoRatio = '1:1' | '3:4' | '4:3' | '9:16';
+export type { PhotoRatio };
 
 export interface PhotoResult {
   dataUrl: string;

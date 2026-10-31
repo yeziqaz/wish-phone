@@ -1,4 +1,4 @@
-import { listProviders, listWorlds, stats } from '../../core/db';
+import { listProviders, stats } from '../../core/db';
 import type { StorageStats } from '../../core/db';
 import { formatBytes, must } from '../../core/dom';
 import { setStatusBarVisible, statusBarVisible } from '../../core/prefs';
@@ -29,7 +29,7 @@ function dataSummary(storage: StorageStats): string {
 }
 
 export async function mountSettings(root: HTMLElement): Promise<void> {
-  const [providers, storage, worlds] = await Promise.all([listProviders(), stats(), listWorlds()]);
+  const [providers, storage] = await Promise.all([listProviders(), stats()]);
   const barOn = statusBarVisible();
 
   root.innerHTML = `
@@ -40,14 +40,6 @@ export async function mountSettings(root: HTMLElement): Promise<void> {
       </header>
 
       <div class="nav-group">
-        <button class="nav-item" type="button" data-go="/settings/worlds">
-          <span class="nav-item__icon">${line('world')}</span>
-          <span class="nav-item__text">
-            <span class="nav-item__title">小世界</span>
-            <span class="nav-item__sub">${worlds.length > 0 ? `${worlds.length} 个小世界` : '还没有小世界'}</span>
-          </span>
-          <span class="nav-item__tail">${line('chevron', 18)}</span>
-        </button>
 
         <button class="nav-item" type="button" data-go="/settings/providers">
           <span class="nav-item__icon">${line('provider')}</span>

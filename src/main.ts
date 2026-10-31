@@ -10,7 +10,6 @@ import { mountCharacterList } from './features/characters/character-list';
 import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
 import { mountSettings } from './features/settings/settings';
-import { mountWorldList } from './features/worlds/world-list';
 import { mountWorldEdit } from './features/worlds/world-edit';
 import { ensureDefaults } from './features/characters/defaults';
 
@@ -51,7 +50,6 @@ route('/help', () => mountPlaceholder('帮助'));
 
 route('/settings', () => void mountSettings(app));
 route('/settings/data', () => void mountDataStore(app));
-route('/settings/worlds', () => void mountWorldList(app));
 route('/world/new', () => void mountWorldEdit(app, 'new'));
 route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
 route('/settings/providers', () => void mountProviderList(app));

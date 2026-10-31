@@ -56,6 +56,22 @@ export interface Lorebook {
 
 /* ---------- 角色 ---------- */
 
+/** 照片裁切比例。放在 core 里，角色数据和界面都用它 */
+export type PhotoRatio = '1:1' | '3:4' | '4:3' | '9:16';
+
+/**
+ * 一张「人物形象参考」。
+ * 可以是头像，也可以是给生图/视频用的参考图。
+ */
+export interface CharacterPhoto {
+  id: string;
+  /** data URL，或内置图标记（'builtin:wuli'） */
+  src: string;
+  ratio: PhotoRatio;
+  /** 给生图用的提示词，可空 */
+  prompt: string;
+}
+
 export interface Character {
   id: string;
   createdAt: number;
@@ -103,8 +119,11 @@ export interface Character {
    */
   avatarKey?: string;
 
-  /** 照片裁切时选的比例。卡片上的拍立得按它决定高宽 */
-  photoRatio?: '1:1' | '3:4' | '4:3' | '9:16';
+  /** 第一张照片的比例（列表头像用，兼容老数据） */
+  photoRatio?: PhotoRatio;
+
+  /** 人物形象参考图，可多张。第一张自动当头像 */
+  photos?: CharacterPhoto[];
 
   /**
    * 这个角色属于哪个世界 / 哪条时间线。

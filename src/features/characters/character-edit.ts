@@ -1,7 +1,7 @@
-import { getCharacter, getWorld, listBranches, putCharacter } from '../../core/db';
+import { getCharacter, getWorld, listBranches, newId, putCharacter } from '../../core/db';
 import { esc, find, must } from '../../core/dom';
 import { ensureWorlds, resolveBranch } from '../../core/worlds';
-import type { Character } from '../../core/types';
+import type { Character, CharacterPhoto } from '../../core/types';
 import { avatarImage } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { blankCharacter } from './shared';
@@ -11,32 +11,32 @@ import './characters.css';
 /* ==========================================================================
    角色档案（编辑）
 
-   版面顺序（用户 2026-10-31 定的）：
-     拍立得照片 + 名字 / 关系
-     → 基本信息 + 人物信息（合成一块）
-     → 世界书（下一版）
-     → 记忆（下一版）
-     → 开场白（可多个 = IF 线）
-     → 备注
+   版面（用户 2026-10-31 晚定）：
+     人物形象参考（可多张，左滑切换）→ 名字 / 关系 / 小世界
+     → 基本信息 + 人设（合成一块）
+     → 更多设置（默认收起：开场白、示例对话）
+     → 保存
 
-   照片裁切在 photo-crop.ts 里，这里只管入口和显示。
+   照片不是「头像」，是给生图/视频用的形象参考；第一张顺手当列表头像。
+   备注栏已按用户要求删掉。
    ========================================================================== */
 
-function ratioCss(character: Character): string {
-  const ratio = character.photoRatio ?? '1:1';
-  return ratio.replace(':', ' / ');
-}
-
-function photoBoxHTML(character: Character): string {
-  const src = avatarImage(character.avatarKey);
-  return `
-    <span class="polaroid__frame" style="--photo-ratio:${ratioCss(character)}">
-      ${
-        src
-          ? `<img class="polaroid__img" src="${esc(src)}" alt="">`
-          : `<span class="polaroid__empty">${line('image', 22)}<span>放一张照片</span></span>`
-      }
-    </span>`;
+/** 老数据只有一张 avatarKey，这里补成 photos 数组 */
+function characterPhotos(character: Character): CharacterPhoto[] {
+  if (character.photos && character.photos.length > 0) {
+    return character.photos.map((photo) => ({ ...photo }));
+  }
+  if (character.avatarKey) {
+    return [
+      {
+        id: 'legacy-photo',
+        src: character.avatarKey,
+        ratio: character.photoRatio ?? '1:1',
+        prompt: '',
+      },
+    ];
+  }
+  return [];
 }
 
 function openingRowHTML(value: string, index: number): string {
@@ -93,27 +93,44 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     [character.firstMes, ...character.alternateGreetings].filter((text) => text.trim().length > 0);
   const openingRows = openings.length > 0 ? openings : [''];
 
+  const persona = [character.description, character.personality, character.scenario]
+    .map((text) => text.trim())
+    .filter((text) => text.length > 0)
+    .join('\n\n');
+
   const shortId = character.id.replace(/-/g, '').slice(0, 6).toUpperCase();
   const worldLine = world
     ? `${esc(world.name)}${branch ? ` · ${esc(branch.name)}` : ''}`
     : '小世界1 · 主线';
 
+  let photos = characterPhotos(character);
+  let current = 0;
+
   root.innerHTML = `
     <div class="page page--dossier">
       <header class="topbar">
-        <button class="topbar__back jelly" type="button" data-go="/character"
-                aria-label="返回">${line('back', 22)}</button>
+        <button class="topbar__back jelly" type="button" data-go="/character" aria-label="返回">${line('back', 22)}</button>
         <h1 class="topbar__title">角色档案</h1>
       </header>
 
-      <section class="dossier">
-        <div class="dossier__photo">
-          <button class="polaroid" type="button" id="c-photo" aria-label="选择照片">
-            ${photoBoxHTML(character)}
-          </button>
-          <p class="polaroid__hint">点照片换 / 裁</p>
+      <section class="gallery">
+        <div class="gallery__track" id="c-track"></div>
+        <div class="gallery__bar">
+          <span class="gallery__count" id="c-gallery-count"></span>
+          <button class="gallery__add" type="button" id="c-add-photo">＋ 加照片</button>
         </div>
+        <div class="gallery__prompt" id="c-photo-prompt-box">
+          <label class="field">
+            <span class="field__label">这张图的提示词（生图用，可空）</span>
+            <textarea class="input textarea" id="c-photo-prompt" rows="2"
+                      spellcheck="false"
+                      placeholder="比如：白色小狐狸，粉色耳尖，Q 版手绘，柔光"></textarea>
+          </label>
+          <button class="gallery__remove" type="button" id="c-remove-photo">删除这张</button>
+        </div>
+      </section>
 
+      <section class="dossier">
         <div class="dossier__info">
           <p class="dossier__id">CHAR-${shortId}</p>
           <h2 class="dossier__name" id="c-title">${esc(character.name || '未命名')}</h2>
@@ -151,37 +168,21 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
           </div>
 
           <label class="field">
-            <span class="field__label">人物信息</span>
-            <textarea class="input textarea" id="c-description" rows="6"
+            <span class="field__label">人设</span>
+            <textarea class="input textarea" id="c-persona" rows="10"
                       spellcheck="false"
-                      placeholder="长什么样、什么身份、经历过什么。写得越具体越像">${esc(character.description)}</textarea>
-            <span class="field__hint">这段会进提示词，是角色最重要的部分。</span>
-          </label>
-
-          <label class="field">
-            <span class="field__label">性格</span>
-            <textarea class="input textarea" id="c-personality" rows="4"
-                      spellcheck="false"
-                      placeholder="几个词或几句话概括">${esc(character.personality)}</textarea>
-          </label>
-
-          <label class="field">
-            <span class="field__label">场景</span>
-            <textarea class="input textarea" id="c-scenario" rows="3"
-                      spellcheck="false"
-                      placeholder="你们在哪儿、什么情况下遇见的">${esc(character.scenario)}</textarea>
+                      placeholder="先写人物信息：长什么样、什么身份、经历过什么。&#10;&#10;换行写性格：几个词或几句话。&#10;&#10;再换行写场景：你们在哪儿、怎么认识的。">${esc(persona)}</textarea>
+            <span class="field__hint">一段就行，用空行分成人物信息 / 性格 / 场景三段。这段会进提示词。</span>
           </label>
         </div>
       </section>
 
       <section class="fold">
-        <button class="fold__head" type="button" data-fold aria-expanded="true">
-          开场白<span class="fold__chevron">${line('chevron', 16)}</span>
+        <button class="fold__head" type="button" data-fold aria-expanded="false">
+          更多设置<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
-        <div class="fold__body">
-          <p class="field__hint">
-            不写也行。写多个就是从不同情景开始，像 IF 线。
-          </p>
+        <div class="fold__body" hidden>
+          <p class="field__hint">不写开场白也行。写多个就是从不同情景开始，像 IF 线。</p>
           <div class="opening-list" id="c-openings">
             ${openingRows.map((text, index) => openingRowHTML(text, index)).join('')}
           </div>
@@ -197,20 +198,6 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
         </div>
       </section>
 
-      <section class="fold">
-        <button class="fold__head" type="button" data-fold aria-expanded="false">
-          备注（不会发给模型）<span class="fold__chevron">${line('chevron', 16)}</span>
-        </button>
-        <div class="fold__body" hidden>
-          <label class="field">
-            <span class="field__label">写给自己看的</span>
-            <textarea class="input textarea" id="c-notes" rows="3"
-                      spellcheck="false"
-                      placeholder="比如这张卡哪来的、想怎么用">${esc(character.creatorNotes)}</textarea>
-          </label>
-        </div>
-      </section>
-
       <div class="row-actions row-actions--main">
         <button class="btn btn--primary jelly" type="button" id="c-save">
           ${isNew ? '创建' : '保存'}
@@ -219,17 +206,87 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
       <p class="field__note" id="c-save-result"></p>
     </div>`;
 
-  /* ---------- 照片 ---------- */
-  const photoButton = must<HTMLElement>(root, '#c-photo');
-  photoButton.addEventListener('click', () => {
+  /* ---------- 人物形象参考：多张、左滑切换 ---------- */
+  const track = must<HTMLElement>(root, '#c-track');
+  const countLabel = must<HTMLElement>(root, '#c-gallery-count');
+  const promptInput = must<HTMLTextAreaElement>(root, '#c-photo-prompt');
+  const removeButton = must<HTMLButtonElement>(root, '#c-remove-photo');
+  const promptBox = must<HTMLElement>(root, '#c-photo-prompt-box');
+
+  const syncGallery = (): void => {
+    const photo = photos[current];
+    const total = photos.length;
+    countLabel.textContent = total === 0 ? '还没有照片' : `${current + 1} / ${total} · 左滑看下一张`;
+    promptInput.value = photo?.prompt ?? '';
+    promptInput.disabled = !photo;
+    removeButton.disabled = !photo;
+    promptBox.hidden = total === 0;
+  };
+
+  const renderTrack = (): void => {
+    if (photos.length === 0) {
+      track.innerHTML = `
+        <div class="gallery__slide gallery__slide--empty">
+          <span>放一张人物参考图</span>
+        </div>`;
+      syncGallery();
+      return;
+    }
+
+    track.innerHTML = photos
+      .map((photo, index) => {
+        const src = avatarImage(photo.src);
+        return `
+          <figure class="gallery__slide" data-photo-index="${index}">
+            <img src="${esc(src ?? '')}" alt="人物形象参考 ${index + 1}">
+          </figure>`;
+      })
+      .join('');
+
+    syncGallery();
+    // 重建后滚回当前这张（不用 scrollTo，老 WebView 上也有兼容问题）
+    requestAnimationFrame(() => {
+      track.scrollLeft = track.clientWidth * current;
+    });
+  };
+
+  track.addEventListener('scroll', () => {
+    if (photos.length === 0) return;
+    const width = track.clientWidth || 1;
+    const next = Math.min(photos.length - 1, Math.max(0, Math.round(track.scrollLeft / width)));
+    if (next === current) return;
+    current = next;
+    syncGallery();
+  });
+
+  promptInput.addEventListener('input', () => {
+    const photo = photos[current];
+    if (photo) photo.prompt = promptInput.value;
+  });
+
+  must(root, '#c-add-photo').addEventListener('click', () => {
     void (async () => {
       const result = await pickPhoto();
       if (!result) return;
-      character.avatarKey = result.dataUrl;
-      character.photoRatio = result.ratio;
-      photoButton.innerHTML = photoBoxHTML(character);
+      photos.push({
+        id: newId(),
+        src: result.dataUrl,
+        ratio: result.ratio,
+        prompt: '',
+      });
+      current = photos.length - 1;
+      renderTrack();
     })();
   });
+
+  removeButton.addEventListener('click', () => {
+    if (photos.length === 0) return;
+    photos.splice(current, 1);
+    current = Math.max(0, Math.min(current, photos.length - 1));
+    renderTrack();
+  });
+
+  renderTrack();
 
   /* ---------- 实时同步名字和关系 ---------- */
   const nameInput = must<HTMLInputElement>(root, '#c-name');
@@ -260,7 +317,6 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     const row = button.closest<HTMLElement>('[data-opening-row]');
     if (!row) return;
     row.remove();
-    // 全删光时留一个空行，不然界面会突然空掉
     if (openingList.querySelectorAll('[data-opening-row]').length === 0) {
       openingList.innerHTML = openingRowHTML('', 0);
     }
@@ -301,17 +357,25 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
 
       const openingValues = collectOpenings(root);
 
+      // 当前这张的提示词以输入框为准（防止有输入事件没接住）
+      const activePhoto = photos[current];
+      if (activePhoto) activePhoto.prompt = promptInput.value;
+
       character.name = name;
       character.nickname = read('#c-nickname').trim();
       character.relationToUser = relationInput.value.trim();
-      character.description = read('#c-description');
-      character.personality = read('#c-personality');
-      character.scenario = read('#c-scenario');
+      character.description = read('#c-persona');
+      // 人设合成一段了，旧的两个字段不再单独维护
+      character.personality = '';
+      character.scenario = '';
       character.firstMes = openingValues[0] ?? '';
       character.alternateGreetings = openingValues.slice(1);
       character.mesExample = read('#c-mesexample');
-      character.creatorNotes = read('#c-notes');
       character.updatedAt = Date.now();
+
+      character.photos = photos;
+      character.avatarKey = photos[0]?.src;
+      character.photoRatio = photos[0]?.ratio ?? '1:1';
 
       try {
         await putCharacter(character);

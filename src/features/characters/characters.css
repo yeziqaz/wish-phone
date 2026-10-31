@@ -275,74 +275,105 @@
 }
 
 /* ==========================================================================
-   角色档案：拍立得照片 + 信息
+   角色档案：人物形象参考 + 信息
    ========================================================================== */
 
-.dossier {
+/* 可以放多张；横向滚动 + scroll-snap，手机上就是左滑右滑 */
+.gallery {
+  margin: var(--sp-1) 0 var(--sp-3);
+}
+
+.gallery__track {
   display: flex;
-  align-items: flex-start;
-  gap: var(--sp-4);
-  margin: var(--sp-1) 0 var(--sp-5);
-}
-
-.dossier__photo {
-  flex-shrink: 0;
-  width: 44%;
-  max-width: 168px;
-}
-
-/* 拍立得：白边 + 一点点倾斜 + 很轻的浮起。
-   照片本身可以是彩色的，框和字仍然走黑白灰。 */
-.polaroid {
-  display: block;
-  width: 100%;
-  padding: 7px 7px 9px;
-  font: inherit;
-  background: var(--surface);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  background: var(--surface-2);
   border: var(--border-w) solid var(--line);
-  border-radius: 2px;
-  box-shadow: var(--shadow-lift);
-  transform: rotate(-1.4deg);
+  border-radius: var(--radius-lg);
+}
+
+.gallery__track::-webkit-scrollbar {
+  display: none;
+}
+
+.gallery__slide {
+  flex: 0 0 100%;
+  display: grid;
+  place-items: center;
+  height: clamp(220px, 42vh, 320px);
+  margin: 0;
+  scroll-snap-align: center;
+}
+
+.gallery__slide img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.gallery__slide--empty {
+  font-size: var(--fs-sm);
+  color: var(--ink-4);
+}
+
+.gallery__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.gallery__count {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.gallery__add {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  background: none;
+  border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.polaroid__frame {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  aspect-ratio: var(--photo-ratio, 1 / 1);
-  overflow: hidden;
-  background: var(--surface-2);
+.gallery__prompt {
+  margin-top: var(--sp-2);
 }
 
-.polaroid__img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.gallery__remove {
+  min-height: var(--tap-min);
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--danger);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.polaroid__empty {
+.gallery__remove[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dossier {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-caption);
-  color: var(--ink-4);
-}
-
-.polaroid__hint {
-  margin: var(--sp-2) 0 0;
-  text-align: center;
-  font-size: var(--fs-caption);
-  color: var(--ink-4);
+  align-items: flex-start;
+  margin: 0 0 var(--sp-5);
 }
 
 .dossier__info {
   flex: 1;
   min-width: 0;
-  padding-top: 4px;
 }
 
 .dossier__id {
