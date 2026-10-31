@@ -261,6 +261,7 @@ function normalizeProvider(p: Provider): Provider {
     multiKey: p.multiKey ?? p.keys.length > 1,
     keyMode: p.keyMode ?? 'rotate',
     keys: p.keys.map((k) => ({ ...k, label: k.label ?? '' })),
+    models: p.models.map((m) => ({ ...m, maxOutput: m.maxOutput ?? null })),
   };
 }
 
@@ -362,6 +363,7 @@ export async function migrateLegacyApiConfig(): Promise<boolean> {
             id: legacy.model,
             displayName: legacy.model,
             contextLength: null,
+      maxOutput: null,
             enabled: true,
             source: 'manual',
           },

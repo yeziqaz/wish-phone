@@ -24,6 +24,9 @@ import './providers.css';
    下面的模型 / 生成设置 / 删除，是给愿意细调的人准备的。
    ========================================================================== */
 
+/** 模型能干什么，目前这几个够用 */
+const CAP_LIST = ['视觉', '推理', '工具'] as const;
+
 /** 把错误翻译成人话 */
 function describe(error: unknown): string {
   if (error instanceof ApiError) return `${error.info.title} —— ${error.info.detail}`;
@@ -102,6 +105,11 @@ function guessCaps(id: string): string[] {
   return caps;
 }
 
+/** 已保存的能力；没保存过就先按名字推断 */
+function modelCaps(model: ProviderModel): string[] {
+  return model.caps ?? guessCaps(model.id);
+}
+
 function numberOrNull(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -130,6 +138,11 @@ export async function mountProviderEdit(root: HTMLElement, id: string): Promise<
     }
     provider = existing;
   }
+
+  // 没有备注名的 Key 补一个「Key 1」「Key 2」，让用户有东西可改
+  provider.keys.forEach((key, index) => {
+    if (!key.label.trim()) key.label = `Key ${index + 1}`;
+  });
 
   // 新建 = 快速设置（只有基础配置）；点进已有的才是完整详情页
   const quick = id === 'new';
@@ -375,7 +388,8 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   const blankKey = (): Provider['keys'][number] => ({
     id: newId(),
     value: '',
-    label: '',
+    // 先给个「Key 2」这样的默认名，用户想改随时改
+    label: `Key ${provider.keys.length + 1}`,
     enabled: true,
     weight: 1,
     callCount: 0,
@@ -535,18 +549,45 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       <button class="model-row__act model-row__act--del" type="button" data-model-remove="${index}"
               aria-label="删除这个模型">${line('trash', 16)}</button>
       <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
-        <input class="input" type="text" autocomplete="off"
-               spellcheck="false" data-model-field="id" data-index="${index}"
-               value="${esc(model.id)}" placeholder="模型 ID（发请求用）">
-        <div class="model-row__sub">
+        <label class="model-field">
+          <span class="model-field__label">模型 ID</span>
+          <input class="input" type="text" autocomplete="off"
+                 spellcheck="false" data-model-field="id" data-index="${index}"
+                 value="${esc(model.id)}" placeholder="claude-opus-5-5">
+        </label>
+        <label class="model-field">
+          <span class="model-field__label">显示名称</span>
           <input class="input" type="text" autocomplete="off" spellcheck="false"
                  data-model-field="displayName" data-index="${index}"
                  value="${esc(model.displayName === model.id ? '' : model.displayName)}"
-                 placeholder="显示名称（可不填）">
-          <input class="input model-row__ctx" type="text" inputmode="numeric"
-                 autocomplete="off" data-model-field="contextLength" data-index="${index}"
-                 value="${model.contextLength ?? ''}" placeholder="上下文">
+                 placeholder="可选">
+        </label>
+        <div class="model-field__pair">
+          <label class="model-field">
+            <span class="model-field__label">上下文窗口</span>
+            <input class="input" type="text" inputmode="numeric" autocomplete="off"
+                   data-model-field="contextLength" data-index="${index}"
+                   value="${model.contextLength ?? ''}" placeholder="例如 128000">
+          </label>
+          <label class="model-field">
+            <span class="model-field__label">最大输出</span>
+            <input class="input" type="text" inputmode="numeric" autocomplete="off"
+                   data-model-field="maxOutput" data-index="${index}"
+                   value="${model.maxOutput ?? ''}" placeholder="例如 4096">
+          </label>
         </div>
+        <div class="model-row__caps">
+          <span class="model-field__label">能力</span>
+          ${CAP_LIST.map((cap) => {
+            const on = modelCaps(model).includes(cap);
+            return `<button class="cap${on ? ' is-on' : ''}" type="button"
+                            data-model-cap="${cap}" data-index="${index}"
+                            aria-pressed="${on}">${cap}</button>`;
+          }).join('')}
+        </div>
+        <button class="btn btn--secondary jelly model-row__test" type="button"
+                data-model-test="${index}">测试这个模型</button>
+        <p class="model-row__result"></p>
       </div>
     </div>`;
 
@@ -576,6 +617,9 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     else if (field === 'contextLength') {
       const n = Number(input.value.trim());
       model.contextLength = input.value.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    } else if (field === 'maxOutput') {
+      const n = Number(input.value.trim());
+      model.maxOutput = input.value.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
     }
     // 只改这一行的文字，不重建输入框
     const row = input.closest<HTMLElement>('.model-row');
@@ -597,6 +641,21 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   find(root, '#p-models')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
+
+    const cap = target.closest<HTMLElement>('[data-model-cap]');
+    if (cap) {
+      const model = provider.models[Number(cap.dataset.index ?? '-1')];
+      const name = cap.dataset.modelCap ?? '';
+      if (!model || !name) return;
+      const caps = [...modelCaps(model)];
+      const at = caps.indexOf(name);
+      if (at >= 0) caps.splice(at, 1);
+      else caps.push(name);
+      model.caps = caps;
+      cap.classList.toggle('is-on', at < 0);
+      cap.setAttribute('aria-pressed', String(at < 0));
+      return;
+    }
 
     const test = target.closest<HTMLElement>('[data-model-test]');
     if (test) {
@@ -639,6 +698,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       id: '',
       displayName: '',
       contextLength: null,
+      maxOutput: null,
       enabled: true,
       source: 'manual',
       ...(manualKey ? { keyId: manualKey } : {}),
@@ -713,6 +773,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
             id: item.id,
             displayName: item.id,
             contextLength: lengthOf.get(item.id) ?? null,
+            maxOutput: null,
             enabled: true,
             source: 'fetched',
             ...(targetKey ? { keyId: targetKey } : {}),
@@ -741,6 +802,12 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     const meta = row?.querySelector<HTMLElement>('.model-row__meta');
     const button = row?.querySelector<HTMLButtonElement>('[data-model-test]');
     const note = find<HTMLElement>(root, '#p-model-note');
+    const panelResult = row?.querySelector<HTMLElement>('.model-row__result');
+    const setPanel = (text: string, bad: boolean): void => {
+      if (!panelResult) return;
+      panelResult.textContent = text;
+      panelResult.className = `model-row__result${bad ? ' is-bad' : ' is-ok'}`;
+    };
     if (!model || !meta) return;
 
     const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
@@ -755,6 +822,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
     if (button) button.disabled = true;
     setText(meta, '测试中…');
+    setPanel('测试中…', false);
     if (note) {
       note.textContent = '';
       note.className = 'field__note';
@@ -771,12 +839,14 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       const caps = guessCaps(model.id);
       model.caps = caps;
       setText(meta, `✓ 通了 ${Date.now() - started}ms · ${caps.join(' / ')}`);
+      setPanel(`✓ 通了 · 用时 ${Date.now() - started}ms · 能力：${caps.join(' / ')}`, false);
       if (note) {
         note.textContent = `「${model.id}」测试通过。能力是按模型名推断的，不是实测。`;
         note.className = 'field__note is-ok';
       }
     } catch (error) {
       setText(meta, '✗ 连接失败');
+      setPanel(`✗ ${describe(error)}`, true);
       if (note) {
         note.textContent = describe(error);
         note.className = 'field__note is-bad';

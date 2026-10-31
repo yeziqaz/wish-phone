@@ -172,6 +172,8 @@ export interface ProviderModel {
   displayName: string;
   /** 上下文长度，拿不到就是 null */
   contextLength: number | null;
+  /** 单次最多输出多少 token，null = 用接口默认 */
+  maxOutput: number | null;
   enabled: boolean;
   /** 来自自动拉取还是手动添加 */
   source: 'fetched' | 'manual';

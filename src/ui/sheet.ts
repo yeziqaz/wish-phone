@@ -36,6 +36,8 @@ export interface SheetConfig {
 export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
   return new Promise((resolve) => {
     const selected = new Set<string>();
+    // 折起来的组（默认全展开）
+    const collapsed = new Set<string>();
     const groupOf = config.groupOf;
     const confirmLabel = config.confirmLabel ?? ((count: number) => `添加 ${count} 个`);
 
@@ -95,13 +97,19 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
         shownTotal += shown.length;
         const pickable = shown.filter((item) => !item.taken);
         const allPicked = pickable.length > 0 && pickable.every((item) => selected.has(item.id));
+        const isOpen = !collapsed.has(name);
         html.push(`
-          <section class="sheet__group">
+          <section class="sheet__group${isOpen ? '' : ' is-collapsed'}"
+                   data-group="${esc(name)}">
             ${
               name
                 ? `<div class="sheet__group-head">
-                     <span class="sheet__group-name">${esc(name)}</span>
-                     <span class="sheet__group-count">${shown.length}</span>
+                     <button class="sheet__group-toggle" type="button"
+                             data-group-toggle="${esc(name)}" aria-expanded="${isOpen}">
+                       <span class="sheet__group-chevron">${line('chevron', 16)}</span>
+                       <span class="sheet__group-name">${esc(name)}</span>
+                       <span class="sheet__group-count">${shown.length}</span>
+                     </button>
                      <button class="sheet__check${allPicked ? ' is-on' : ''}" type="button"
                              data-group-all="${esc(name)}" aria-pressed="${allPicked}"
                              aria-label="${allPicked ? '取消全选本组' : '全选本组'}"
@@ -111,18 +119,20 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
                    </div>`
                 : ''
             }
-            ${shown
-              .map(
-                (item) => `
-              <label class="sheet__item${item.taken ? ' is-taken' : ''}">
-                <input type="checkbox" data-item="${esc(item.id)}"
-                       ${item.taken ? 'disabled' : ''}
-                       ${selected.has(item.id) ? 'checked' : ''}>
-                <span class="sheet__item-label">${esc(item.label)}</span>
-                <span class="sheet__item-meta">${esc(item.taken ? '已添加' : (item.meta ?? ''))}</span>
-              </label>`,
-              )
-              .join('')}
+            <div class="sheet__group-body"${isOpen ? '' : ' hidden'}>
+              ${shown
+                .map(
+                  (item) => `
+                <label class="sheet__item${item.taken ? ' is-taken' : ''}">
+                  <input type="checkbox" data-item="${esc(item.id)}"
+                         ${item.taken ? 'disabled' : ''}
+                         ${selected.has(item.id) ? 'checked' : ''}>
+                  <span class="sheet__item-label">${esc(item.label)}</span>
+                  <span class="sheet__item-meta">${esc(item.taken ? '已添加' : (item.meta ?? ''))}</span>
+                </label>`,
+                )
+                .join('')}
+            </div>
           </section>`);
       }
 
@@ -160,6 +170,15 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
         close([...selected].map((id) => byId.get(id)).filter(Boolean) as SheetItem[]);
         return;
       }
+      const toggle = target.closest<HTMLElement>('[data-group-toggle]');
+      if (toggle) {
+        const name = toggle.dataset.groupToggle ?? '';
+        if (collapsed.has(name)) collapsed.delete(name);
+        else collapsed.add(name);
+        paint(currentQuery());
+        return;
+      }
+
       const all = target.closest<HTMLElement>('[data-group-all]');
       if (all) {
         const name = all.dataset.groupAll ?? '';
