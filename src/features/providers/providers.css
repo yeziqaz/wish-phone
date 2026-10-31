@@ -204,6 +204,58 @@
   word-break: break-all;
 }
 
+.smart-result__title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+}
+
+/* 一个站子一张小卡 */
+.smart-result__card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.smart-result__index {
+  flex: 0 0 auto;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-full);
+}
+
+.smart-result__lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.smart-result__name {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+}
+
+.smart-result__url {
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  word-break: break-all;
+}
+
+.smart-result__keys {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
 .smart-result__go {
   width: 100%;
   margin-top: var(--sp-3);

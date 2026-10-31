@@ -84,15 +84,15 @@ export function fromParsed(parsed: ParsedProvider): Provider {
  * ⚠️ 绝不能走 URL 参数 —— 里面有 Key，进地址栏就等于泄露
  *    （宪法 §5：Key 不许放进 URL query）。
  */
-let pending: ParsedProvider | null = null;
+let pending: ParsedProvider[] = [];
 
-export function setPendingParse(value: ParsedProvider | null): void {
+export function setPendingParse(value: ParsedProvider[]): void {
   pending = value;
 }
 
 /** 取一次就清掉，避免下次进编辑页又被塞一遍 */
-export function takePendingParse(): ParsedProvider | null {
+export function takePendingParse(): ParsedProvider[] {
   const value = pending;
-  pending = null;
+  pending = [];
   return value;
 }

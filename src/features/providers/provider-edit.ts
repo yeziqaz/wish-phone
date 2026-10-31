@@ -125,7 +125,7 @@ export async function mountProviderEdit(root: HTMLElement, id: string): Promise<
   let provider: Provider;
 
   if (id === 'new') {
-    const parsed = takePendingParse();
+    const parsed = takePendingParse()[0];
     provider = parsed ? fromParsed(parsed) : blankProvider();
   } else {
     const existing = await getProvider(id);

@@ -1,10 +1,10 @@
-import { listProviders } from '../../core/db';
+import { listProviders, putProvider } from '../../core/db';
 import type { Provider } from '../../core/types';
 import { esc, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
-import { PROTOCOL_LABEL, setPendingParse } from './shared';
-import { parseProviderText } from './smart-parse';
+import { PROTOCOL_LABEL, fromParsed, setPendingParse } from './shared';
+import { parseProvidersText } from './smart-parse';
 import type { ParsedProvider } from './smart-parse';
 import './providers.css';
 
@@ -61,7 +61,7 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
       <div class="smart-panel" id="smart-panel" hidden>
         <textarea class="input smart-panel__area" id="smart-text" rows="7"
                   spellcheck="false" autocomplete="off"
-                  placeholder="把站子的信息整段粘在这里，例如：&#10;&#10;站名：某某中转&#10;地址：https://api.example.com/v1&#10;Key：sk-xxxxxxxxxxxx&#10;模型：gpt-5-mini, claude-sonnet-4"></textarea>
+                  placeholder="站名&#10;https://api.example.com/v1&#10;key1:sk-xxxxxxxxxxxx&#10;&#10;（空一行可以接着写下一个站子）"></textarea>
         <div class="smart-panel__actions">
           <button class="btn jelly" type="button" id="smart-cancel">取消</button>
           <button class="btn btn--primary jelly" type="button" id="smart-run">识别</button>
@@ -82,7 +82,6 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
   const note = must<HTMLElement>(root, '#smart-note');
   const result = must<HTMLElement>(root, '#smart-result');
 
-  let recognized: ParsedProvider | null = null;
 
   must(root, '#smart-toggle').addEventListener('click', () => {
     panel.hidden = !panel.hidden;
@@ -99,37 +98,78 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     textarea.value = '';
     result.hidden = true;
     result.innerHTML = '';
-    recognized = null;
     resetNote();
   });
 
-  /** 把认出来的东西按「站名 / 地址 / 密钥」三行摆出来，让用户先看一眼 */
-  const showResult = (parsed: ParsedProvider): void => {
+  /** 把认出来的东西按「站名 / 地址 / 密钥」摆出来，让用户先看一眼 */
+  const showResult = (list: ParsedProvider[]): void => {
     const row = (label: string, value: string): string =>
       `<div class="smart-result__row">
          <span class="smart-result__label">${label}</span>
          <span class="smart-result__value">${esc(value)}</span>
        </div>`;
 
-    const keys = parsed.apiKeys;
-    const keyText = keys.length === 0 ? '没认出来' : keys.length === 1 ? '1 个' : `${keys.length} 个`;
+    const keyText = (count: number): string =>
+      count === 0 ? '没认出来' : count === 1 ? '1 个' : `${count} 个`;
 
-    result.innerHTML = `
-      ${row('站名', parsed.name || '没认出来')}
-      ${row('地址', parsed.baseUrl || '没认出来')}
-      ${row('密钥', keyText)}
-      <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
-        用这些信息新建
-      </button>`;
+    if (list.length === 1 && list[0]) {
+      const one = list[0];
+      result.innerHTML = `
+        ${row('站名', one.name || '没认出来')}
+        ${row('地址', one.baseUrl || '没认出来')}
+        ${row('密钥', keyText(one.apiKeys.length))}
+        <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
+          用这些信息新建
+        </button>`;
+    } else {
+      // 一次认出好几个站子：逐个列出来，一起导入
+      result.innerHTML = `
+        <p class="smart-result__title">认出 ${list.length} 个站子</p>
+        ${list
+          .map(
+            (one, index) => `
+          <div class="smart-result__card">
+            <span class="smart-result__index">${index + 1}</span>
+            <div class="smart-result__lines">
+              <span class="smart-result__name">${esc(one.name || '未命名')}</span>
+              <span class="smart-result__url">${esc(one.baseUrl || '没有地址')}</span>
+              <span class="smart-result__keys">${keyText(one.apiKeys.length)}密钥</span>
+            </div>
+          </div>`,
+          )
+          .join('')}
+        <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
+          全部导入（${list.length} 个）
+        </button>`;
+    }
+
     result.hidden = false;
 
-    // 结果出来之后，「用这些信息新建」才是唯一的主行动
+    // 结果出来之后，导入按钮才是唯一的主行动
     root.querySelector('#smart-run')?.classList.remove('btn--primary');
 
     must(root, '#smart-go').addEventListener('click', () => {
-      if (!recognized) return;
-      setPendingParse(recognized);
-      location.hash = '/settings/providers/new';
+      void (async () => {
+        if (list.length === 1) {
+          setPendingParse(list);
+          location.hash = '/settings/providers/new';
+          return;
+        }
+        // 多个站子：直接一起建好，不用一个个进详情页
+        const button = root.querySelector<HTMLButtonElement>('#smart-go');
+        if (button) button.disabled = true;
+        try {
+          for (const one of list) {
+            await putProvider(fromParsed(one));
+          }
+          location.hash = '/settings/providers';
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          note.textContent = `导入失败：${message}`;
+          note.className = 'smart-panel__note is-bad';
+          if (button) button.disabled = false;
+        }
+      })();
     });
   };
 
@@ -141,10 +181,11 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
       return;
     }
 
-    const parsed = parseProviderText(text);
+    const list = parseProvidersText(text);
 
     // 一个字段都没认出来就别往下了，省得用户白跑一趟
-    if (!parsed.baseUrl && parsed.apiKeys.length === 0) {
+    const first = list[0];
+    if (!first || (!first.baseUrl && first.apiKeys.length === 0)) {
       result.hidden = true;
       root.querySelector('#smart-run')?.classList.add('btn--primary');
       note.textContent = '没能认出地址或密钥，请点右上角「+」手动填写。';
@@ -152,8 +193,8 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
       return;
     }
 
-    recognized = parsed;
+
     resetNote();
-    showResult(parsed);
+    showResult(list);
   });
 }

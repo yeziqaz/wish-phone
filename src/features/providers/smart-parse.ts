@@ -57,7 +57,7 @@ function pickKeys(text: string): string[] {
   };
 
   for (const match of text.matchAll(
-    /(?:api[\s_-]?key|secret|token|密钥|key)\s*[:：=]\s*["']?([A-Za-z0-9_\-.]{12,})/gi,
+    /(?:api[\s_-]?key|secret|token|密钥|key)\s*\d*\s*[:：=]\s*["']?([A-Za-z0-9_\-.]{8,})/gi,
   )) {
     push(match[1] ?? '');
   }
@@ -127,7 +127,28 @@ function nameFromHost(baseUrl: string): string {
   }
 }
 
-/** 猜名字：明确标注 > 从域名里挑一个像的 */
+/**
+ * 第一行是不是站名。
+ * 用户规定格式里站名就写在第一行，所以这个要优先于「从域名猜」。
+ */
+function firstLineName(text: string): string {
+  const first = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!first) return '';
+  if (/https?:\/\//i.test(first)) return '';
+  // 带冒号的可能是「密钥：xxx」这类标注行
+  if (/[:：=]/.test(first)) return '';
+  if (first.length > 30) return '';
+  // 「欢迎使用 XX 中转站！」里真正有用的是后半截
+  return first
+    .replace(/^(欢迎使用|欢迎来到|欢迎)\s*/, '')
+    .replace(/[!！。,，]+$/, '')
+    .trim();
+}
+
+/** 猜名字：明确标注 > 第一行 > 中文行 > 从域名里挑一个像的 */
 function pickName(text: string, baseUrl: string): string {
   const labelled = text.match(/(?:名称|站名|站点|站子|名字|服务商|平台|name)\s*[:：=]\s*(.+)/i);
   if (labelled?.[1]) {
@@ -135,6 +156,10 @@ function pickName(text: string, baseUrl: string): string {
     // 别把一整行别的信息也吞进来
     if (value.length > 0 && value.length <= 30) return value;
   }
+
+  // 第一行就是站名（用户规定的格式）
+  const first = firstLineName(text);
+  if (first) return first;
 
   // 中文名优先于从域名推出来的英文
   return chineseLine(text) || (baseUrl ? nameFromHost(baseUrl) : '');
@@ -215,27 +240,74 @@ function fromJson(json: Record<string, unknown>): ParsedProvider | null {
   return { name, baseUrl, apiKeys, models, notes: ['从 JSON 配置里读出来的'] };
 }
 
-/**
- * 主入口：把一段文本解析成服务商草稿。
- * 认不出来就返回空字符串，由界面提示用户手填 —— 绝不瞎猜。
- */
-export function parseProviderText(text: string): ParsedProvider {
-  const json = tryJson(text);
-  if (json) {
-    const parsed = fromJson(json);
-    if (parsed) return parsed;
-  }
+/** 解析「一个」站子的那一段文字 */
+function parseOneBlock(block: string): ParsedProvider | null {
+  const baseUrl = pickUrl(block);
+  const apiKeys = pickKeys(block);
+  const models = Array.from(new Set(block.match(MODEL_RE) ?? []));
+  const name = pickName(block, baseUrl);
 
-  const baseUrl = pickUrl(text);
-  const apiKeys = pickKeys(text);
-  const models = Array.from(new Set(text.match(MODEL_RE) ?? []));
-  const name = pickName(text, baseUrl);
+  if (!baseUrl && apiKeys.length === 0 && !name) return null;
 
   const notes: string[] = [];
   if (name) notes.push(`站名：${name}`);
   if (baseUrl) notes.push(`地址：${baseUrl}`);
   if (apiKeys.length > 0) notes.push(`密钥：${apiKeys.length} 个`);
-  if (notes.length === 0) notes.push('没能认出什么，请手动填写');
 
   return { name, baseUrl, apiKeys, models, notes };
+}
+
+/**
+ * 主入口：把一段文本解析成**若干个**服务商草稿。
+ *
+ * 支持一次粘好几个站子，格式是「空行分隔」：
+ *
+ *   站名1
+ *   https://api.aa.com/v1
+ *   key1:sk-xxx
+ *   key2:sk-yyy
+ *
+ *   站名2
+ *   https://api.bb.com/v1
+ *   key1:sk-zzz
+ *
+ * 如果粘进来的是一整段没有空行的混杂文字，仍然按一个站子解析，
+ * 所以老的粘贴方式照样能用。
+ */
+export function parseProvidersText(text: string): ParsedProvider[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  // 单个 JSON 配置
+  const json = tryJson(trimmed);
+  if (json) {
+    const one = fromJson(json);
+    if (one) return [one];
+  }
+
+  // 空行切块
+  const blocks = trimmed
+    .split(/\r?\n\s*\r?\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  if (blocks.length <= 1) {
+    const one = parseOneBlock(trimmed);
+    return one ? [one] : [];
+  }
+
+  // 至少两块各自认出了地址，才当成「一次多个站子」
+  const each = blocks
+    .map(parseOneBlock)
+    .filter((item): item is ParsedProvider => item !== null);
+  if (each.filter((item) => item.baseUrl).length >= 2) return each;
+
+  // 不是多站格式，退回整体当一个站子解析
+  const whole = parseOneBlock(trimmed);
+  return whole ? [whole] : [];
+}
+
+/** 只要一个站子时用它（保留老接口的形状） */
+export function parseProviderText(text: string): ParsedProvider {
+  return parseProvidersText(text)[0] ?? { name: '', baseUrl: '', apiKeys: [], models: [], notes: ['没能认出什么，请手动填写'] };
 }
