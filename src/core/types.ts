@@ -177,6 +177,8 @@ export interface ProviderModel {
   source: 'fetched' | 'manual';
   /** 分组模式下属于哪个 Key；不填 = 所有 Key 共用 */
   keyId?: string;
+  /** 这个模型能干什么。测试时按模型名推断，不是实测出来的 */
+  caps?: string[];
 }
 
 export interface ProviderGeneration {

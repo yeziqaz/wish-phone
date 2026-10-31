@@ -60,27 +60,20 @@ export function fromParsed(parsed: ParsedProvider): Provider {
   const provider = blankProvider(parsed.name || '新服务商');
   provider.baseUrl = parsed.baseUrl;
 
-  if (parsed.apiKey) {
-    provider.keys = [
-      {
-        id: newId(),
-        value: parsed.apiKey,
-        label: '',
-        enabled: true,
-        weight: 1,
-        callCount: 0,
-        failCount: 0,
-      },
-    ];
-  }
-
-  provider.models = parsed.models.map((id) => ({
-    id,
-    displayName: id,
-    contextLength: null,
+  // 认出几个 Key 就带几个；超过一个就自动开多 Key 模式
+  provider.keys = parsed.apiKeys.map((value) => ({
+    id: newId(),
+    value,
+    label: '',
     enabled: true,
-    source: 'manual' as const,
+    weight: 1,
+    callCount: 0,
+    failCount: 0,
   }));
+  provider.multiKey = provider.keys.length > 1;
+
+  // 模型不再自动带进来：拉取时在抽屉里挑，避免顺手塞一堆用不上的
+  provider.models = [];
 
   return provider;
 }

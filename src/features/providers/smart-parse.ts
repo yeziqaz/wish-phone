@@ -10,7 +10,8 @@
 export interface ParsedProvider {
   name: string;
   baseUrl: string;
-  apiKey: string;
+  /** 可能有好几个 —— 有的站给两个号，或者按模型系列发 Key */
+  apiKeys: string[];
   models: string[];
   /** 解析结果的说明，给用户看我们认出了什么 */
   notes: string[];
@@ -41,21 +42,38 @@ function pickUrl(text: string): string {
   return (scored[0]?.url ?? '').replace(/[.,;]+$/, '');
 }
 
-/** 找密钥：先看有没有明确标注，再看特征前缀，最后看孤立长串 */
-function pickKey(text: string): string {
-  const labelled = text.match(
-    /(?:api[\s_-]?key|secret|token|密钥|key)\s*[:：=]\s*["']?([A-Za-z0-9_\-.]{12,})/i,
-  );
-  if (labelled?.[1]) return labelled[1];
+/**
+ * 找密钥。一个站可能给好几个，所以这里全部找出来，不是只取第一个。
+ * 顺序：明确标注的 → sk- 前缀的 → 孤立的超长串。
+ */
+function pickKeys(text: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  const push = (value: string): void => {
+    const trimmed = value.trim().replace(/[.,;'"]+$/, '');
+    if (trimmed.length < 8 || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    found.push(trimmed);
+  };
 
-  const prefixed = text.match(/\bsk-[A-Za-z0-9_-]{8,}\b/);
-  if (prefixed?.[0]) return prefixed[0];
+  for (const match of text.matchAll(
+    /(?:api[\s_-]?key|secret|token|密钥|key)\s*[:：=]\s*["']?([A-Za-z0-9_\-.]{12,})/gi,
+  )) {
+    push(match[1] ?? '');
+  }
 
-  const long = (text.match(/\b[A-Za-z0-9_-]{32,}\b/g) ?? []).filter(
-    // 排除纯粹是 URL 的一部分或全是数字的
-    (s) => !/^\d+$/.test(s),
-  );
-  return long[0] ?? '';
+  for (const match of text.matchAll(/\bsk-[A-Za-z0-9_-]{8,}\b/g)) {
+    push(match[0]);
+  }
+
+  // 长串要先把网址剔掉，否则域名路径会被当成 Key
+  const withoutUrls = text.replace(URL_RE, ' ');
+  for (const match of withoutUrls.matchAll(/\b[A-Za-z0-9_-]{32,}\b/g)) {
+    if (/^\d+$/.test(match[0])) continue;
+    push(match[0]);
+  }
+
+  return found;
 }
 
 /**
@@ -164,8 +182,20 @@ function fromJson(json: Record<string, unknown>): ParsedProvider | null {
   const baseUrl = str(json.base_url ?? json.baseUrl ?? json.api_base ?? json.apiBase ?? json.url);
   if (!baseUrl) return null;
 
-  const apiKey = str(json.api_key ?? json.apiKey ?? json.key ?? json.token);
   const name = str(json.name ?? json.title ?? json.provider);
+
+  const apiKeys: string[] = [];
+  const keyRaw =
+    json.api_keys ?? json.apiKeys ?? json.api_key ?? json.apiKey ?? json.key ?? json.token;
+  if (Array.isArray(keyRaw)) {
+    for (const item of keyRaw) {
+      const value = str(item);
+      if (value) apiKeys.push(value);
+    }
+  } else {
+    const value = str(keyRaw);
+    if (value) apiKeys.push(value);
+  }
 
   const models: string[] = [];
   const raw = json.models ?? json.model_list ?? json.modelList ?? json.model;
@@ -182,7 +212,7 @@ function fromJson(json: Record<string, unknown>): ParsedProvider | null {
     models.push(...raw.split(/[,，\s]+/).filter(Boolean));
   }
 
-  return { name, baseUrl, apiKey, models, notes: ['从 JSON 配置里读出来的'] };
+  return { name, baseUrl, apiKeys, models, notes: ['从 JSON 配置里读出来的'] };
 }
 
 /**
@@ -197,15 +227,15 @@ export function parseProviderText(text: string): ParsedProvider {
   }
 
   const baseUrl = pickUrl(text);
-  const apiKey = pickKey(text);
+  const apiKeys = pickKeys(text);
   const models = Array.from(new Set(text.match(MODEL_RE) ?? []));
   const name = pickName(text, baseUrl);
 
   const notes: string[] = [];
-  if (baseUrl) notes.push('认出接口地址');
-  if (apiKey) notes.push('认出密钥');
-  if (models.length > 0) notes.push(`认出 ${models.length} 个模型`);
+  if (name) notes.push(`站名：${name}`);
+  if (baseUrl) notes.push(`地址：${baseUrl}`);
+  if (apiKeys.length > 0) notes.push(`密钥：${apiKeys.length} 个`);
   if (notes.length === 0) notes.push('没能认出什么，请手动填写');
 
-  return { name, baseUrl, apiKey, models, notes };
+  return { name, baseUrl, apiKeys, models, notes };
 }

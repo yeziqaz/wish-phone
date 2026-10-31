@@ -4,7 +4,7 @@ import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { openSheet } from '../../ui/sheet';
-import { listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
+import { chat, listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
 import { ApiError } from '../../ai/errors';
 import {
   ALL_PROTOCOLS,
@@ -88,6 +88,20 @@ function modelSeries(id: string): string {
   return first || '其他';
 }
 
+/**
+ * 按模型名猜它能干什么。
+ * ⚠️ 这是推断，不是实测 —— 界面上必须写清楚，别让人以为是测出来的。
+ */
+function guessCaps(id: string): string[] {
+  const s = id.toLowerCase();
+  if (/embedding|rerank|tts|whisper|dall-e|moderation/.test(s)) return ['非对话'];
+  const caps: string[] = [];
+  if (/vision|vl\b|-4o|omni|gemini|claude|glm-4v|image/.test(s)) caps.push('视觉');
+  if (/reason|thinking|-r1|^o[1-4]|qwq|deepseek-r/.test(s)) caps.push('推理');
+  caps.push('工具');
+  return caps;
+}
+
 function numberOrNull(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -168,14 +182,11 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
           </label>
 
           <div class="field">
-            <span class="field__label field__label--row">
-              API Key
-              <span class="field__tools">
-                <button class="mini jelly" type="button" id="p-eye">显示</button>
-                <button class="mini jelly" type="button" id="p-addkey"${p.multiKey ? '' : ' hidden'}>+ 添加</button>
-              </span>
-            </span>
+            <span class="field__label">API Key</span>
             <div id="p-keys"></div>
+            <button class="key-add jelly" type="button" id="p-addkey"${p.multiKey ? '' : ' hidden'}>
+              ${line('plus', 16)} 添加 Key
+            </button>
           </div>
 
           <label class="field field--row field--switch">
@@ -258,6 +269,18 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
             <input class="input" id="p-topp" type="text" inputmode="decimal"
                    autocomplete="off" value="${p.generation.topP ?? ''}" placeholder="留空用默认">
           </label>
+
+          <label class="field field--row field--switch">
+            <span class="field__label">流式输出</span>
+            <span class="switch">
+              <input type="checkbox" id="p-stream" ${p.advanced.stream ? 'checked' : ''}>
+              <span class="switch__track"></span>
+            </span>
+          </label>
+          <p class="field__hint">
+            开着 = 边生成边显示；关着 = 一次拿到完整回复再逐字播放。
+            当前版本聊天还没做，这个开关先把偏好存下来，聊天那一步再接上。
+          </p>
         </div>
       </section>`}
 
@@ -317,8 +340,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   /* ---------- Key 列表 ---------- */
 
-  let showPlain = false;
-
   /** Key 的显示名：优先备注，没有就用序号 */
   const keyNameOf = (keyId?: string): string => {
     const index = provider.keys.findIndex((k) => k.id === keyId);
@@ -361,15 +382,19 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     failCount: 0,
   });
 
+  // 哪些 Key 现在是明文（按 Key 的 id 记，删除别的 Key 后不会串）
+  const plainIds = new Set<string>();
+
   // 单 Key 模式只显示第一个；其余 Key 保留在数据里，重新打开多 Key 时还在
   const renderKeys = (): void => {
     const box = must<HTMLElement>(root, '#p-keys');
-    // 始终留一个空位可填；要第二个再点「+ 添加」
+    // 始终留一个空位可填；要第二个再点「添加 Key」
     if (provider.keys.length === 0) provider.keys.push(blankKey());
     const shown = provider.multiKey ? provider.keys : provider.keys.slice(0, 1);
     box.innerHTML = shown
-      .map(
-        (key, index) => `
+      .map((key, index) => {
+        const plain = plainIds.has(key.id);
+        return `
         <div class="key-row${provider.multiKey ? ' key-row--multi' : ''}" data-index="${index}">
           ${
             provider.multiKey
@@ -377,20 +402,24 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
                         aria-label="启用这个 Key">
                  <input class="input key-row__label" type="text" autocomplete="off"
                         spellcheck="false" data-key-label value="${esc(key.label)}"
-                        placeholder="备注，如 大号">`
+                        placeholder="备注，如 大号">
+                 ${
+                   provider.keys.length > 1
+                     ? `<button class="mini jelly" type="button" data-key-remove="${index}"
+                         aria-label="删除这个 Key">${line('trash', 18)}</button>`
+                     : ''
+                 }`
               : ''
           }
-          <input class="input key-row__value" type="${showPlain ? 'text' : 'password'}"
-                 autocomplete="off" spellcheck="false"
-                 data-key-input value="${esc(key.value)}" placeholder="sk-…">
-          ${
-            provider.multiKey && provider.keys.length > 1
-              ? `<button class="mini jelly" type="button" data-key-remove="${index}"
-                  aria-label="删除这个 Key">${line('trash', 18)}</button>`
-              : ''
-          }
-        </div>`,
-      )
+          <div class="key-field">
+            <input class="input key-row__value" type="${plain ? 'text' : 'password'}"
+                   autocomplete="off" spellcheck="false"
+                   data-key-input value="${esc(key.value)}" placeholder="sk-…">
+            <button class="key-field__eye" type="button" data-key-eye="${esc(key.id)}"
+                    aria-label="${plain ? '隐藏密钥' : '显示密钥'}">${line(plain ? 'eye' : 'eyeOff', 18)}</button>
+          </div>
+        </div>`;
+      })
       .join('');
   };
 
@@ -455,6 +484,15 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   });
 
   must(root, '#p-keys').addEventListener('click', (e) => {
+    const eye = (e.target as HTMLElement).closest<HTMLElement>('[data-key-eye]');
+    if (eye) {
+      const id = eye.dataset.keyEye ?? '';
+      if (plainIds.has(id)) plainIds.delete(id);
+      else plainIds.add(id);
+      renderKeys();
+      return;
+    }
+
     const button = (e.target as HTMLElement).closest<HTMLElement>('[data-key-remove]');
     if (!button) return;
     const index = Number(button.dataset.keyRemove ?? '-1');
@@ -471,12 +509,6 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     syncFetchKey();
     const inputs = root.querySelectorAll<HTMLInputElement>('[data-key-input]');
     inputs[inputs.length - 1]?.focus();
-  });
-
-  must(root, '#p-eye').addEventListener('click', () => {
-    showPlain = !showPlain;
-    must(root, '#p-eye').textContent = showPlain ? '隐藏' : '显示';
-    renderKeys();
   });
 
   /* ---------- 模型列表 ---------- */
@@ -500,7 +532,9 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         <span class="model-row__name">${esc(modelName(model))}</span>
         <span class="model-row__meta">${esc(modelMeta(model))}</span>
       </button>
-      <button class="model-row__del" type="button" data-model-remove="${index}"
+      <button class="model-row__act" type="button" data-model-test="${index}"
+              aria-label="测试这个模型">${line('zap', 16)}</button>
+      <button class="model-row__act model-row__act--del" type="button" data-model-remove="${index}"
               aria-label="删除这个模型">${line('trash', 16)}</button>
       <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
         <input class="input" type="text" autocomplete="off"
@@ -608,6 +642,12 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       groupHead.setAttribute('aria-expanded', String(!willClose));
       if (willClose) closedGroups.add(name);
       else closedGroups.delete(name);
+      return;
+    }
+
+    const test = target.closest<HTMLElement>('[data-model-test]');
+    if (test) {
+      void runModelTest(Number(test.dataset.modelTest ?? '-1'));
       return;
     }
 
@@ -752,6 +792,63 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     })();
   });
 
+  /* ---------- 测试单个模型 ---------- */
+
+  /**
+   * 只测这一个模型。拉取回来一堆模型时，用户往往只关心其中一两个通不通。
+   * 测成功会顺带按模型名推断能力，写在这一行的副标题里。
+   */
+  const runModelTest = async (index: number): Promise<void> => {
+    const model = provider.models[index];
+    const row = root.querySelector<HTMLElement>(`.model-row[data-index="${index}"]`);
+    const meta = row?.querySelector<HTMLElement>('.model-row__meta');
+    const button = row?.querySelector<HTMLButtonElement>('[data-model-test]');
+    const note = find<HTMLElement>(root, '#p-model-note');
+    if (!model || !meta) return;
+
+    const baseUrl = normalizeBaseUrl(must<HTMLInputElement>(root, '#p-url').value);
+    if (!baseUrl) {
+      setText(meta, '先填 Base URL');
+      return;
+    }
+    if (!model.id.trim()) {
+      setText(meta, '先填模型 ID');
+      return;
+    }
+
+    if (button) button.disabled = true;
+    setText(meta, '测试中…');
+    if (note) {
+      note.textContent = '';
+      note.className = 'field__note';
+    }
+
+    try {
+      const started = Date.now();
+      await chat([{ role: 'user', content: '回复一个字：好' }], {
+        baseUrl,
+        apiKey: firstKey(provider),
+        model: model.id,
+        temperature: 0,
+      });
+      const caps = guessCaps(model.id);
+      model.caps = caps;
+      setText(meta, `✓ 通了 ${Date.now() - started}ms · ${caps.join(' / ')}`);
+      if (note) {
+        note.textContent = `「${model.id}」测试通过。能力是按模型名推断的，不是实测。`;
+        note.className = 'field__note is-ok';
+      }
+    } catch (error) {
+      setText(meta, '✗ 连接失败');
+      if (note) {
+        note.textContent = describe(error);
+        note.className = 'field__note is-bad';
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  };
+
   /* ---------- 生成设置 ---------- */
 
   const temp = find<HTMLInputElement>(root, '#p-temp');
@@ -807,6 +904,8 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       if (maxTokens) provider.generation.maxTokens = numberOrNull(maxTokens.value);
       const topP = find<HTMLInputElement>(root, '#p-topp');
       if (topP) provider.generation.topP = numberOrNull(topP.value);
+      const streamBox = find<HTMLInputElement>(root, '#p-stream');
+      if (streamBox) provider.advanced.stream = streamBox.checked;
       provider.updatedAt = Date.now();
 
       // 关掉多 Key 模式就只留第一个 —— 界面上本来也只显示这一个，

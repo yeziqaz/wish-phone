@@ -172,6 +172,41 @@
   color: var(--ink);
 }
 
+.smart-result {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.smart-result[hidden] {
+  display: none;
+}
+
+.smart-result__row {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-sm);
+}
+
+.smart-result__label {
+  flex: 0 0 3em;
+  color: var(--ink-3);
+}
+
+.smart-result__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.smart-result__go {
+  width: 100%;
+  margin-top: var(--sp-3);
+}
+
 /* ---------- Key 行 ---------- */
 
 .key-row {
@@ -199,7 +234,7 @@
   border-bottom: var(--border-w) solid var(--line);
 }
 
-.key-row--multi .key-row__value {
+.key-row--multi .key-field {
   grid-column: 1 / -1;
 }
 
@@ -209,6 +244,53 @@
   /* 12px 外边距把热区撑到 44px（宪法 §3.6） */
   margin: 0 12px;
   accent-color: var(--accent);
+}
+
+/* 输入框里嵌一个小眼睛：点开看明文，点闭就藏起来 */
+.key-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.key-field .input {
+  padding-right: 46px;
+}
+
+.key-field__eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.key-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 40px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  background: none;
+  border: var(--border-w) dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.key-add[hidden] {
+  display: none;
 }
 
 /* ---------- 二选一按钮组 ---------- */
@@ -343,7 +425,7 @@ p[hidden] {
   display: none;
 }
 
-.model-row__del {
+.model-row__act {
   width: 44px;
   height: 44px;
   flex-shrink: 0;
@@ -354,6 +436,24 @@ p[hidden] {
   border: 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.model-row__act:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.model-row__act--del {
+  color: var(--ink-4, var(--ink-3));
+}
+
+.model-row__meta.is-ok {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+}
+
+.model-row__meta.is-bad {
+  color: var(--danger);
 }
 
 .model-row__edit {

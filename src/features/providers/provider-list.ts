@@ -5,6 +5,7 @@ import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { PROTOCOL_LABEL, setPendingParse } from './shared';
 import { parseProviderText } from './smart-parse';
+import type { ParsedProvider } from './smart-parse';
 import './providers.css';
 
 /* ==========================================================================
@@ -65,6 +66,7 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
           <button class="btn jelly" type="button" id="smart-cancel">取消</button>
           <button class="btn btn--primary jelly" type="button" id="smart-run">识别</button>
         </div>
+        <div class="smart-result" id="smart-result" hidden></div>
         <p class="smart-panel__note" id="smart-note">
           识别全程在本地完成，粘进来的内容不会发到任何地方。
         </p>
@@ -78,18 +80,55 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
   const panel = must<HTMLElement>(root, '#smart-panel');
   const textarea = must<HTMLTextAreaElement>(root, '#smart-text');
   const note = must<HTMLElement>(root, '#smart-note');
+  const result = must<HTMLElement>(root, '#smart-result');
+
+  let recognized: ParsedProvider | null = null;
 
   must(root, '#smart-toggle').addEventListener('click', () => {
     panel.hidden = !panel.hidden;
     if (!panel.hidden) textarea.focus();
   });
 
+  const resetNote = (): void => {
+    note.textContent = '识别全程在本地完成，粘进来的内容不会发到任何地方。';
+    note.className = 'smart-panel__note';
+  };
+
   must(root, '#smart-cancel').addEventListener('click', () => {
     panel.hidden = true;
     textarea.value = '';
-    note.textContent = '识别全程在本地完成，粘进来的内容不会发到任何地方。';
-    note.className = 'smart-panel__note';
+    result.hidden = true;
+    result.innerHTML = '';
+    recognized = null;
+    resetNote();
   });
+
+  /** 把认出来的东西按「站名 / 地址 / 密钥」三行摆出来，让用户先看一眼 */
+  const showResult = (parsed: ParsedProvider): void => {
+    const row = (label: string, value: string): string =>
+      `<div class="smart-result__row">
+         <span class="smart-result__label">${label}</span>
+         <span class="smart-result__value">${esc(value)}</span>
+       </div>`;
+
+    const keys = parsed.apiKeys;
+    const keyText = keys.length === 0 ? '没认出来' : keys.length === 1 ? '1 个' : `${keys.length} 个`;
+
+    result.innerHTML = `
+      ${row('站名', parsed.name || '没认出来')}
+      ${row('地址', parsed.baseUrl || '没认出来')}
+      ${row('密钥', keyText)}
+      <button class="btn btn--primary jelly smart-result__go" type="button" id="smart-go">
+        用这些信息新建
+      </button>`;
+    result.hidden = false;
+
+    must(root, '#smart-go').addEventListener('click', () => {
+      if (!recognized) return;
+      setPendingParse(recognized);
+      location.hash = '/settings/providers/new';
+    });
+  };
 
   must(root, '#smart-run').addEventListener('click', () => {
     const text = textarea.value.trim();
@@ -101,14 +140,16 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
 
     const parsed = parseProviderText(text);
 
-    // 一个字段都没认出来就别跳转了，省得用户进下一页发现是空的
-    if (!parsed.baseUrl && !parsed.apiKey && parsed.models.length === 0) {
+    // 一个字段都没认出来就别往下了，省得用户白跑一趟
+    if (!parsed.baseUrl && parsed.apiKeys.length === 0) {
+      result.hidden = true;
       note.textContent = '没能认出地址或密钥，请点右上角「+」手动填写。';
       note.className = 'smart-panel__note is-bad';
       return;
     }
 
-    setPendingParse(parsed);
-    location.hash = '/settings/providers/new';
+    recognized = parsed;
+    resetNote();
+    showResult(parsed);
   });
 }
