@@ -1,0 +1,218 @@
+/* ==========================================================================
+   底部抽屉：从屏幕下方滑上来，占大半屏
+   遮罩用 color-mix 从 --ink 兑出来，不写裸色值（宪法 §3.1）
+   ========================================================================== */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet__mask {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 42%, transparent);
+  opacity: 0;
+  transition: opacity var(--dur-normal) var(--ease-out);
+}
+
+.sheet.is-open .sheet__mask {
+  opacity: 1;
+}
+
+.sheet__panel {
+  position: relative;
+  width: 100%;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  padding-bottom: env(safe-area-inset-bottom);
+  transform: translateY(100%);
+  transition: transform var(--dur-normal) var(--ease-out);
+}
+
+.sheet.is-open .sheet__panel {
+  transform: translateY(0);
+}
+
+.sheet__grip {
+  width: 40px;
+  height: 4px;
+  margin: var(--sp-2) auto 0;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+  flex-shrink: 0;
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-5);
+  flex-shrink: 0;
+}
+
+.sheet__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+}
+
+.sheet__close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-lg);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet__search {
+  width: auto;
+  margin: 0 var(--sp-5) var(--sp-3);
+  flex-shrink: 0;
+}
+
+.sheet__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--sp-5) var(--sp-3);
+}
+
+.sheet__empty {
+  margin: var(--sp-6) 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+
+/* ---------- 分组 ---------- */
+
+.sheet__group + .sheet__group {
+  margin-top: var(--sp-3);
+}
+
+.sheet__group[hidden] {
+  display: none;
+}
+
+.sheet__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: var(--z-base);
+}
+
+.sheet__group-name {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.sheet__group-count {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.sheet__group-all {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--accent);
+  background: none;
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet__group-all:disabled {
+  color: var(--ink-3);
+  border-color: var(--line);
+  cursor: default;
+}
+
+/* ---------- 一项 ---------- */
+
+.sheet__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-1) 0;
+  border-bottom: var(--border-w) solid var(--line);
+  cursor: pointer;
+}
+
+.sheet__item:last-child {
+  border-bottom: 0;
+}
+
+.sheet__item.is-taken {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.sheet__item input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.sheet__item-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet__item-meta {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+/* ---------- 底部按钮 ---------- */
+
+.sheet__foot {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  border-top: var(--border-w) solid var(--line);
+  flex-shrink: 0;
+}
+
+.sheet__foot .btn {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet__mask,
+  .sheet__panel {
+    transition: none;
+  }
+}

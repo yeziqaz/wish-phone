@@ -3,6 +3,7 @@ import type { ApiProtocol, Provider, ProviderModel } from '../../core/types';
 import { esc, find, must, setText } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
+import { openSheet } from '../../ui/sheet';
 import { listModels, normalizeBaseUrl, testConnection } from '../../ai/client';
 import { ApiError } from '../../ai/errors';
 import {
@@ -29,8 +30,16 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * 取一个当前能用的 Key。
+ * 关着多 Key 模式时只有第一个 Key 算数；开着才去找启用中的那一个。
+ * （真正按 Key 轮换/分组的调度在后面的批次接上，这里先保证「测试连接」「拉取」用的是对的。）
+ */
 function firstKey(provider: Provider): string {
-  return provider.keys.find((k) => k.enabled && k.value)?.value ?? provider.keys[0]?.value ?? '';
+  if (!provider.multiKey) return provider.keys[0]?.value ?? '';
+  return (
+    provider.keys.find((k) => k.enabled && k.value)?.value ?? provider.keys[0]?.value ?? ''
+  );
 }
 
 function modelName(model: ProviderModel): string {
@@ -44,6 +53,39 @@ function modelMeta(model: ProviderModel): string {
   if (model.contextLength) parts.push(`${Math.round(model.contextLength / 1000)}K`);
   if (!model.enabled) parts.push('已停用');
   return parts.join(' · ');
+}
+
+/**
+ * 模型属于哪个系列，用来把长列表分组。
+ * 认不出来就取名字的第一段，保证任何模型都有组可归。
+ */
+function modelSeries(id: string): string {
+  const s = id.toLowerCase();
+  if (!s) return '未命名';
+
+  if (s.includes('claude')) {
+    if (s.includes('opus')) return 'Claude Opus';
+    if (s.includes('sonnet')) return 'Claude Sonnet';
+    if (s.includes('haiku')) return 'Claude Haiku';
+    return 'Claude 其他';
+  }
+  if (s.includes('gemini')) return 'Gemini';
+  if (s.includes('deepseek')) return 'DeepSeek';
+  if (s.includes('qwen') || s.includes('qwq') || s.includes('tongyi')) return 'Qwen';
+  if (s.includes('glm') || s.includes('chatglm')) return 'GLM';
+  if (s.includes('kimi') || s.includes('moonshot')) return 'Kimi';
+  if (s.includes('grok')) return 'Grok';
+  if (s.includes('llama')) return 'Llama';
+  if (s.includes('mistral') || s.includes('mixtral')) return 'Mistral';
+  if (s.includes('doubao') || s.includes('seed')) return '豆包';
+  if (s.includes('ernie')) return '文心';
+  if (s.includes('gpt') || /^o[1-4](-|$)/.test(s)) {
+    const major = s.match(/^(gpt-[0-9.]+[a-z]?)/);
+    return major?.[1] ? `GPT-${major[1].slice(4)}` : 'GPT 其他';
+  }
+
+  const first = id.split(/[-_./:]/)[0];
+  return first || '其他';
 }
 
 function numberOrNull(value: string): number | null {
@@ -130,11 +172,30 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
               API Key
               <span class="field__tools">
                 <button class="mini jelly" type="button" id="p-eye">显示</button>
-                <button class="mini jelly" type="button" id="p-addkey">+ 添加</button>
+                <button class="mini jelly" type="button" id="p-addkey"${p.multiKey ? '' : ' hidden'}>+ 添加</button>
               </span>
             </span>
             <div id="p-keys"></div>
           </div>
+
+          <label class="field field--row field--switch">
+            <span class="field__label">多 Key 模式</span>
+            <span class="switch">
+              <input type="checkbox" id="p-multikey" ${p.multiKey ? 'checked' : ''}>
+              <span class="switch__track"></span>
+            </span>
+          </label>
+
+          <div class="field field--row" id="p-keymode-row"${p.multiKey ? '' : ' hidden'}>
+            <span class="field__label">Key 用法</span>
+            <div class="segmented" role="radiogroup" aria-label="Key 用法">
+              <button type="button" role="radio" data-keymode="rotate"
+                      aria-checked="${p.keyMode === 'rotate'}">轮询</button>
+              <button type="button" role="radio" data-keymode="group"
+                      aria-checked="${p.keyMode === 'group'}">分组</button>
+            </div>
+          </div>
+          <p class="field__note" id="p-keymode-note"${p.multiKey ? '' : ' hidden'}></p>
 
           <label class="field field--row">
             <span class="field__label">API 路径</span>
@@ -257,25 +318,37 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
   const blankKey = (): Provider['keys'][number] => ({
     id: newId(),
     value: '',
+    label: '',
     enabled: true,
     weight: 1,
     callCount: 0,
     failCount: 0,
   });
 
+  // 单 Key 模式只显示第一个；其余 Key 保留在数据里，重新打开多 Key 时还在
   const renderKeys = (): void => {
     const box = must<HTMLElement>(root, '#p-keys');
     // 始终留一个空位可填；要第二个再点「+ 添加」
     if (provider.keys.length === 0) provider.keys.push(blankKey());
-    box.innerHTML = provider.keys
+    const shown = provider.multiKey ? provider.keys : provider.keys.slice(0, 1);
+    box.innerHTML = shown
       .map(
         (key, index) => `
-        <div class="key-row" data-index="${index}">
-          <input class="input" type="${showPlain ? 'text' : 'password'}"
+        <div class="key-row${provider.multiKey ? ' key-row--multi' : ''}" data-index="${index}">
+          ${
+            provider.multiKey
+              ? `<input type="checkbox" data-key-toggle ${key.enabled ? 'checked' : ''}
+                        aria-label="启用这个 Key">
+                 <input class="input key-row__label" type="text" autocomplete="off"
+                        spellcheck="false" data-key-label value="${esc(key.label)}"
+                        placeholder="备注，如 大号">`
+              : ''
+          }
+          <input class="input key-row__value" type="${showPlain ? 'text' : 'password'}"
                  autocomplete="off" spellcheck="false"
                  data-key-input value="${esc(key.value)}" placeholder="sk-…">
           ${
-            provider.keys.length > 1
+            provider.multiKey && provider.keys.length > 1
               ? `<button class="mini jelly" type="button" data-key-remove="${index}"
                   aria-label="删除这个 Key">${line('trash', 18)}</button>`
               : ''
@@ -289,11 +362,54 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   // ⚠️ 输入时只更新数据，**绝不重建 DOM** —— 重建会让输入框失焦（宪法 §7.6）
   must(root, '#p-keys').addEventListener('input', (e) => {
-    const input = (e.target as HTMLElement).closest<HTMLInputElement>('[data-key-input]');
-    if (!input) return;
-    const index = Number(input.closest<HTMLElement>('.key-row')?.dataset.index ?? '-1');
+    const target = e.target as HTMLInputElement;
+    const index = Number(target.closest<HTMLElement>('.key-row')?.dataset.index ?? '-1');
     const key = provider.keys[index];
-    if (key) key.value = input.value;
+    if (!key) return;
+    if (target.matches('[data-key-input]')) key.value = target.value;
+    else if (target.matches('[data-key-label]')) key.label = target.value;
+  });
+
+  must(root, '#p-keys').addEventListener('change', (e) => {
+    const target = e.target as HTMLInputElement;
+    if (!target.matches('[data-key-toggle]')) return;
+    const index = Number(target.closest<HTMLElement>('.key-row')?.dataset.index ?? '-1');
+    const key = provider.keys[index];
+    if (key) key.enabled = target.checked;
+  });
+
+  /* ---------- 多 Key 开关 + 用法 ---------- */
+
+  const addKeyBtn = must<HTMLButtonElement>(root, '#p-addkey');
+  const modeRow = must<HTMLElement>(root, '#p-keymode-row');
+  const modeNote = must<HTMLElement>(root, '#p-keymode-note');
+
+  const syncKeyMode = (): void => {
+    addKeyBtn.hidden = !provider.multiKey;
+    modeRow.hidden = !provider.multiKey;
+    modeNote.hidden = !provider.multiKey;
+    root.querySelectorAll<HTMLElement>('[data-keymode]').forEach((btn) => {
+      btn.setAttribute('aria-checked', String(btn.dataset.keymode === provider.keyMode));
+    });
+    modeNote.textContent =
+      provider.keyMode === 'rotate'
+        ? '轮询：同一个站的几个号轮流用，模型大家共用。'
+        : '分组：每个 Key 管自己的模型，适合站子按模型系列发 Key。';
+  };
+  syncKeyMode();
+
+  must<HTMLInputElement>(root, '#p-multikey').addEventListener('change', (e) => {
+    provider.multiKey = (e.target as HTMLInputElement).checked;
+    syncKeyMode();
+    renderKeys();
+  });
+
+  modeRow.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-keymode]');
+    const mode = btn?.dataset.keymode;
+    if (mode !== 'rotate' && mode !== 'group') return;
+    provider.keyMode = mode;
+    syncKeyMode();
   });
 
   must(root, '#p-keys').addEventListener('click', (e) => {
@@ -323,11 +439,40 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   // 默认每个模型只占一行；点名字才展开编辑框
   const openModels = new Set<number>();
+  // 折起来的模型组（默认全展开，点组头才合拢）
+  const closedGroups = new Set<string>();
   let query = '';
   const matches = (model: ProviderModel): boolean =>
     !query ||
     model.id.toLowerCase().includes(query) ||
     model.displayName.toLowerCase().includes(query);
+
+  /** 一个模型一行：勾选 · 名字/副信息 · 删除；点名字展开编辑框 */
+  const modelRowHTML = (model: ProviderModel, index: number): string => `
+    <div class="model-row" data-index="${index}">
+      <input type="checkbox" data-model-toggle="${index}"
+             ${model.enabled ? 'checked' : ''} aria-label="启用">
+      <button class="model-row__main" type="button" data-model-edit="${index}">
+        <span class="model-row__name">${esc(modelName(model))}</span>
+        <span class="model-row__meta">${esc(modelMeta(model))}</span>
+      </button>
+      <button class="model-row__del" type="button" data-model-remove="${index}"
+              aria-label="删除这个模型">${line('trash', 16)}</button>
+      <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
+        <input class="input" type="text" autocomplete="off"
+               spellcheck="false" data-model-field="id" data-index="${index}"
+               value="${esc(model.id)}" placeholder="模型 ID（发请求用）">
+        <div class="model-row__sub">
+          <input class="input" type="text" autocomplete="off" spellcheck="false"
+                 data-model-field="displayName" data-index="${index}"
+                 value="${esc(model.displayName === model.id ? '' : model.displayName)}"
+                 placeholder="显示名称（可不填）">
+          <input class="input model-row__ctx" type="text" inputmode="numeric"
+                 autocomplete="off" data-model-field="contextLength" data-index="${index}"
+                 value="${model.contextLength ?? ''}" placeholder="上下文">
+        </div>
+      </div>
+    </div>`;
 
   const renderModels = (): void => {
     const box = find<HTMLElement>(root, '#p-models');
@@ -337,33 +482,30 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         '<p class="field__note">还没有模型。点上面的「拉取」自动获取，或「+ 手动」添加。</p>';
       return;
     }
-    box.innerHTML = provider.models
+
+    // 按系列分组，组的先后 = 首次出现的先后（拉下来的顺序通常就是同系列挨着）
+    const groups = new Map<string, { index: number; model: ProviderModel }[]>();
+    provider.models.forEach((model, index) => {
+      const name = modelSeries(model.id);
+      const list = groups.get(name);
+      if (list) list.push({ index, model });
+      else groups.set(name, [{ index, model }]);
+    });
+
+    box.innerHTML = [...groups.entries()]
       .map(
-        (model, index) => `
-        <div class="model-row" data-index="${index}"${matches(model) ? '' : ' hidden'}>
-          <input type="checkbox" data-model-toggle="${index}"
-                 ${model.enabled ? 'checked' : ''} aria-label="启用">
-          <button class="model-row__main" type="button" data-model-edit="${index}">
-            <span class="model-row__name">${esc(modelName(model))}</span>
-            <span class="model-row__meta">${esc(modelMeta(model))}</span>
-          </button>
-          <button class="model-row__del" type="button" data-model-remove="${index}"
-                  aria-label="删除这个模型">${line('trash', 16)}</button>
-          <div class="model-row__edit"${openModels.has(index) ? '' : ' hidden'}>
-            <input class="input" type="text" autocomplete="off"
-                   spellcheck="false" data-model-field="id" data-index="${index}"
-                   value="${esc(model.id)}" placeholder="模型 ID（发请求用）">
-            <div class="model-row__sub">
-              <input class="input" type="text" autocomplete="off" spellcheck="false"
-                     data-model-field="displayName" data-index="${index}"
-                     value="${esc(model.displayName === model.id ? '' : model.displayName)}"
-                     placeholder="显示名称（可不填）">
-              <input class="input model-row__ctx" type="text" inputmode="numeric"
-                     autocomplete="off" data-model-field="contextLength" data-index="${index}"
-                     value="${model.contextLength ?? ''}" placeholder="上下文">
-            </div>
-          </div>
-        </div>`,
+        ([name, items]) => `
+      <section class="model-group" data-group-name="${esc(name)}">
+        <button class="model-group__head" type="button" data-group-toggle
+                aria-expanded="${closedGroups.has(name) ? 'false' : 'true'}">
+          <span class="model-group__name">${esc(name)}</span>
+          <span class="model-group__count">${items.length}</span>
+          <span class="model-group__chevron">${line('chevron', 16)}</span>
+        </button>
+        <div class="model-group__body"${closedGroups.has(name) ? ' hidden' : ''}>
+          ${items.map(({ index, model }) => modelRowHTML(model, index)).join('')}
+        </div>
+      </section>`,
       )
       .join('');
   };
@@ -402,6 +544,22 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
 
   find(root, '#p-models')?.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
+
+    // 组头：合拢 / 展开
+    const groupHead = target.closest<HTMLElement>('[data-group-toggle]');
+    if (groupHead) {
+      const section = groupHead.closest<HTMLElement>('.model-group');
+      const name = section?.dataset.groupName ?? '';
+      const body = section?.querySelector<HTMLElement>('.model-group__body');
+      if (!body) return;
+      const willClose = !body.hidden;
+      body.hidden = willClose;
+      groupHead.setAttribute('aria-expanded', String(!willClose));
+      if (willClose) closedGroups.add(name);
+      else closedGroups.delete(name);
+      return;
+    }
+
     const edit = target.closest<HTMLElement>('[data-model-edit]');
     if (edit) {
       const index = Number(edit.dataset.modelEdit ?? '-1');
@@ -428,6 +586,22 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
     root.querySelectorAll<HTMLElement>('.model-row').forEach((row) => {
       const model = provider.models[Number(row.dataset.index ?? '-1')];
       row.hidden = model ? !matches(model) : true;
+    });
+    // 搜索时组一律展开；整组都不匹配就把这组收起来
+    root.querySelectorAll<HTMLElement>('.model-group').forEach((section) => {
+      const rows = [...section.querySelectorAll<HTMLElement>('.model-row')];
+      const shown = rows.filter((row) => !row.hidden).length;
+      section.hidden = shown === 0;
+      const body = section.querySelector<HTMLElement>('.model-group__body');
+      const head = section.querySelector<HTMLElement>('[data-group-toggle]');
+      if (query) {
+        if (body) body.hidden = false;
+        head?.setAttribute('aria-expanded', 'true');
+      } else if (body) {
+        const name = section.dataset.groupName ?? '';
+        body.hidden = closedGroups.has(name);
+        head?.setAttribute('aria-expanded', String(!closedGroups.has(name)));
+      }
     });
   });
 
@@ -468,20 +642,42 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
         });
 
         const known = new Set(provider.models.map((m) => m.id));
-        let added = 0;
-        for (const item of list) {
-          if (known.has(item.id)) continue;
+        note.textContent = `拉到 ${list.length} 个，挑要用的：`;
+        note.className = 'field__note';
+
+        // 先让用户在抽屉里挑，勾中的才进列表
+        const picked = await openSheet({
+          title: '选择模型',
+          items: list.map((item) => ({
+            id: item.id,
+            label: item.id,
+            meta: item.contextLength ? `${Math.round(item.contextLength / 1000)}K` : '',
+            taken: known.has(item.id),
+          })),
+          groupOf: (item) => modelSeries(item.id),
+          emptyText: '接口没返回任何模型',
+          confirmLabel: (count) => (count === 0 ? '添加' : `添加 ${count} 个`),
+        });
+
+        if (!picked) {
+          note.textContent = `拉到 ${list.length} 个，这次没选。`;
+          note.className = 'field__note';
+          return;
+        }
+
+        const lengthOf = new Map(list.map((item) => [item.id, item.contextLength ?? null]));
+        for (const item of picked) {
           provider.models.push({
             id: item.id,
             displayName: item.id,
-            contextLength: item.contextLength ?? null,
+            contextLength: lengthOf.get(item.id) ?? null,
             enabled: true,
             source: 'fetched',
           });
-          added += 1;
         }
+        openModels.clear();
         renderModels();
-        note.textContent = `拉到 ${list.length} 个模型，新增 ${added} 个。`;
+        note.textContent = `已添加 ${picked.length} 个模型。`;
         note.className = 'field__note is-ok';
       } catch (error) {
         note.textContent = describe(error);
@@ -547,8 +743,17 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
       if (topP) provider.generation.topP = numberOrNull(topP.value);
       provider.updatedAt = Date.now();
 
+      // 关掉多 Key 模式就只留第一个 —— 界面上本来也只显示这一个，
+      // 存着多余的 Key 只会让人以后疑惑「怎么还有几个」
+      if (!provider.multiKey) provider.keys = provider.keys.slice(0, 1);
+
       // 全是空白的 Key 行直接丢掉，别在库里留噪音
       provider.keys = provider.keys.filter((k) => k.value.trim().length > 0);
+      // 删掉的 Key 名下如果还挂着模型，那些模型跟着去掉，避免出现取不到 Key 的孤儿模型
+      if (provider.keyMode === 'group') {
+        const alive = new Set(provider.keys.map((k) => k.id));
+        provider.models = provider.models.filter((m) => !m.keyId || alive.has(m.keyId));
+      }
       // 同理，空模型名也丢掉
       provider.models = provider.models.filter((m) => m.id.trim().length > 0);
       provider.models.forEach((m) => {

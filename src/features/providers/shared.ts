@@ -37,6 +37,8 @@ export function blankProvider(name = '新服务商'): Provider {
     protocol: 'openai',
     baseUrl: '',
     apiPath: '/chat/completions',
+    multiKey: false,
+    keyMode: 'rotate',
     keys: [],
     models: [],
     generation: { temperature: 0.8, maxTokens: null, topP: null },
@@ -63,6 +65,7 @@ export function fromParsed(parsed: ParsedProvider): Provider {
       {
         id: newId(),
         value: parsed.apiKey,
+        label: '',
         enabled: true,
         weight: 1,
         callCount: 0,

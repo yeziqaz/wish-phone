@@ -251,15 +251,30 @@ export async function stats(): Promise<StorageStats> {
 
 /* ============================ API 服务商 ============================ */
 
+/**
+ * 老记录缺后来新增的字段时补上默认值（只在读出时补，不改库里的原件）。
+ * 多 Key 模式默认关；模型不带 keyId 即为所有 Key 共用。
+ */
+function normalizeProvider(p: Provider): Provider {
+  return {
+    ...p,
+    multiKey: p.multiKey ?? p.keys.length > 1,
+    keyMode: p.keyMode ?? 'rotate',
+    keys: p.keys.map((k) => ({ ...k, label: k.label ?? '' })),
+  };
+}
+
 export async function listProviders(): Promise<Provider[]> {
   const database = await db();
   const all = await database.getAllFromIndex('providers', 'byUpdatedAt');
   // 最近改过的排在前面
-  return all.reverse();
+  return all.reverse().map(normalizeProvider);
 }
 
-export function getProvider(id: string): Promise<Provider | undefined> {
-  return db().then((database) => database.get('providers', id));
+export async function getProvider(id: string): Promise<Provider | undefined> {
+  const database = await db();
+  const found = await database.get('providers', id);
+  return found ? normalizeProvider(found) : undefined;
 }
 
 export async function putProvider(provider: Provider): Promise<void> {
@@ -326,8 +341,20 @@ export async function migrateLegacyApiConfig(): Promise<boolean> {
     protocol: 'openai',
     baseUrl: legacy.baseUrl,
     apiPath: '/chat/completions',
+    multiKey: false,
+    keyMode: 'rotate',
     keys: oldKey
-      ? [{ id: newId(), value: oldKey, enabled: true, weight: 1, callCount: 0, failCount: 0 }]
+      ? [
+          {
+            id: newId(),
+            value: oldKey,
+            label: '',
+            enabled: true,
+            weight: 1,
+            callCount: 0,
+            failCount: 0,
+          },
+        ]
       : [],
     models: legacy.model
       ? [

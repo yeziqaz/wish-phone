@@ -156,6 +156,8 @@ export type ApiProtocol = 'openai' | 'gemini' | 'claude' | 'custom';
 export interface ProviderKey {
   id: string;
   value: string;
+  /** 备注名，多 Key 时用来区分（如「大号」「Claude 专用」） */
+  label: string;
   enabled: boolean;
   /** 轮询权重，数字越大被选中越多 */
   weight: number;
@@ -173,6 +175,8 @@ export interface ProviderModel {
   enabled: boolean;
   /** 来自自动拉取还是手动添加 */
   source: 'fetched' | 'manual';
+  /** 分组模式下属于哪个 Key；不填 = 所有 Key 共用 */
+  keyId?: string;
 }
 
 export interface ProviderGeneration {
@@ -195,6 +199,10 @@ export interface Provider {
   baseUrl: string;
   /** 默认 '/chat/completions'，非标准接口可以改 */
   apiPath: string;
+  /** 关着时只用第一个 Key；绝大多数站一个 Key 就够 */
+  multiKey: boolean;
+  /** 多 Key 时：rotate = 同一账号轮流用；group = 每个 Key 管自己的模型 */
+  keyMode: 'rotate' | 'group';
   keys: ProviderKey[];
   models: ProviderModel[];
   generation: ProviderGeneration;
