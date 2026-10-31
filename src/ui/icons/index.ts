@@ -50,7 +50,9 @@ export type LineIconName =
   | 'world'
   | 'pencil'
   | 'image'
-  | 'import';
+  | 'import'
+  | 'mic'
+  | 'video';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -93,6 +95,17 @@ const LINE: Record<LineIconName, string> = {
     '<circle cx="9" cy="9.6" r="1.6"/>' +
     '<path d="M4.5 17.2l4.6-4.6a1.6 1.6 0 0 1 2.2 0l3.6 3.6"/>' +
     '<path d="M13.6 14.9l1.4-1.4a1.6 1.6 0 0 1 2.2 0l2 2"/>',
+
+  // 麦克风：语音
+  mic:
+    '<rect x="9" y="3" width="6" height="11" rx="3"/>' +
+    '<path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/>' +
+    '<path d="M12 18v3"/>',
+
+  // 摄像机：视频
+  video:
+    '<rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/>' +
+    '<path d="m15.5 10.5 5-2.8v8.6l-5-2.8z"/>',
 
   // 导入：箭头进托盘
   import:

@@ -62,18 +62,22 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
     return `${provider.name} · ${model.id}`;
   };
 
-  const API_TITLE: Record<'image' | 'voice' | 'video', string> = {
-    image: '生图 API',
-    voice: '语音 API',
-    video: '生视频 API',
-  };
-
-  const apiCards = (['image', 'voice', 'video'] as const)
+  const apiRows = (
+    [
+      ['image', '生图 API', 'image'],
+      ['voice', '语音 API', 'mic'],
+      ['video', '生视频 API', 'video'],
+    ] as const
+  )
     .map(
-      (kind) => `
-      <button class="api-card jelly" type="button" data-go="/settings/api/${kind}">
-        <span class="api-card__title">${API_TITLE[kind]}</span>
-        <span class="api-card__sub">${esc(kindSummary(kind))}</span>
+      ([kind, title, icon]) => `
+      <button class="nav-item" type="button" data-go="/settings/api/${kind}">
+        <span class="nav-item__icon">${line(icon)}</span>
+        <span class="nav-item__text">
+          <span class="nav-item__title">${title}</span>
+          <span class="nav-item__sub">${esc(kindSummary(kind))}</span>
+        </span>
+        <span class="nav-item__tail">${line('chevron', 18)}</span>
       </button>`,
     )
     .join('');
@@ -109,13 +113,13 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
         </p>
       </div>
 
-      <div class="nav-group">
+      <div class="nav-group api-provider-group">
         ${providers.length === 0 ? EMPTY : providers.map(itemHTML).join('')}
       </div>
 
       <h2 class="api-hub__title">其他 API</h2>
-      <div class="api-hub">${apiCards}</div>
-      <p class="api-hub__hint">生图、语音、生视频各自选一个模型。文字模型还是点上面的服务商挑。</p>
+      <div class="nav-group">${apiRows}</div>
+      <p class="api-hub__hint">生图、语音、生视频各选一个模型；文字模型还是点上面的服务商挑。</p>
     </div>`;
 
   const panel = must<HTMLElement>(root, '#smart-panel');

@@ -715,8 +715,12 @@
    其他 API（生图 / 语音 / 生视频）
    ========================================================================== */
 
+.api-provider-group {
+  margin-bottom: var(--sp-2);
+}
+
 .api-hub__title {
-  margin: var(--sp-5) 0 var(--sp-2);
+  margin: var(--sp-4) 0 var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   color: var(--ink-2);
@@ -776,7 +780,7 @@
 }
 
 .api-type__title {
-  margin: var(--sp-5) 0 var(--sp-2);
+  margin: var(--sp-4) 0 var(--sp-2);
   font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
   color: var(--ink-2);

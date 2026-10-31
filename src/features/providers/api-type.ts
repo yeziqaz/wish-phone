@@ -126,7 +126,9 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
             ${current ? `${esc(current.provider.name)} · ${esc(current.modelId)}` : '还没设置'}
           </p>
           <div class="api-current__actions">
-            <button class="btn btn--sm" type="button" id="api-pick">${current ? '更换' : '选一个'}</button>
+            <button class="btn ${current ? 'btn--sm' : 'btn--primary'}" type="button" id="api-pick">
+              ${current ? '更换' : '选一个'}
+            </button>
             ${current ? '<button class="btn btn--sm btn--ghost" type="button" id="api-clear">清除</button>' : ''}
           </div>
         </div>
@@ -138,7 +140,7 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
         }
 
         <h2 class="api-type__title">从已有服务商拉取</h2>
-        <p class="api-type__hint">拉取时只会留下${label}模型；认不出来就没法选，可以换个服务商。</p>
+        <p class="api-type__hint">拉取时只留${label}模型，其他类型会自动筛掉。</p>
 
         ${
           providers.length === 0
@@ -168,7 +170,7 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
                      placeholder="sk-...">
               <span class="field__hint">Key 只存在这台设备上。</span>
             </label>
-            <button class="btn btn--primary jelly" type="button" id="np-create">保存并拉取</button>
+            <button class="btn jelly" type="button" id="np-create">保存并拉取</button>
             <p class="field__note" id="np-note"></p>
           </div>
         </section>
