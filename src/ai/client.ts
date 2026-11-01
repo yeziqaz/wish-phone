@@ -132,7 +132,7 @@ export async function chat(
   messages: ChatMessage[],
   config: ApiConfig,
 ): Promise<CompletionResult> {
-  const url = buildUrl(config.baseUrl, '/chat/completions');
+  const url = buildUrl(config.baseUrl, config.path || '/chat/completions');
 
   const body = {
     model: config.model,

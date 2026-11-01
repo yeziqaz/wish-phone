@@ -12,6 +12,8 @@ import { mountCharacterList } from './features/characters/character-list';
 import { mountCharacterEdit } from './features/characters/character-edit';
 import { mountDataStore } from './features/settings/data-store';
 import { mountSettings } from './features/settings/settings';
+import { mountChatHome } from './features/chat/chat-home';
+import { mountChat } from './features/chat/chat';
 import { mountWorldEdit } from './features/worlds/world-edit';
 import { ensureDefaults } from './features/characters/defaults';
 
@@ -47,7 +49,8 @@ route('/character', () => void mountCharacterList(app));
 // 注意：'/character/new' 必须排在 '/character/:id' 前面，否则 new 会被当成 id
 route('/character/new', () => void mountCharacterEdit(app, 'new'));
 route('/character/:id', ({ params }) => void mountCharacterEdit(app, params.id ?? ''));
-route('/chat', () => mountPlaceholder('聊天'));
+route('/chat', () => void mountChatHome(app));
+route('/chat/:id', ({ params }) => void mountChat(app, params.id ?? ''));
 route('/help', () => mountPlaceholder('帮助'));
 
 route('/settings', () => void mountSettings(app));

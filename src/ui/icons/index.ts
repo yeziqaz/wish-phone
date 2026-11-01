@@ -54,7 +54,8 @@ export type LineIconName =
   | 'mic'
   | 'video'
   | 'chat'
-  | 'character';
+  | 'character'
+  | 'send';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -101,6 +102,11 @@ const LINE: Record<LineIconName, string> = {
   // 气泡：文本
   chat:
     '<path d="M4.5 5.5h15a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H9l-4.5 3v-3H4.5A1.5 1.5 0 0 1 3 15.5V7a1.5 1.5 0 0 1 1.5-1.5z"/>',
+
+  // 纸飞机：发送
+  send:
+    '<path d="M20.5 3.5 10.2 13.8"/>' +
+    '<path d="M20.5 3.5 14 20.5l-3.9-7.1L3 9.5z"/>',
 
   // 人形：角色
   character:

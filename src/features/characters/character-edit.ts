@@ -111,6 +111,8 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
       <header class="topbar">
         <button class="topbar__back jelly" type="button" data-go="/character" aria-label="返回">${line('back', 22)}</button>
         <h1 class="topbar__title">角色档案</h1>
+        ${isNew ? '' : `<button class="topbar__action jelly" type="button" data-go="/chat/${esc(character.id)}"
+                aria-label="和 TA 聊天">${line('chat', 22)}</button>`}
       </header>
 
       <section class="gallery">

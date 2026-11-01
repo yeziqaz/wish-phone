@@ -11,6 +11,8 @@ export interface ApiConfig {
   apiKey: string;
   model: string;
   temperature: number;
+  /** 聊天接口路径。不传就用标准的 /chat/completions */
+  path?: string;
 }
 
 /** 存进 settings 表的那部分：不含密钥 */
