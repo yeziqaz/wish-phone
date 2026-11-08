@@ -1,11 +1,15 @@
 import './app.css';
-import { migrateLegacyApiConfig } from './core/db';
+import { migrateLegacyApiConfig, pruneLogs } from './core/db';
+import { migrateProvidersToSites } from './core/api-migrate';
 import { loadPrefs } from './core/prefs';
 import { HOME, navigate, route, startRouter } from './core/router';
 import { mountDesktop } from './features/desktop/desktop';
 import { mountLockscreen } from './features/lockscreen/lockscreen';
 import { mountProviderEdit } from './features/providers/provider-edit';
 import { mountProviderList } from './features/providers/provider-list';
+import { mountApiPage } from './features/api/api-page';
+import { mountSiteDetail } from './features/api/site-detail';
+import { mountRoleList, mountRoleDetail } from './features/api/assign-roles';
 import { mountApiType } from './features/providers/api-type';
 import type { ModelKind } from './core/types';
 import { mountCharacterList } from './features/characters/character-list';
@@ -15,6 +19,8 @@ import { mountSettings } from './features/settings/settings';
 import { mountChatHome } from './features/chat/chat-home';
 import { mountChat } from './features/chat/chat';
 import { mountWorldEdit } from './features/worlds/world-edit';
+import { mountLoreList } from './features/lore/lore-list';
+import { mountLoreEdit } from './features/lore/lore-edit';
 import { ensureDefaults } from './features/characters/defaults';
 
 /* ==========================================================================
@@ -50,13 +56,25 @@ route('/character', () => void mountCharacterList(app));
 route('/character/new', () => void mountCharacterEdit(app, 'new'));
 route('/character/:id', ({ params }) => void mountCharacterEdit(app, params.id ?? ''));
 route('/chat', () => void mountChatHome(app));
-route('/chat/:id', ({ params }) => void mountChat(app, params.id ?? ''));
+route('/chat/:id', ({ params }) => mountChat(app, params.id ?? ''));
 route('/help', () => mountPlaceholder('帮助'));
 
 route('/settings', () => void mountSettings(app));
 route('/settings/data', () => void mountDataStore(app));
 route('/world/new', () => void mountWorldEdit(app, 'new'));
 route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
+route('/settings/lore', () => void mountLoreList(app));
+route('/settings/lore/:id', ({ params }) => mountLoreEdit(app, params.id ?? ''));
+// 新版「API 与模型」（设计文档 v1.1）。必须注册在老路由 /settings/api/:kind 之前
+route('/settings/api', () => void mountApiPage(app));
+// 站点详情。带 /site/ 前缀，免得和老路由 /settings/api/:kind 撞上
+route('/settings/api/site/:id', ({ params }) => void mountSiteDetail(app, params.id ?? ''));
+// 角色模型设置：列表 + 单个角色。必须注册在 /settings/api 之后、:kind 之前
+route('/settings/api/roles', ({ query }) => {
+  const roleId = query.get('role');
+  if (roleId) void mountRoleDetail(app, roleId);
+  else void mountRoleList(app);
+});
 route('/settings/providers', () => void mountProviderList(app));
 route('/settings/api/:kind', ({ params }) => void mountApiType(app, params.kind ?? ''));
 // ⚠️ 'new' 必须注册在 ':id' 前面 —— 路由匹配按注册顺序走
@@ -76,6 +94,11 @@ app.addEventListener('click', (e) => {
 // 不 await：它只在第一次启动、且确实有老数据时才做事，
 // 而用户从解锁到点进设置至少也要一两秒，撞不上。
 void migrateLegacyApiConfig();
+// 服务商 → 站点（设计文档 v1.1）。同样不 await，且老 providers 表原样留着，
+// 所以这一步失败也不影响用户继续用老界面。
+void migrateProvidersToSites().catch(() => {});
+// 请求日志按文档 §8.3 只留 30 天，启动时顺手清一次，不用定时器
+void pruneLogs().catch(() => {});
 // 偏好读进内存，桌面才知道顶部状态栏该不该显示
 void loadPrefs();
 // 内置世界 + 内置角色（wuli）。幂等；失败不挡桌面，

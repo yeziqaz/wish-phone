@@ -21,7 +21,8 @@ export interface RouteContext {
   path: string;
 }
 
-type Handler = (ctx: RouteContext) => (() => void) | void;
+type Cleanup = () => void;
+type Handler = (ctx: RouteContext) => Promise<Cleanup | void> | Cleanup | void;
 
 interface Route {
   pattern: string;
@@ -101,7 +102,15 @@ function resolve(): void {
   current = path;
 
   const returned = matched.handler({ params, query, path });
-  if (typeof returned === 'function') cleanup = returned;
+  if (typeof returned === 'function') {
+    cleanup = returned;
+  } else if (returned instanceof Promise) {
+    returned.then((res) => {
+      if (typeof res === 'function' && current === path) {
+        cleanup = res;
+      }
+    }).catch(() => {});
+  }
 }
 
 export function startRouter(): void {

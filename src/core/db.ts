@@ -21,10 +21,13 @@ import type {
   Provider,
   SettingRecord,
   World,
+  Worldbook,
 } from './types';
+import type { Assignment, RequestLog, Site } from './api-types';
+import { LOG_RETENTION_DAYS } from './api-types';
 
 const DB_NAME = 'wish-phone';
-const DB_VERSION = 3;
+const DB_VERSION = 5;
 
 interface WishDB extends DBSchema {
   characters: {
@@ -61,6 +64,28 @@ interface WishDB extends DBSchema {
     key: string;
     value: Branch;
     indexes: { byWorld: string };
+  };
+  worldbooks: {
+    key: string;
+    value: Worldbook;
+    indexes: { byUpdatedAt: number };
+  };
+  /* v5 起：API 与模型按设计文档 v1.1 重做。
+     老 providers 表先留着（界面还没换完），不许删。 */
+  sites: {
+    key: string;
+    value: Site;
+    indexes: { byUpdatedAt: number };
+  };
+  assignments: {
+    key: string;
+    value: Assignment;
+    indexes: { byScope: string };
+  };
+  requestLogs: {
+    key: string;
+    value: RequestLog;
+    indexes: { byTime: number; bySite: string };
   };
 }
 
@@ -104,8 +129,31 @@ export function db(): Promise<IDBPDatabase<WishDB>> {
         branches.createIndex('byWorld', 'worldId');
       }
 
+      // v3 → v4：加「世界书」表。
+      // 角色表不加字段也不加索引：挂载关系是角色记录上的一个可选数组，
+      // 老角色没有它就是「没挂任何书」，正好符合「新建角色不自动挂」的规则。
+      if (oldVersion < 4) {
+        const worldbooks = database.createObjectStore('worldbooks', { keyPath: 'id' });
+        worldbooks.createIndex('byUpdatedAt', 'updatedAt');
+      }
+
+      // v4 → v5：加「站点 / 分配 / 请求日志」三张表（设计文档 v1.1 §11）。
+      // 老 providers 表原地不动：数据搬运放在应用层（见 migrateProvidersToSites），
+      // 因为要读 settings 里的分配关系，而且必须能重试。
+      if (oldVersion < 5) {
+        const sites = database.createObjectStore('sites', { keyPath: 'id' });
+        sites.createIndex('byUpdatedAt', 'updatedAt');
+
+        const assignments = database.createObjectStore('assignments', { keyPath: 'id' });
+        assignments.createIndex('byScope', 'scope');
+
+        const logs = database.createObjectStore('requestLogs', { keyPath: 'id' });
+        logs.createIndex('byTime', 'time');
+        logs.createIndex('bySite', 'siteId');
+      }
+
       // 将来加字段时在这里续写，例如：
-      // if (oldVersion < 4) {
+      // if (oldVersion < 6) {
       //   tx.objectStore('characters').createIndex('byName', 'name');
       // }
       // ⛔ 永远不要 deleteObjectStore —— 那是直接抹掉用户的数据。
@@ -237,6 +285,53 @@ export async function deleteWorldData(worldId: string): Promise<void> {
   for (const branch of branches) await deleteBranchData(branch.id) /* 分支里的角色一起删 */;
   const database = await db();
   await database.delete('worlds', worldId);
+}
+
+/* ============================ 世界书 ============================ */
+
+export async function listWorldbooks(): Promise<Worldbook[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('worldbooks', 'byUpdatedAt');
+  // 最近改过的排在前面
+  return all.reverse();
+}
+
+export function getWorldbook(id: string): Promise<Worldbook | undefined> {
+  return db().then((database) => database.get('worldbooks', id));
+}
+
+export async function putWorldbook(worldbook: Worldbook): Promise<void> {
+  const database = await db();
+  await database.put('worldbooks', worldbook);
+}
+
+/**
+ * 删一本书，顺手把挂过它的角色摘干净 ——
+ * 否则角色身上会留下指向不存在书的 id，界面上会出现一行空白。
+ */
+export async function deleteWorldbook(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('worldbooks', id);
+
+  const characters = await database.getAll('characters');
+  for (const character of characters) {
+    if (!character.worldbookIds?.includes(id)) continue;
+    character.worldbookIds = character.worldbookIds.filter((item) => item !== id);
+    character.updatedAt = Date.now();
+    await database.put('characters', character);
+  }
+}
+
+/** 把一批 id 对应成书。返回的顺序跟传入的 id 一致；已经不存在的书直接跳过 */
+export async function getWorldbooks(ids: string[]): Promise<Worldbook[]> {
+  if (ids.length === 0) return [];
+  const database = await db();
+  const books: Worldbook[] = [];
+  for (const id of ids) {
+    const book = await database.get('worldbooks', id);
+    if (book) books.push(book);
+  }
+  return books;
 }
 
 /* ============================ 会话 ============================ */
@@ -395,7 +490,7 @@ export async function deleteProviderRecord(id: string): Promise<void> {
 export async function clearAll(): Promise<void> {
   const database = await db();
   const tx = database.transaction(
-    ['characters', 'conversations', 'messages', 'providers', 'settings', 'worlds', 'branches'],
+    ['characters', 'conversations', 'messages', 'providers', 'settings', 'worlds', 'branches', 'worldbooks'],
     'readwrite',
   );
   await Promise.all([
@@ -406,6 +501,7 @@ export async function clearAll(): Promise<void> {
     tx.objectStore('settings').clear(),
     tx.objectStore('worlds').clear(),
     tx.objectStore('branches').clear(),
+    tx.objectStore('worldbooks').clear(),
   ]);
   await tx.done;
 }
@@ -488,4 +584,106 @@ export async function migrateLegacyApiConfig(): Promise<boolean> {
   await deleteSetting('apiConfig');
   await deleteSetting('apiKey');
   return true;
+}
+
+/* ============================ 站点（设计文档 v1.1） ============================ */
+
+export async function listSites(): Promise<Site[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('sites', 'byUpdatedAt');
+  // 最近改过的排前面
+  return all.reverse();
+}
+
+export function getSite(id: string): Promise<Site | undefined> {
+  return db().then((database) => database.get('sites', id));
+}
+
+export async function putSite(site: Site): Promise<void> {
+  const database = await db();
+  await database.put('sites', site);
+}
+
+/** 删站点的同时把引用它的分配一并清掉，否则界面上会出现指向空站点的行 */
+export async function deleteSite(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('sites', id);
+
+  const assignments = await database.getAll('assignments');
+  for (const item of assignments) {
+    const touchesTarget = item.target?.siteId === id;
+    const touchesFallback = item.fallback?.siteId === id;
+    const touchesAux = item.aux?.siteId === id;
+    if (!touchesTarget && !touchesFallback && !touchesAux) continue;
+
+    if (touchesTarget) item.target = null;
+    if (touchesFallback) item.fallback = null;
+    if (touchesAux) item.aux = null;
+    await database.put('assignments', item);
+  }
+}
+
+/* ============================ 分配 ============================ */
+
+export async function listAssignments(): Promise<Assignment[]> {
+  const database = await db();
+  return database.getAll('assignments');
+}
+
+export async function putAssignment(assignment: Assignment): Promise<void> {
+  const database = await db();
+  await database.put('assignments', assignment);
+}
+
+/** 删掉一条分配。比 clearAssignments 精确，改单个能力时用它 */
+export async function deleteAssignment(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('assignments', id);
+}
+
+/** 清掉某个作用域下的全部分配。scopeId 传角色 / App 的 id，全局传 '' */
+export async function clearAssignments(scope: string, scopeId: string): Promise<void> {
+  const database = await db();
+  const all = await database.getAllFromIndex('assignments', 'byScope', scope);
+  const tx = database.transaction('assignments', 'readwrite');
+  for (const item of all) {
+    if (item.scopeId === scopeId) void tx.store.delete(item.id);
+  }
+  await tx.done;
+}
+
+/* ============================ 请求日志 ============================ */
+
+export async function putLog(log: RequestLog): Promise<void> {
+  const database = await db();
+  await database.put('requestLogs', log);
+}
+
+/** 倒序取出最近若干条，用量页和站点日志都读它 */
+export async function listLogs(limit = 200): Promise<RequestLog[]> {
+  const database = await db();
+  const all = await database.getAllFromIndex('requestLogs', 'byTime');
+  return all.slice(-limit).reverse();
+}
+
+/**
+ * 清掉超期的日志（文档 §8.3，默认保留 30 天）。
+ * 每次启动顺手跑一次就够，不需要定时器。
+ */
+export async function pruneLogs(retentionDays = LOG_RETENTION_DAYS): Promise<number> {
+  const database = await db();
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const all = await database.getAllFromIndex('requestLogs', 'byTime');
+  const expired = all.filter((log) => log.time < cutoff);
+  if (expired.length === 0) return 0;
+
+  const tx = database.transaction('requestLogs', 'readwrite');
+  for (const log of expired) void tx.store.delete(log.id);
+  await tx.done;
+  return expired.length;
+}
+
+export async function clearLogs(): Promise<void> {
+  const database = await db();
+  await database.clear('requestLogs');
 }

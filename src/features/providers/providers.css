@@ -853,8 +853,51 @@
    API 与模型：四个模块 + 主模型
    ========================================================================== */
 
+/* 全局 / 角色：两半等宽铺满，别让内容宽度决定比例 */
 .api-scope {
+  display: flex;
   margin-bottom: var(--sp-2);
+}
+
+.api-scope button {
+  flex: 1;
+  min-height: var(--tap-min);
+}
+
+/* ---------- 状态徽章（Badges） ---------- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px 8px;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
+  border-radius: var(--radius-full);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+
+.status-badge--active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.status-badge--ready {
+  background: var(--surface-2);
+  color: var(--ink-2);
+  border: var(--border-w) solid var(--line-strong);
+}
+
+.status-badge--missing {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  border: var(--border-w) dashed var(--line);
+}
+
+.status-badge--inherit {
+  background: transparent;
+  color: var(--ink-3);
+  border: var(--border-w) solid var(--line);
 }
 
 /* 模块页顶部：当前主模型一行 */

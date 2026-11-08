@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --import ./tests/register.mjs --test tests/*.test.ts"
   },
   "dependencies": {
     "idb": "^8.0.4"

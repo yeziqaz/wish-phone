@@ -1,0 +1,1383 @@
+/* ==========================================================================
+   API 与模型（设计文档 v1.1）
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ⚠️ 一个页面只有一个主按钮：这里的主按钮是「识别」/「全部保存」
+   ========================================================================== */
+
+.api-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* ---------- 顶栏右侧的 ＋ ---------- */
+
+.api-page .topbar__action {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* ---------- 三个 Tab ---------- */
+
+.api-tabs {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5) var(--sp-3);
+}
+
+.api-tabs button {
+  flex: 1;
+  min-height: var(--tap-min);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  color: var(--ink-2);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.api-tabs button[aria-selected='true'] {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- 内容区 ---------- */
+
+.api-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-5) var(--sp-8);
+}
+
+/* ---------- 粘贴导入卡 ---------- */
+
+.api-import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-import__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.api-import__hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  line-height: 1.6;
+}
+
+.api-import__box {
+  width: 100%;
+  min-height: 96px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.api-import__box::placeholder {
+  color: var(--ink-4);
+}
+
+/* ---------- 站点列表 ---------- */
+
+.api-sites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.api-site {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 72px;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.api-site__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.api-site__dot.is-ok {
+  background: var(--success);
+}
+
+.api-site__dot.is-bad {
+  background: var(--danger);
+}
+
+.api-site__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-site__name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-site__meta {
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-site__tail {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+
+/* ---------- 编辑 / 确认浮层 ---------- */
+
+.api-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.api-editor__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 56px;
+  padding: 0 var(--sp-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.api-editor__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.api-editor__close {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-base);
+  cursor: pointer;
+}
+
+.api-editor__list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5) var(--sp-6);
+}
+
+/* 确认卡里的每一项 */
+.api-card {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.api-card__index {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+
+.api-card__drop {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+/* 卡片里的动作行：测试连接 / 拉取模型 */
+.api-card__actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.api-card__actions .btn {
+  flex: 1;
+}
+
+/* 未识别 / 自动改过的提示 */
+.api-card__notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.api-card__notes li {
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.api-card .field__label.is-warn,
+.api-card .field.is-warn .field__label {
+  color: var(--warning);
+}
+
+.api-card .field.is-warn .input,
+.api-card .field.is-warn .api-import__box {
+  border-color: var(--warning);
+}
+
+/* 底部动作条 */
+.api-editor__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5) calc(env(safe-area-inset-bottom) + var(--sp-3));
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.api-editor__foot .btn {
+  flex: 1;
+}
+
+.api-editor__foot .field__note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* ==========================================================================
+   站点详情页（设计文档 §6.1 顶部信息卡 + §6.6 配置 Tab）
+   ========================================================================== */
+
+.api-detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+/* ---------- 顶部信息卡：所有 Tab 下都固定 ---------- */
+
+.api-hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-hero__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.api-hero__name {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 一行指标：余额 / 状态 / 测试 */
+.api-hero__stats {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.api-hero__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.api-hero__stat b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 备注预览：一行，点进配置 Tab */
+.api-hero__note {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 0 var(--sp-1);
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.api-hero .row-actions {
+  margin-top: 0;
+}
+
+.api-hero__note span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 官网链接：多个就是一行小胶囊，横着排 */
+.api-hero__links {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+}
+
+.api-hero__link {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  scroll-snap-align: start;
+}
+
+/* ---------- Tab 条：四 Tab 比首页三 Tab 窄，横向可滑 ---------- */
+
+.api-detail .api-tabs {
+  padding: var(--sp-2) var(--sp-5) var(--sp-3);
+  overflow-x: auto;
+}
+
+.api-detail .api-tabs button {
+  flex: 0 0 auto;
+  min-width: 72px;
+  padding: 0 var(--sp-4);
+}
+
+/* ---------- 配置 Tab 的分组卡 ---------- */
+
+.api-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-section__title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* ---------- Key 行 ---------- */
+
+.api-key {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 56px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.api-key:last-of-type {
+  border-bottom: 0;
+}
+
+.api-key__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--ink-4);
+  flex-shrink: 0;
+}
+
+.api-key__dot.is-bad {
+  background: var(--danger);
+}
+
+.api-key__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-key__value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-key__ops {
+  display: flex;
+  align-items: center;
+  /* 固定模式下一行要放 眼睛 + 单选 + 开关 + 删除，间距不能再给 8 */
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.api-key__icon {
+  /* 触控区就是 44×44，视觉靠图标本身收小 */
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+/* Key 上的备注名：点一下就变成输入框 */
+.api-key__label {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---------- 使用方式：轮询 / 固定 ---------- */
+
+/* ==========================================================================
+   二选一（轮询 / 固定、排队 / 报错）
+
+   ⚠️ 原本这里是原生 <input type="radio">，在 Android Chrome 上会被渲染成
+      一个很大的圆环，夹在图标之间非常突兀（用户实测反馈「雷霆大圆」）。
+      原生 radio 的外观各系统差异太大且控制不住，所以改成自绘按钮：
+      两个并排的胶囊，选中 = 描边变黑 + 字重 600。
+   ========================================================================== */
+
+.api-mode {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.api-mode button {
+  flex: 1;
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.api-mode button.is-on {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- 链接行 ---------- */
+
+.api-link-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 56px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.api-link-row:last-of-type {
+  border-bottom: 0;
+}
+
+.api-link-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-link-row__name {
+  font-size: var(--fs-base);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-link-row__url {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 引用提示 ---------- */
+
+.api-refs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.api-refs li {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+.danger-zone .btn--danger {
+  width: 100%;
+}
+
+/* ==========================================================================
+   模型 Tab（设计文档 §6.3）
+   ========================================================================== */
+
+.api-filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* 筛选胶囊：横向可滑，不要换行挤成两排 */
+.api-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.api-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.api-chips--wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.api-chips button {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+/* 热区补到 44：胶囊本身 36，上下各补 4 */
+.api-chips button::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+
+.api-chips button {
+  position: relative;
+}
+
+.api-chips button[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.api-search {
+  min-height: var(--tap-min);
+}
+
+/* ---------- 模型行 ---------- */
+
+/* 单个模型：长条横框 */
+.api-model {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 52px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.api-model.is-off .api-model__name,
+.api-model.is-off .api-model__tags {
+  opacity: 0.5;
+}
+
+.api-model__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-model__name {
+  font-size: var(--fs-base);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-model__tags {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.api-model__series,
+.api-model__ctx {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+/* ---------- 列表底部 ---------- */
+
+.api-models__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0 0;
+}
+
+/* 模型页的底部只留一层安全间距，不叠加容器与按钮区的留白。 */
+.api-body:has(> .api-models__foot) {
+  padding-bottom: max(var(--sp-4), env(safe-area-inset-bottom));
+}
+
+.api-models__count {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  text-align: center;
+}
+
+/* ==========================================================================
+   分配 Tab（设计文档 §7）
+   ========================================================================== */
+
+/* 摘要条：六种能力挤在一行，横向可滑 */
+.api-summary {
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.api-summary__title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.api-summary__row {
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.api-summary__row::-webkit-scrollbar {
+  display: none;
+}
+
+.api-summary__item {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.api-summary__item b {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+/* 分配行：标签在上、值在下，右侧一个箭头 */
+.api-assign-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 56px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.api-assign-row:last-child {
+  border-bottom: 0;
+}
+
+/* 挂在下面的备用 / 改写行：缩进一档，字号收小，视觉上从属 */
+.api-assign-row.is-aux,
+.api-assign-row.is-indented {
+  padding-left: var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.api-assign-row.is-aux {
+  min-height: 48px;
+}
+
+.api-assign-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-assign-row__label {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.api-assign-row__value {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-assign-row__value.is-unset {
+  color: var(--ink-4);
+}
+
+.api-assign-row__sub {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-assign-row__pick {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink-4);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---------- 竖排选项（选择器 / 改写模式都用） ---------- */
+
+.api-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.api-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.api-choice.is-on {
+  border-color: var(--ink);
+}
+
+.api-choice__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-choice__name {
+  font-size: var(--fs-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-choice__meta {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   分配页的分组标题 / App 折叠
+   ========================================================================== */
+
+.api-part {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.api-part + .api-section {
+  margin-top: var(--sp-2);
+}
+
+/* ---------- App 折叠块 ---------- */
+
+.api-app {
+  margin-bottom: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.api-app__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 60px;
+  padding: var(--sp-2) var(--sp-4);
+  cursor: pointer;
+  list-style: none;
+}
+
+/* 去掉浏览器默认的小三角 */
+.api-app__head::-webkit-details-marker {
+  display: none;
+}
+
+.api-app__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-app__name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.api-app__meta {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.api-app[open] .api-app__head > svg {
+  transform: rotate(90deg);
+}
+
+.api-app__body {
+  padding: 0 var(--sp-4) var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+
+/* 折叠块里的分组不再套一层卡片（避免圆角套圆角） */
+.api-app__body .api-section {
+  padding: var(--sp-3) 0 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+/* ==========================================================================
+   用量 / 日志（设计文档 §8、§6.4）
+   ========================================================================== */
+
+.api-usage__totals {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.api-usage__big {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.api-usage__big small {
+  margin-left: var(--sp-1);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.api-usage__side {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 按维度分组的清单：名字在左、数字在右 */
+.api-buckets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.api-bucket {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 32px;
+  padding: 0 var(--sp-1);
+}
+
+.api-bucket__name {
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-bucket__num {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+/* ---------- 日志条目 ---------- */
+
+.api-logs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.api-log {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.api-log__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-4);
+}
+
+.api-log__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.api-log__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.api-log__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.api-log__dot.is-bad {
+  background: var(--danger);
+}
+
+.api-log__meta {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.api-log__detail {
+  padding: 0 var(--sp-3) var(--sp-3);
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-2);
+}
+
+.api-log__line {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+
+.api-log__line.is-bad {
+  color: var(--danger);
+}
+
+/* ---------- 限制 Tab ---------- */
+
+.api-limits__live {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 模型级限制：四个输入框 2×2 */
+.api-model-limits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+/* 弹层里的分组：去掉卡片框，只用分组间距（避免圆角套圆角） */
+.api-editor__list .api-section {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  gap: var(--sp-2);
+}
+
+.api-editor__list .api-section + .api-section {
+  margin-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-4);
+}
+
+.api-editor__list .api-section__title {
+  margin: 0;
+}
+
+/* ==========================================================================
+   固定用哪个 Key：行首的选择位
+
+   为什么不用 <input type="radio">：Android Chrome 的默认 radio 是一个
+   很大的黑圆环，塞在图标之间非常突兀（用户实测反馈）。
+   这里用 44px 的按钮 + 内部小圆点，和状态点同一个视觉重量。
+   ========================================================================== */
+
+.api-key__choose {
+  position: relative;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  margin-left: calc(var(--sp-1) * -1);
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* 里面那个圆点：没选中是空心细环，选中是实心 */
+.api-key__choose::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--line-strong);
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.api-key__choose.is-on::before {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+/* 键盘聚焦时给个明确的框，别依赖颜色 */
+.api-key__choose:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--radius-full);
+}
+
+/* ==========================================================================
+   模型分组（系列 → 小类）
+   --------------------------------------------------------------------------
+   用户要求：
+     · 大类（Claude / GPT）里再分小类（Opus / Sonnet / Haiku）
+     · 分类可以折叠，默认展开
+     · 底下一堆模型用一个线框大框包起来
+   ========================================================================== */
+
+/* 外层大框：把整张模型表框成一块，和筛选区分开 */
+/* 外层大框：用户要的「线框」。用 --surface-2 灰底 + 1px 线框，
+   把整块模型区包起来。内边距让卡片和外框之间留出呼吸。 */
+.api-models-box {
+  /* 限制列表高度；重新拉取按钮留在框外，不随模型数量向下延伸。 */
+  max-height: min(52dvh, 520px);
+  flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ---------- 一个系列 ---------- */
+
+.api-models-box > .api-group {
+  flex-shrink: 0;
+}
+
+.api-group + .api-group {
+  margin-top: var(--sp-4);
+}
+
+/* 分组头：灰底小字标签，左对齐，不画边框 —— 它是「小类名」不是卡片。
+   模型本身才是长条框。这样分组头不会比模型框大一圈。 */
+.api-group__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 40px;
+  padding: var(--sp-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  text-align: left;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.api-group__title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.api-group__meta {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 展开时箭头转 90° */
+.api-group__head > svg {
+  color: var(--ink-4);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.api-group.is-open .api-group__head > svg {
+  transform: rotate(90deg);
+}
+
+.api-group__body {
+  display: flex;
+  flex-direction: column;
+  /* 卡片之间不留空隙，保留各自的边框和圆角。 */
+  gap: 0;
+  padding: 0;
+}
+
+/* ---------- 分组内模型 ---------- */
+/* 搜索框和「全部可用 / 已启用」并成一行，少占一行壳 */
+.api-search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.api-search-row .api-search {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 全部可用 / 已启用：共用一只气泡框，中缝斜切，当前项用黑白反色。 */
+.api-view-switch {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.api-view-switch__item {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.api-view-switch__item[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
+  padding-right: calc(var(--sp-3) + 4px);
+}
+
+.api-view-switch__item:last-child[aria-pressed='true'] {
+  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
+  padding-left: calc(var(--sp-3) + 4px);
+}
+
+.api-view-switch__item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

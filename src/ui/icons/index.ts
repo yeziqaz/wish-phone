@@ -48,6 +48,7 @@ export type LineIconName =
   | 'eyeOff'
   | 'zap'
   | 'world'
+  | 'book'
   | 'pencil'
   | 'image'
   | 'import'
@@ -55,6 +56,8 @@ export type LineIconName =
   | 'video'
   | 'chat'
   | 'character'
+  | 'refresh'
+  | 'more'
   | 'send';
 
 const LINE: Record<LineIconName, string> = {
@@ -108,6 +111,19 @@ const LINE: Record<LineIconName, string> = {
     '<path d="M20.5 3.5 10.2 13.8"/>' +
     '<path d="M20.5 3.5 14 20.5l-3.9-7.1L3 9.5z"/>',
 
+  // 刷新 / 重新生成
+  refresh:
+    '<path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/>' +
+    '<path d="M21 3v5h-5"/>' +
+    '<path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/>' +
+    '<path d="M3 21v-5h5"/>',
+
+  // 更多 / 三个点
+  more:
+    '<circle cx="12" cy="12" r="1.5"/>' +
+    '<circle cx="19" cy="12" r="1.5"/>' +
+    '<circle cx="5" cy="12" r="1.5"/>',
+
   // 人形：角色
   character:
     '<circle cx="12" cy="7.6" r="3.6"/>' +
@@ -143,6 +159,11 @@ const LINE: Record<LineIconName, string> = {
 
   // 闪电：测试连接
   zap: '<path d="M4.4 14a1 1 0 0 1-.8-1.6l9.6-9.9a.5.5 0 0 1 .9.5l-1.9 5.9a1 1 0 0 0 .9 1.3h6.5a1 1 0 0 1 .8 1.6l-9.6 9.9a.5.5 0 0 1-.9-.5l1.9-5.9a1 1 0 0 0-.9-1.3z"/>',
+
+  // 翻开的书：世界书
+  book:
+    '<path d="M3.5 5.2A2.2 2.2 0 0 1 5.7 3H11v17H5.7a2.2 2.2 0 0 0-2.2 2.2z"/>' +
+    '<path d="M20.5 5.2A2.2 2.2 0 0 0 18.3 3H13v17h5.3a2.2 2.2 0 0 1 2.2 2.2z"/>',
 };
 
 const LINE_ATTRS =

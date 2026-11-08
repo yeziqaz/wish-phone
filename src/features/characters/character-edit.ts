@@ -1,4 +1,11 @@
-import { getCharacter, getWorld, listBranches, newId, putCharacter } from '../../core/db';
+import {
+  getCharacter,
+  getWorld,
+  listBranches,
+  listWorldbooks,
+  newId,
+  putCharacter,
+} from '../../core/db';
 import { esc, find, must } from '../../core/dom';
 import { ensureWorlds, resolveBranch } from '../../core/worlds';
 import type { Character, CharacterPhoto } from '../../core/types';
@@ -88,6 +95,9 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   const world = character.worldId ? await getWorld(character.worldId) : undefined;
   const branches = world ? await listBranches(world.id) : [];
   const branch = branches.find((b) => b.id === character.branchId);
+
+  const books = await listWorldbooks();
+  const mounted = new Set(character.worldbookIds ?? []);
 
   const openings =
     [character.firstMes, ...character.alternateGreetings].filter((text) => text.trim().length > 0);
@@ -180,6 +190,40 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
                       placeholder="先写人物信息：长什么样、什么身份、经历过什么。&#10;&#10;换行写性格：几个词或几句话。&#10;&#10;再换行写场景：你们在哪儿、怎么认识的。">${esc(persona)}</textarea>
             <span class="field__hint">一段就行，用空行分成人物信息 / 性格 / 场景三段。这段会进提示词。</span>
           </label>
+        </div>
+      </section>
+
+      <section class="fold">
+        <button class="fold__head" type="button" data-fold aria-expanded="false">
+          世界书<span class="fold__chevron">${line('chevron', 16)}</span>
+        </button>
+        <div class="fold__body" hidden>
+          ${
+            books.length === 0
+              ? `<p class="field__hint">还没有世界书。写一本「提到什么才补上什么」的设定，再回来挂上。</p>
+                 <button class="btn" type="button" data-go="/settings/lore">去写一本</button>`
+              : `<p class="field__hint">挂上的书<strong>只对这个角色生效</strong>。没挂就不进提示词。</p>
+                 <div class="book-pick">
+                   ${books
+                     .map(
+                       (book) => `
+                     <label class="nav-item">
+                       <span class="nav-item__text">
+                         <span class="nav-item__title">${esc(book.name)}</span>
+                         <span class="nav-item__sub">${book.entries.length} 个条目${book.note.trim() ? ` · ${esc(book.note)}` : ''}</span>
+                       </span>
+                       <span class="nav-item__tail">
+                         <span class="switch">
+                           <input type="checkbox" data-book="${esc(book.id)}" ${mounted.has(book.id) ? 'checked' : ''}>
+                           <span class="switch__track"></span>
+                         </span>
+                       </span>
+                     </label>`,
+                     )
+                     .join('')}
+                 </div>
+                 <button class="btn" type="button" data-go="/settings/lore">管理世界书</button>`
+          }
         </div>
       </section>
 
@@ -392,6 +436,12 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
       character.firstMes = openingValues[0] ?? '';
       character.alternateGreetings = openingValues.slice(1);
       character.mesExample = read('#c-mesexample');
+      character.worldbookIds = [
+        ...root.querySelectorAll<HTMLInputElement>('[data-book]'),
+      ]
+        .filter((box) => box.checked)
+        .map((box) => box.dataset.book ?? '')
+        .filter((bookId) => bookId.length > 0);
       character.updatedAt = Date.now();
 
       character.photos = photos;

@@ -54,6 +54,41 @@ export interface Lorebook {
   entries: LorebookEntry[];
 }
 
+/* ---------- 世界书（愿望机自己写的） ---------- */
+
+/**
+ * 我们自己的一个条目。
+ *
+ * ⚠️ 和上面 `LorebookEntry`（ST / Character Card V3 的字段名）**不是一回事**：
+ *    - `LorebookEntry` 只在「导入别人的卡」时原样保留，别动它
+ *    - `WorldbookEntry` 是用户在我们界面里自己写、挂到角色身上的
+ *    混用会让界面代码到处出现 `keys` / `insertion_order` 这种名字，也会把
+ *    导出的卡写脏。以后「把卡里的书导成我们的书」是单独一步。
+ */
+export interface WorldbookEntry {
+  id: string;
+  /** 条目名，列表上显示；可以不填 */
+  name: string;
+  /** 真正要进提示词的那段字 */
+  content: string;
+  /** true = 常驻，每轮都进；false = 关键词命中才进 */
+  constant: boolean;
+  /** 关键词。判断方式是「包含」，默认不区分大小写 */
+  keywords: string[];
+  enabled: boolean;
+}
+
+/** 一本世界书。条目直接存在书里（ST 也是这么存的，量很小） */
+export interface Worldbook {
+  id: string;
+  name: string;
+  /** 一句话说明这本书管什么。只给人看，不进提示词 */
+  note: string;
+  entries: WorldbookEntry[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 /* ---------- 角色 ---------- */
 
 /** 照片裁切比例。放在 core 里，角色数据和界面都用它 */
@@ -140,6 +175,13 @@ export interface Character {
 
   /** 内置角色（wuli）。内置角色不能被当成普通卡删掉 */
   builtin?: boolean;
+
+  /**
+   * 挂在这个角色身上的世界书 id。
+   * 铁律：**谁挂谁生效**，没挂就不注入（见 docs/概念梳理-世界书-身份-好友.md §2）。
+   * 新建角色默认是空的，不自动挂任何书。
+   */
+  worldbookIds?: string[];
 }
 
 /* ---------- 世界（世界观 / 卷宗） ---------- */

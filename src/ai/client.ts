@@ -201,3 +201,126 @@ export async function testConnection(config: ApiConfig): Promise<{
     throw toApiError(error);
   }
 }
+
+/* ==========================================================================
+   静默 GET（给余额查询用）
+   --------------------------------------------------------------------------
+   为什么要单独一个函数：
+     request() 会把失败翻译成准备给用户看的 ApiError，
+     而余额查询要的恰恰是「查不到就安静地算了」，不是报错。
+
+   但它仍然必须住在 client.ts —— AGENTS §2：全项目只有这里能发 HTTP。
+   Key 依然只走 Authorization 头，不出现在 URL、body、日志里。
+   ========================================================================== */
+
+export async function silentJsonGet(
+  url: string,
+  options: { apiKey?: string; timeoutMs?: number } = {},
+): Promise<Record<string, unknown> | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 8000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {},
+      credentials: 'omit',
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+
+    const text = await response.text();
+    if (!text) return null;
+    // 返回的是网页（填错地址、被防护页挡）就当没有，不报错
+    if (/^\s*</.test(text.slice(0, 100))) return null;
+
+    const data: unknown = JSON.parse(text);
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* ==========================================================================
+   生图（设计文档 §9.2）
+   --------------------------------------------------------------------------
+   OpenAI 兼容的生图接口是 POST /images/generations，
+   返回 { data: [{ url }] } 或 { data: [{ b64_json }] }。
+
+   两种都要吃下：
+     · 给了 url → 直接把地址交给界面显示
+     · 给了 b64   → 拼成 data URL，省一次下载
+   ========================================================================== */
+
+export interface ImageResult {
+  /** data URL 或远程 http 地址，直接塞进 <img src> */
+  url: string;
+  /** 改写后的提示词（如果开了改写）会在上层填 */
+}
+
+export async function generateImage(
+  prompt: string,
+  config: ApiConfig & { size?: string },
+): Promise<ImageResult> {
+  const url = buildUrl(config.baseUrl, '/images/generations');
+
+  const response = await request(url, config, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: config.model,
+      prompt,
+      n: 1,
+      ...(config.size ? { size: config.size } : {}),
+    }),
+  });
+
+  const data = (await response.json()) as {
+    data?: Array<{ url?: string; b64_json?: string }>;
+  };
+
+  const first = data.data?.[0];
+  if (!first) {
+    throw classify('server', {
+      raw: JSON.stringify(data).slice(0, 1200),
+      detail: '接口说成功了，但一张图都没返回。',
+      hint: '可能是这个模型不支持这个接口，或者提示词被安全策略拦了。',
+    });
+  }
+
+  if (first.b64_json) return { url: `data:image/png;base64,${first.b64_json}` };
+  if (first.url) return { url: first.url };
+
+  throw classify('server', {
+    raw: JSON.stringify(first).slice(0, 800),
+    detail: '接口返回的图片里既没有地址也没有内容。',
+    hint: '换个模型试试，或者展开原始错误看看它到底返回了什么。',
+  });
+}
+
+/* ==========================================================================
+   语音合成（设计文档 §9.2）
+   --------------------------------------------------------------------------
+   POST /audio/speech 返回的是**二进制音频**，不是 JSON。
+   这里给回 Blob，界面自己做 object URL 播放。
+   ========================================================================== */
+
+export async function synthesizeSpeech(
+  text: string,
+  config: ApiConfig & { voice?: string; format?: string },
+): Promise<Blob> {
+  const url = buildUrl(config.baseUrl, '/audio/speech');
+
+  const response = await request(url, config, {
+    method: 'POST',
+    body: JSON.stringify({
+      model: config.model,
+      input: text,
+      voice: config.voice || 'alloy',
+      response_format: config.format || 'mp3',
+    }),
+  });
+
+  return response.blob();
+}

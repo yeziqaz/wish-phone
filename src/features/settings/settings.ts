@@ -1,4 +1,4 @@
-import { listProviders, stats } from '../../core/db';
+import { listProviders, listSites, listWorldbooks, stats } from '../../core/db';
 import type { StorageStats } from '../../core/db';
 import { formatBytes, must } from '../../core/dom';
 import { setStatusBarVisible, statusBarVisible } from '../../core/prefs';
@@ -24,9 +24,18 @@ function dataSummary(storage: StorageStats): string {
 }
 
 export async function mountSettings(root: HTMLElement): Promise<void> {
-  const [providers, storage] = await Promise.all([listProviders(), stats()]);
+  const [providers, storage, books, sites] = await Promise.all([
+    listProviders(),
+    stats(),
+    listWorldbooks(),
+    listSites(),
+  ]);
   const barOn = statusBarVisible();
   const configuredModules = new Set(providers.map((provider) => provider.kind ?? 'text')).size;
+
+  const entryCount = books.reduce((total, book) => total + book.entries.length, 0);
+  const loreSummary =
+    books.length === 0 ? '还没有世界书' : `${books.length} 本 · ${entryCount} 个条目`;
 
   root.innerHTML = `
     <div class="settings">
@@ -37,11 +46,11 @@ export async function mountSettings(root: HTMLElement): Promise<void> {
 
       <div class="nav-group">
 
-        <button class="nav-item" type="button" data-go="/settings/providers">
+        <button class="nav-item" type="button" data-go="/settings/api">
           <span class="nav-item__icon">${line('provider')}</span>
           <span class="nav-item__text">
             <span class="nav-item__title">API 与模型</span>
-            <span class="nav-item__sub">${configuredModules > 0 ? `${configuredModules} 个模块已配置` : '还没有配置'}</span>
+            <span class="nav-item__sub">${sites.length > 0 ? `${sites.length} 个站点` : configuredModules > 0 ? `${configuredModules} 个模块已配置` : '还没有配置'}</span>
           </span>
           <span class="nav-item__tail">${line('chevron', 18)}</span>
         </button>
@@ -51,6 +60,15 @@ export async function mountSettings(root: HTMLElement): Promise<void> {
           <span class="nav-item__text">
             <span class="nav-item__title">数据储存</span>
             <span class="nav-item__sub">${dataSummary(storage)}</span>
+          </span>
+          <span class="nav-item__tail">${line('chevron', 18)}</span>
+        </button>
+
+        <button class="nav-item" type="button" data-go="/settings/lore">
+          <span class="nav-item__icon">${line('book')}</span>
+          <span class="nav-item__text">
+            <span class="nav-item__title">世界书</span>
+            <span class="nav-item__sub">${loreSummary}</span>
           </span>
           <span class="nav-item__tail">${line('chevron', 18)}</span>
         </button>

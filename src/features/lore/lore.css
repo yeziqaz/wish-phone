@@ -1,0 +1,165 @@
+/* ==========================================================================
+   世界书：列表 + 条目编辑
+   ========================================================================== */
+
+.lore-hint {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+.lore-hint strong {
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+/* ---------- 条目分组标题 ---------- */
+
+.lore-section {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+
+.lore-section__title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+
+.lore-section__count {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+.lore-empty {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-3);
+  text-align: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+}
+
+/* ---------- 一条条目 ---------- */
+
+.lore-entry {
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.lore-entry__top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+
+/* 名字这一行是卡片标题，不是普通输入框：去掉底色和描边 */
+.lore-entry__name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.lore-entry__name:focus {
+  border: 0;
+  outline: none;
+}
+
+.lore-entry .textarea {
+  min-height: 96px;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+}
+
+/* ---------- 常驻 / 关键词触发 ---------- */
+
+.lore-mode {
+  display: flex;
+  margin-top: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  padding: 2px;
+}
+
+.lore-mode__item {
+  flex: 1;
+  min-height: 40px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background var(--dur-normal) var(--ease-out),
+    color var(--dur-normal) var(--ease-out);
+}
+
+.lore-mode__item[aria-checked='true'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.lore-entry__keys {
+  display: block;
+  margin-top: var(--sp-3);
+}
+
+.lore-entry__keys[hidden] {
+  display: none;
+}
+
+/* ---------- 删除这一条 ---------- */
+
+.lore-entry__del {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--tap-min);
+  margin-top: var(--sp-2);
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lore-entry__del:active {
+  color: var(--danger);
+}
+
+/* ---------- 加条目 ---------- */
+
+.lore-add {
+  width: 100%;
+  margin-bottom: var(--sp-3);
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--ink-2);
+}
+
+/* 深色下卡片边线不要太抢眼 */
+@media (prefers-color-scheme: dark) {
+  .lore-entry {
+    border-color: var(--line);
+  }
+}

@@ -158,6 +158,18 @@ function parseBody(text: string): Record<string, unknown> | null {
 }
 
 /**
+ * 这一坨看起来是网页吗？
+ *
+ * 用途：地址有时会被填成服务商官网或首页，请求会**成功返回 200，但内容是一张 HTML 页面**。
+ * 这时候直接 response.json()，浏览器会抛出
+ *   Failed to execute 'json' on 'Response': Unexpected token '<', "<!DOCTYPE "...
+ * 这句英文对用户没有任何意义，必须在进 json() 之前就拦下来。
+ */
+function looksLikeHtml(text: string): boolean {
+  return /^\s*(<!doctype\s+html|<html\b|<\?xml\b|<head\b|<body\b)/i.test(text.slice(0, 200));
+}
+
+/**
  * 把一个 HTTP 响应分类成人话错误。成功时返回 null。
  * 这一步是「测试连接」和「聊天」共用的核心。
  */
@@ -168,7 +180,28 @@ export async function describeResponse(response: Response): Promise<ApiError | n
   if (response.ok) {
     // 有些服务状态码是 200，但 body 里写着错误
     const data = parseBody(text);
-    if (data && (data.error || data.detail || looksLikeQuota(text))) {
+
+    // 200，但内容压根不是 JSON —— 光这一条就能解释绝大多数「地址填成了网站」
+    if (!data) {
+      const trimmed = text.trim();
+      if (!trimmed) return null; // 空 body 交给调用方按「没有内容」处理
+      if (looksLikeHtml(trimmed)) {
+        return classify('notFound', {
+          status: response.status,
+          raw,
+          detail: '这个地址回了一整页网页，不是接口数据。可能是地址填成了服务商首页，也可能是被防护页挡在了外面。',
+          hint: '接口地址一般长这样：https://api.example.com/v1。检查一下是不是漏了 /v1、填成了官网；如果地址没错，换个网络再试。',
+        });
+      }
+      return classify('server', {
+        status: response.status,
+        raw,
+        detail: '接口回了 200，但内容不是 JSON，读不出来。',
+        hint: '可能是这个接口的返回格式和 OpenAI 不一样。展开原始错误能看它到底回了什么。',
+      });
+    }
+
+    if (data.error || data.detail || looksLikeQuota(text)) {
       return classify(looksLikeQuota(text) ? 'quota' : 'server', {
         raw,
         detail: `接口返回了错误：${pickMessage(data, '未知错误')}`,
@@ -249,13 +282,21 @@ async function probeReachable(url?: string): Promise<boolean> {
   }
 }
 
-/** 把任何抛出的东西统一成一个 ApiError（已经是 ApiError 就原样返回） */
+/**
+ * 把任何抛出的东西统一成一个 ApiError（已经是 ApiError 就原样返回）。
+ *
+ * ⚠️ 兜底路径**不许**把 error.message 当正文显示 —— 浏览器抛的是英文
+ *    （"Failed to execute 'json' on 'Response'..."），直接显示等于没翻译。
+ *    英文原文塞进 raw，只出现在「查看原始错误」折叠区里。
+ */
 export function toApiError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
+  const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   return new ApiError({
     kind: 'unknown',
     title: COPY.unknown.title,
-    detail: error instanceof Error ? error.message : String(error),
+    detail: COPY.unknown.detail,
     hint: COPY.unknown.hint,
+    raw,
   });
 }

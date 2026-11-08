@@ -118,14 +118,27 @@ function chooseModel(
 function moduleRows(ctx: Ctx): string {
   return MODULES.map((module) => {
     const count = ctx.providers.filter((provider) => (provider.kind ?? 'text') === module.kind).length;
-    const global = refSummary(ctx.providers, ctx.bindings.byKind[module.kind]) || '未设置';
+    const globalRef = ctx.bindings.byKind[module.kind];
+    const global = refSummary(ctx.providers, globalRef);
+    
+    // 状态徽章：当前使用 / 已配置 / 缺失
+    let badgeHTML = '';
+    if (global) {
+      badgeHTML = '<span class="status-badge status-badge--active">当前使用</span>';
+    } else if (count > 0) {
+      badgeHTML = '<span class="status-badge status-badge--ready">已配置</span>';
+    } else {
+      badgeHTML = '<span class="status-badge status-badge--missing">未配置</span>';
+    }
+
     return `
       <button class="nav-item" type="button" data-go="/settings/api/${module.kind}">
         <span class="nav-item__icon">${line(module.icon, 20)}</span>
         <span class="nav-item__text">
           <span class="nav-item__title">${module.title}</span>
-          <span class="nav-item__sub">${count} 个服务商 · ${esc(global)}</span>
+          <span class="nav-item__sub">${count} 个服务商 · ${esc(global || '未设置')}</span>
         </span>
+        ${badgeHTML}
         <span class="nav-item__tail">${line('chevron', 18)}</span>
       </button>`;
   }).join('');
@@ -136,24 +149,42 @@ function bindRows(ctx: Ctx): string {
   const forCharacter = ctx.view === 'character';
 
   const rows = MODULES.map((module) => {
-    const global = refSummary(ctx.providers, ctx.bindings.byKind[module.kind]) || '未设置';
+    const global = refSummary(ctx.providers, ctx.bindings.byKind[module.kind]);
     const override = character
       ? ctx.bindings.characters[character.id]?.[module.kind]
       : undefined;
-    const value = forCharacter
-      ? override
-        ? refSummary(ctx.providers, override)
-        : `跟随全局（${global}）`
-      : global;
+    const overrideSummary = refSummary(ctx.providers, override);
 
-    const required = module.kind === 'text' && !forCharacter && value === '未设置';
+    let badgeHTML = '';
+    let value = '';
+
+    if (forCharacter) {
+      if (overrideSummary) {
+        value = overrideSummary;
+        badgeHTML = '<span class="status-badge status-badge--active">专属覆盖</span>';
+      } else {
+        value = global ? `跟随全局（${global}）` : '未设置';
+        badgeHTML = '<span class="status-badge status-badge--inherit">继承全局</span>';
+      }
+    } else {
+      if (global) {
+        value = global;
+        badgeHTML = '<span class="status-badge status-badge--active">当前使用</span>';
+      } else {
+        value = '未设置';
+        badgeHTML = module.kind === 'text'
+          ? '<span class="status-badge status-badge--missing">必须设置</span>'
+          : '<span class="status-badge status-badge--missing">未设置</span>';
+      }
+    }
 
     return `
       <button class="nav-item" type="button" data-pick="${module.kind}">
         <span class="nav-item__text">
-          <span class="nav-item__title">${MODEL_KIND_LABEL[module.kind]}模型${required ? ' · 必须' : ''}</span>
+          <span class="nav-item__title">${MODEL_KIND_LABEL[module.kind]}模型</span>
           <span class="nav-item__sub">${esc(value)}</span>
         </span>
+        ${badgeHTML}
         <span class="nav-item__tail">${line('chevron', 18)}</span>
       </button>`;
   }).join('');
@@ -232,6 +263,8 @@ export async function mountProviderList(root: HTMLElement): Promise<void> {
 
         // 先去选一个模型；没有模型时给一句人话
         if (modelChoices(state, kind).length === 0) {
+          // 同一时刻只留一条提示：连点或换一类点，都替换而不是叠加
+          root.querySelectorAll('.field__note.is-bad').forEach((node) => node.remove());
           const note = document.createElement('p');
           note.className = 'field__note is-bad';
           note.textContent = `还没有${MODEL_KIND_LABEL[kind]}模型，先点上面的「${MODEL_KIND_LABEL[kind]} API」拉取。`;
