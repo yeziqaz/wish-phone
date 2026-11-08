@@ -14,7 +14,15 @@ import type { Character, Conversation, Message } from '../../core/types';
 import { esc, must } from '../../core/dom';
 import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
-import { callImage, callSpeech, callText, getProfile, SetupError as AiSetupError } from '../../ai/call';
+import {
+  callImage,
+  callSpeech,
+  callText,
+  getProfile,
+  assign,
+  SetupError as AiSetupError,
+} from '../../ai/call';
+import { openModelPicker } from '../api/model-picker';
 import { ApiError } from '../../ai/errors';
 import './chat.css';
 
@@ -184,6 +192,10 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
             <span class="drawer-item__icon">${line('mic', 20)}</span>
             <span class="drawer-item__label">读出来</span>
           </button>
+          <button class="drawer-item" type="button" id="drawer-model">
+            <span class="drawer-item__icon">${line('provider', 20)}</span>
+            <span class="drawer-item__label" id="drawer-model-label">换模型</span>
+          </button>
           <button class="drawer-item" type="button" data-go="/settings/lore">
             <span class="drawer-item__icon">${line('book', 20)}</span>
             <span class="drawer-item__label">世界书</span>
@@ -201,6 +213,8 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   const retryBtn = must<HTMLButtonElement>(root, '#drawer-retry');
   const imageBtn = must<HTMLButtonElement>(root, '#drawer-image');
   const speakBtn = must<HTMLButtonElement>(root, '#drawer-speak');
+  const modelBtn = must<HTMLButtonElement>(root, '#drawer-model');
+  const modelLabel = must<HTMLElement>(root, '#drawer-model-label');
 
   let busy = false;
 
@@ -593,6 +607,42 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   retryBtn.addEventListener('click', () => void retryLast());
   imageBtn.addEventListener('click', () => void drawImage());
   speakBtn.addEventListener('click', () => void speakLast());
+
+  const updateCurrentModelLabel = async (): Promise<void> => {
+    try {
+      const profile = await getProfile('text', context);
+      modelLabel.textContent = profile.model.name || profile.model.id || '换模型';
+      modelLabel.title = `当前：${profile.site.name} / ${profile.model.name}`;
+    } catch {
+      modelLabel.textContent = '换模型';
+      modelLabel.title = '尚未配置可用模型';
+    }
+  };
+  void updateCurrentModelLabel();
+
+  modelBtn.addEventListener('click', () => {
+    drawer.hidden = true;
+    chatPage.classList.remove('is-drawer');
+    void (async () => {
+      let currentTarget: { siteId: string; modelId: string } | null = null;
+      try {
+        const profile = await getProfile('text', context);
+        currentTarget = { siteId: profile.site.id, modelId: profile.model.id };
+      } catch {
+        currentTarget = null;
+      }
+      const picked = await openModelPicker('text', currentTarget, {
+        allowNone: true,
+        title: `切换「${character.name || '当前角色'}」的文本模型`,
+        noneLabel: '跟随上级设置',
+      });
+      await assign('role', character.id, 'text', picked);
+      await updateCurrentModelLabel();
+      // 成功切换后刷新页面顶部的设置缺失提示
+      const existingSetupBanner = list.querySelector('.chat-setup');
+      if (existingSetupBanner) existingSetupBanner.remove();
+    })();
+  });
 
   /* ---------- 气泡快捷点击 / 操作栏 ---------- */
   list.addEventListener('click', (event) => {

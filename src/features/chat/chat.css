@@ -413,6 +413,11 @@
 .drawer-item__label {
   font-size: var(--fs-caption);
   color: var(--ink-2);
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
 }
 
 /* 顶部配置提醒条 */
