@@ -23,6 +23,7 @@ import {
   SetupError as AiSetupError,
 } from '../../ai/call';
 import { openModelPicker } from '../api/model-picker';
+import { parseCharacterAction } from './chat-action';
 import { ApiError } from '../../ai/errors';
 import './chat.css';
 
@@ -78,6 +79,9 @@ function buildSystem(character: Character, worldDescription: string, lore: strin
     // 世界书：常驻的全进，关键词命中的才进
     lore,
     character.mesExample.trim() ? `【说话示范】\n${character.mesExample}` : '',
+    // 线上聊天不要把动作塞进句子里 —— 动作统一写在最前面的圆括号里，
+    // 界面会把它剥到「此刻」小窗，气泡里只留说出口的话。
+    '【动作描写】需要动作、神态、环境时，写在整条消息的最前面，用一对圆括号包住，例如「（我把杯子放下，抬眼看你）今天怎么这么晚」。不要写在句子中间，也不要用星号。',
     '【规则】用第一人称，保持角色口吻和情绪；不要替对方说话；不要解释自己是 AI；像在手机上聊天一样自然，别长篇大论。',
   ];
   return blocks.filter(Boolean).join('\n\n');
@@ -176,30 +180,34 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
         </div>
 
         <div class="chat-drawer" id="chat-drawer" hidden>
-          <button class="drawer-item" type="button" id="drawer-retry">
-            <span class="drawer-item__icon">${line('refresh', 22)}</span>
-            <span class="drawer-item__label">重新回答</span>
-          </button>
-          <button class="drawer-item" type="button" data-go="/character/${esc(character.id)}">
-            <span class="drawer-item__icon">${line('pencil', 20)}</span>
-            <span class="drawer-item__label">角色设定</span>
-          </button>
-          <button class="drawer-item" type="button" id="drawer-image">
-            <span class="drawer-item__icon">${line('image', 20)}</span>
-            <span class="drawer-item__label">画一张</span>
-          </button>
-          <button class="drawer-item" type="button" id="drawer-speak">
-            <span class="drawer-item__icon">${line('mic', 20)}</span>
-            <span class="drawer-item__label">读出来</span>
-          </button>
-          <button class="drawer-item" type="button" id="drawer-model">
-            <span class="drawer-item__icon">${line('provider', 20)}</span>
-            <span class="drawer-item__label" id="drawer-model-label">换模型</span>
-          </button>
-          <button class="drawer-item" type="button" data-go="/settings/lore">
-            <span class="drawer-item__icon">${line('book', 20)}</span>
-            <span class="drawer-item__label">世界书</span>
-          </button>
+          <div class="chat-drawer-swiper">
+            <div class="chat-drawer-page">
+              <button class="drawer-item" type="button" id="drawer-retry">
+                <span class="drawer-item__icon">${line('refresh', 22)}</span>
+                <span class="drawer-item__label">重新回答</span>
+              </button>
+              <button class="drawer-item" type="button" data-go="/character/${esc(character.id)}">
+                <span class="drawer-item__icon">${line('pencil', 20)}</span>
+                <span class="drawer-item__label">角色设定</span>
+              </button>
+              <button class="drawer-item" type="button" id="drawer-image">
+                <span class="drawer-item__icon">${line('image', 20)}</span>
+                <span class="drawer-item__label">画一张</span>
+              </button>
+              <button class="drawer-item" type="button" id="drawer-speak">
+                <span class="drawer-item__icon">${line('mic', 20)}</span>
+                <span class="drawer-item__label">读出来</span>
+              </button>
+              <button class="drawer-item" type="button" id="drawer-model">
+                <span class="drawer-item__icon">${line('provider', 20)}</span>
+                <span class="drawer-item__label" id="drawer-model-label">换模型</span>
+              </button>
+              <button class="drawer-item" type="button" data-go="/settings/lore">
+                <span class="drawer-item__icon">${line('book', 20)}</span>
+                <span class="drawer-item__label">世界书</span>
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
     </div>`;
@@ -294,18 +302,37 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   const timeHTML = (iso: string): string =>
     `<div class="chat-time">${esc(timeLabel(iso))}</div>`;
 
+  /* ---------- 气泡 ----------
+
+     「此刻」小窗：角色把动作/神态写成 (……) 是角色卡里的常见写法，
+     但直接留在气泡里会把「线上聊天」演成剧本，所以剥出来单独放一条
+     可点开的小窗，气泡本身只留纯对话。 */
+
+  const actionBadgeHTML = (text: string): string => `
+    <button class="msg-action-badge" type="button" data-action-badge aria-expanded="false">
+      <span class="msg-action-badge__icon">${line('sparkle', 13)}</span>
+      <span class="msg-action-badge__text">${esc(text)}</span>
+    </button>`;
+
   const bubbleRowHTML = (message: Message, isLastAssistant: boolean): string => {
     const isUser = message.role === 'user';
     const avatar = isUser ? '' : avatarHTML(character.name || '未命名', 36, character.avatarKey);
     // 生图消息：正文是提示词，图在 extra.imageUrl
     const imageUrl = typeof message.extra?.imageUrl === 'string' ? message.extra.imageUrl : '';
+    // 只有角色的纯文本消息才拆动作；用户自己写的括号是他自己的口吻，不动
+    const parsed =
+      !isUser && !imageUrl
+        ? parseCharacterAction(message.content)
+        : { actionText: null, mainText: message.content };
+    const badge = parsed.actionText ? actionBadgeHTML(parsed.actionText) : '';
     const body = imageUrl
       ? `<div class="msg-image"><img src="${esc(imageUrl)}" alt="${esc(message.content)}" loading="lazy" /></div>`
-      : `<div class="msg-bubble" data-bubble>${esc(message.content)}</div>`;
+      : `<div class="msg-bubble" data-bubble>${esc(parsed.mainText)}</div>`;
     return `
       <div class="msg-row ${isUser ? 'msg-row--user' : 'msg-row--assistant'}" data-msg-id="${esc(message.id)}">
         ${isUser ? '' : `<div class="msg-avatar">${avatar}</div>`}
         <div class="msg-content">
+          ${badge}
           ${body}
           <div class="msg-actions">
             <button class="msg-action-btn" type="button" data-act="copy">复制</button>
@@ -433,12 +460,15 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       if (shouldShowTime(prev, assistant)) {
         list.insertAdjacentHTML('beforeend', timeHTML(assistant.createdAt));
       }
+      // 逐字回放只打字，所以「此刻」小窗一开始就摆好，先给整句动作。
+      const streamed = parseCharacterAction(assistant.content);
       list.insertAdjacentHTML(
         'beforeend',
         `
         <div class="msg-row msg-row--assistant" data-msg-id="${esc(assistant.id)}">
           <div class="msg-avatar">${avatarHTML(character.name || '未命名', 36, character.avatarKey)}</div>
           <div class="msg-content">
+            ${streamed.actionText ? actionBadgeHTML(streamed.actionText) : ''}
             <div class="msg-bubble" data-bubble></div>
             <div class="msg-actions">
               <button class="msg-action-btn" type="button" data-act="copy">复制</button>
@@ -449,7 +479,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
         </div>`,
       );
       const bubble = list.lastElementChild?.querySelector<HTMLElement>('[data-bubble]');
-      if (bubble) await playText(bubble, assistant.content);
+      if (bubble) await playText(bubble, streamed.mainText);
       renderAllMessages();
     } catch (error) {
       hideTyping();
@@ -647,6 +677,15 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   /* ---------- 气泡快捷点击 / 操作栏 ---------- */
   list.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
+
+    // 「此刻」小窗：单击展开全文 / 再单击收回。不触发气泡选中，两件事互不干扰。
+    const badge = target.closest<HTMLElement>('[data-action-badge]');
+    if (badge) {
+      const open = badge.classList.toggle('is-open');
+      badge.setAttribute('aria-expanded', String(open));
+      return;
+    }
+
     const act = target.dataset.act;
     const row = target.closest<HTMLElement>('.msg-row');
     if (!row) return;

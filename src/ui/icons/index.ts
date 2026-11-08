@@ -58,7 +58,8 @@ export type LineIconName =
   | 'character'
   | 'refresh'
   | 'more'
-  | 'send';
+  | 'send'
+  | 'sparkle';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -164,6 +165,11 @@ const LINE: Record<LineIconName, string> = {
   book:
     '<path d="M3.5 5.2A2.2 2.2 0 0 1 5.7 3H11v17H5.7a2.2 2.2 0 0 0-2.2 2.2z"/>' +
     '<path d="M20.5 5.2A2.2 2.2 0 0 0 18.3 3H13v17h5.3a2.2 2.2 0 0 1 2.2 2.2z"/>',
+
+  // 四角星：此刻（角色的动作与神态）
+  sparkle:
+    '<path d="M11.4 3.2c.5 3.7 2.5 5.7 6.2 6.2-3.7.5-5.7 2.5-6.2 6.2-.5-3.7-2.5-5.7-6.2-6.2 3.7-.5 5.7-2.5 6.2-6.2z"/>' +
+    '<path d="M18 15.4c.2 1.5 1 2.3 2.5 2.5-1.5.2-2.3 1-2.5 2.5-.2-1.5-1-2.3-2.5-2.5 1.5-.2 2.3-1 2.5-2.5z"/>',
 };
 
 const LINE_ATTRS =

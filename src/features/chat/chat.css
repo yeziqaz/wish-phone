@@ -361,26 +361,59 @@
   pointer-events: none;
 }
 
-/* 底部扩展抽屉（QQ 风格点击 + 号展开） */
+/* 底部扩展抽屉：仿微信/QQ 网格面板，方框内无缝贴合、无底部长白条 */
 .chat-drawer {
   display: flex;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--sp-4));
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--sp-2));
   background: var(--surface-2);
   border-top: var(--border-w) solid var(--line);
-  overflow-x: auto;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* 面板与最近一次软键盘等高；键盘退场时减去其尚占用的可视区域。 */
 .chat-page.is-drawer .chat-drawer {
-  height: max(0px, calc(var(--chat-keyboard-height, 300px) - var(--chat-keyboard-overlap, 0px)));
+  height: max(180px, calc(var(--chat-keyboard-height, 280px) - var(--chat-keyboard-overlap, 0px)));
   flex-shrink: 0;
-  align-items: flex-start;
   box-sizing: border-box;
 }
 
 .chat-drawer[hidden] {
   display: none;
+}
+
+.chat-drawer-swiper {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  flex: 1;
+  align-items: center;
+}
+
+.chat-drawer-swiper::-webkit-scrollbar {
+  display: none;
+}
+
+/* 用 flex 换行而不是 grid：一行固定 4 个（对齐微信/QQ 的节奏），
+   剩下不足一行时自动居中，不会出现「半排空位」那种没做完的样子。 */
+.chat-drawer-page {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3) var(--sp-2);
+  width: 100%;
+  min-width: 100%;
+  scroll-snap-align: start;
+  align-content: center;
+  box-sizing: border-box;
+}
+
+.chat-drawer-page > .drawer-item {
+  flex: 0 0 calc((100% - 3 * var(--sp-2)) / 4);
+  max-width: 88px;
 }
 
 .drawer-item {
@@ -393,13 +426,14 @@
   font: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  padding: var(--sp-1) 0;
 }
 
 .drawer-item__icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   background: var(--surface);
   border: var(--border-w) solid var(--line);
   border-radius: var(--radius-lg);
@@ -413,11 +447,58 @@
 .drawer-item__label {
   font-size: var(--fs-caption);
   color: var(--ink-2);
-  max-width: 64px;
+  max-width: 68px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
+}
+
+/* 角色「此刻」小窗：把动作/神态从气泡里剥出来单独放
+   收起时一行省略号，点开才铺开全文。 */
+.msg-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--sp-1);
+  padding: 5px 10px;
+  max-width: min(100%, 258px);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.msg-action-badge__icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--ink-3);
+}
+
+.msg-action-badge__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-action-badge.is-open {
+  align-items: flex-start;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
+.msg-action-badge.is-open .msg-action-badge__text {
+  overflow: visible;
+  white-space: normal;
 }
 
 /* 顶部配置提醒条 */
