@@ -5,6 +5,12 @@ import type { Character, Conversation, Moment } from '../../../core/types';
 import { avatarHTML } from '../../../ui/avatar';
 import { line } from '../../../ui/icons';
 import { appAppearanceOf, loadAppAppearance, loadAssets, loadBeauty } from '../beauty/store';
+import {
+  loadContactGroups,
+  openGroupManager,
+  renderGroupedContactsHTML,
+  toggleGroupCollapsed,
+} from './contact-groups';
 import { meViewHTML, mountMeView } from './me-view';
 import { momentsViewHTML, mountMomentsView, openMomentComposer } from './moments-view';
 import './chat-home.css';
@@ -68,6 +74,7 @@ function relativeTime(timestamp: number): string {
 
 export async function mountChatHome(root: HTMLElement): Promise<void> {
   const [characters, conversations] = await Promise.all([listCharacters(), listConversations()]);
+  await loadContactGroups(characters);
 
   // 每个角色对应最近的一条会话，没有会话就当作「还没开始」，仍然列出来
   const byCharacter = new Map<string, Conversation>();
@@ -218,16 +225,21 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
       actionBtn.setAttribute('aria-label', tab === 'moments' ? '发动态' : '新建');
     }
 
-    if (tab === 'chats') {
-      body.innerHTML =
-        rows.length === 0
-          ? empty('还没有聊天', '先去建一个角色，回来就能开聊。', {
-              label: '去角色页',
-              go: '/character',
-            })
-          : `<ul class="chatapp__list">${rows
-              .map(
-                (row) => `
+    const renderChatList = (keyword: string): string => {
+      const q = keyword.trim().toLowerCase();
+      const filtered = q
+        ? rows.filter(
+            (row) =>
+              row.character.name.toLowerCase().includes(q) ||
+              row.preview.toLowerCase().includes(q),
+          )
+        : rows;
+      if (filtered.length === 0) {
+        return `<div class="chatapp-empty"><p class="chatapp-empty__hint">没有找到匹配的聊天</p></div>`;
+      }
+      return `<ul class="chatapp__list">${filtered
+        .map(
+          (row) => `
               <li>
                 <button class="chat-row" type="button" data-go="/chat/${esc(row.character.id)}">
                   <span class="chat-row__avatar">
@@ -242,36 +254,86 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
                   </span>
                 </button>
               </li>`,
-              )
-              .join('')}</ul>`;
+        )
+        .join('')}</ul>`;
+    };
+
+    if (tab === 'chats') {
+      if (rows.length === 0) {
+        body.innerHTML = empty('还没有聊天', '先去建一个角色，回来就能开聊。', {
+          label: '去角色页',
+          go: '/character',
+        });
+        return;
+      }
+      body.innerHTML = `
+        <div class="chatapp-search">
+          <span class="chatapp-search__icon">${line('search', 18)}</span>
+          <input class="chatapp-search__input" id="chatapp-search-input" type="search"
+                 placeholder="搜索" autocomplete="off" spellcheck="false" aria-label="搜索聊天">
+        </div>
+        <div id="chatapp-list-wrap">${renderChatList('')}</div>`;
+      const searchInput = body.querySelector<HTMLInputElement>('#chatapp-search-input');
+      const listWrap = body.querySelector<HTMLElement>('#chatapp-list-wrap');
+      searchInput?.addEventListener(
+        'input',
+        () => {
+          if (listWrap) listWrap.innerHTML = renderChatList(searchInput.value);
+        },
+        { signal },
+      );
       return;
     }
 
     if (tab === 'contacts') {
-      body.innerHTML =
-        characters.length === 0
-          ? empty('还没有联系人', '建一个角色，他就会出现在这里。', {
-              label: '去角色页',
-              go: '/character',
-            })
-          : `<ul class="chatapp__list">${characters
-              .map(
-                (character) => `
-              <li>
-                <button class="chat-row chat-row--contact" type="button" data-go="/character/${esc(character.id)}">
-                  <span class="chat-row__avatar">
-                    ${avatarHTML(character.name || '未命名', 44, character.avatarKey, character.avatarFrame)}
-                  </span>
-                  <span class="chat-row__main">
-                    <span class="chat-row__line">
-                      <span class="chat-row__name">${esc(character.name || '未命名')}</span>
-                    </span>
-                    <span class="chat-row__preview">${esc(character.relationToUser?.trim() || character.personality.slice(0, 30) || '还没有写设定')}</span>
-                  </span>
-                </button>
-              </li>`,
-              )
-              .join('')}</ul>`;
+      if (characters.length === 0) {
+        body.innerHTML = empty('还没有联系人', '建一个角色，他就会出现在这里。', {
+          label: '去角色页',
+          go: '/character',
+        });
+        return;
+      }
+      body.innerHTML = `
+        <div class="chatapp-search-row">
+          <div class="chatapp-search">
+            <span class="chatapp-search__icon">${line('search', 18)}</span>
+            <input class="chatapp-search__input" id="contacts-search-input" type="search"
+                   placeholder="搜索联系人或分组" autocomplete="off" spellcheck="false" aria-label="搜索联系人">
+          </div>
+          <button class="cg-manage-btn jelly" type="button" id="contacts-group-manage">分组</button>
+        </div>
+        <div id="chatapp-contacts-wrap">${renderGroupedContactsHTML(characters, '')}</div>`;
+
+      const searchInput = body.querySelector<HTMLInputElement>('#contacts-search-input');
+      const contactsWrap = body.querySelector<HTMLElement>('#chatapp-contacts-wrap');
+      const repaintContacts = () => {
+        if (contactsWrap) {
+          contactsWrap.innerHTML = renderGroupedContactsHTML(characters, searchInput?.value ?? '');
+        }
+      };
+
+      searchInput?.addEventListener('input', repaintContacts, { signal });
+
+      contactsWrap?.addEventListener(
+        'click',
+        (event) => {
+          const toggleBtn = (event.target as HTMLElement).closest<HTMLElement>('[data-toggle-group]');
+          if (!toggleBtn) return;
+          const groupName = toggleBtn.dataset.toggleGroup;
+          if (!groupName) return;
+          toggleGroupCollapsed(groupName);
+          repaintContacts();
+        },
+        { signal },
+      );
+
+      body.querySelector<HTMLButtonElement>('#contacts-group-manage')?.addEventListener(
+        'click',
+        () => {
+          openGroupManager(characters, repaintContacts);
+        },
+        { signal },
+      );
       return;
     }
 

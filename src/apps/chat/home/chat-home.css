@@ -13,8 +13,8 @@
   flex-direction: column;
   height: 100dvh;
   background: var(--bg);
-  /* 主题底色在这里兜底；下面主题层会覆盖它 */
-  background: var(--beauty-app-background, var(--bg));
+  /* 用导航色做底，下方 body 顶部切出 20px 圆角时，四角自然露出顶栏颜色 */
+  background: var(--beauty-app-navigation, var(--bg));
 }
 
 /* ---------- 顶部栏 ----------
@@ -26,17 +26,24 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  /* 固定内容区高度 44px，上下各留 4px，总高 52px（和聊天室顶栏一致）；
+     切到「我」隐藏右侧 + 号时，高度和标题垂直居中位置也不跳动 */
+  height: var(--tap-min);
+  padding: calc(env(safe-area-inset-top) + var(--sp-1)) var(--sp-4) var(--sp-1);
+  box-sizing: content-box;
   background: var(--beauty-app-navigation, var(--bg));
   flex-shrink: 0;
 }
 
 .chatapp__title {
   margin: 0;
+  font-family: var(--font-sans);
   font-size: var(--fs-title);
   font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
   letter-spacing: var(--tracking-tight);
   color: var(--beauty-app-ink, var(--ink));
+  white-space: nowrap;
 }
 
 /* 顶栏右侧那个「+」：参考图是无框的纯符号。
@@ -66,9 +73,87 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* 底部留出 tabbar 的高度，否则最后一行会被遮住 */
-  padding: var(--sp-1) var(--sp-3) var(--sp-6);
+  /* 四个板块统一使用页面底色，与顶栏导航色形成圆角切割 */
+  background: var(--beauty-app-background, var(--surface-2));
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  /* 顶部留出 12px 呼吸间隙，避免列表/搜索框贴着圆角边缘；底部留出 tabbar 空间 */
+  padding: var(--sp-3) var(--sp-3) var(--sp-6);
   -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- QQ 风格搜索框（与顶部栏同色） ---------- */
+.chatapp-search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.chatapp-search-row .chatapp-search {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.chatapp-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  margin-bottom: var(--sp-3);
+  background: var(--beauty-app-navigation, var(--surface));
+  border: var(--border-w) solid var(--app-line, var(--line));
+  border-radius: var(--radius-full);
+  box-sizing: border-box;
+}
+
+.cg-manage-btn {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--beauty-app-ink, var(--ink));
+  background: var(--beauty-app-navigation, var(--surface));
+  border: var(--border-w) solid var(--app-line, var(--line));
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cg-manage-btn:active {
+  background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 10%, var(--beauty-app-navigation, var(--surface)));
+}
+
+.chatapp-search:focus-within {
+  border-color: var(--beauty-app-accent, var(--line-strong));
+}
+
+.chatapp-search__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+.chatapp-search__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--beauty-app-ink, var(--ink));
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.chatapp-search__input::placeholder {
+  color: var(--beauty-app-muted, var(--ink-4));
 }
 
 .chatapp__list {
@@ -77,27 +162,21 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  gap: var(--sp-2);
 }
 
-/* ---------- 会话行（QQ 风格：独立圆角块） ----------
-
-   微信是一条条紧贴、靠分割线分开。
-   这里改成每行独立成块：白底 + 圆角 + 之间留 4px。
-   好处是头像不会被分割线切到，坏处是行数多时看起来更松 ——
-   但角色数量不会到几十个，松一点更像「卡片」。 */
+/* ---------- 会话行（与「我」「朋友圈」统一的圆角卡片） ---------- */
 
 .chat-row {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   width: 100%;
-  padding: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
   font: inherit;
   text-align: left;
   background: var(--beauty-app-panel, var(--surface));
-  border: var(--border-w) solid var(--line);
-  /* QQ 的手感主要来自这里：16px，比微信的方角圆得多 */
+  border: var(--border-w) solid var(--app-line, var(--line));
   border-radius: var(--radius-lg);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -887,17 +966,14 @@
    ========================================================================== */
 
 .chatapp {
-  background: var(--beauty-app-background, var(--surface-2));
+  background: var(--beauty-app-navigation, var(--surface));
 }
 
 /* 顶栏和底栏：底色跟着 navigation 走。
-   ⚠️ 2026-11-12 修：这两处原先拿 --beauty-app-muted 当描边色 —— 那是「次要文字」
-   的灰，一旦用户改过外观就变成一条深灰硬线横贯屏顶屏底。参考图里没有这条线，
-   现在改用和背景同族的淡描边（见下面的 --app-line）。 */
+   顶栏去掉底线，让下方 body 的 20px 圆角直接从顶栏底色里切出来。 */
 .chatapp__top {
   background: var(--beauty-app-navigation, var(--surface));
   color: var(--beauty-app-ink, var(--ink));
-  border-bottom: var(--border-w) solid var(--app-line);
 }
 
 .chatapp__title {
@@ -972,4 +1048,152 @@
 
 .chatapp-empty__hint {
   color: var(--beauty-app-muted, var(--ink-3));
+}
+
+/* ==========================================================================
+   通讯录分组（QQ 折叠分组 + 分组管理抽屉）
+   ========================================================================== */
+
+.cg-section {
+  margin: 0 0 var(--sp-2);
+}
+
+.cg-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-2);
+  font: inherit;
+  text-align: left;
+  color: var(--beauty-app-ink, var(--ink));
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.cg-head:active {
+  background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 6%, transparent);
+}
+
+.cg-head__arrow {
+  display: grid;
+  place-items: center;
+  color: var(--beauty-app-muted, var(--ink-4));
+  transform: rotate(0deg);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.cg-head__arrow.is-open {
+  transform: rotate(90deg);
+}
+
+.cg-head__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cg-head__count {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+.cg-section .chatapp__list {
+  margin-top: var(--sp-1);
+}
+
+.cg-empty {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+/* 分组管理抽屉 */
+.cg-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.cg-add-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.cg-add-row .btn {
+  flex-shrink: 0;
+}
+
+.cg-sub {
+  margin: var(--sp-5) 0 var(--sp-2);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-3);
+}
+
+.cg-group-list,
+.cg-assign-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.cg-group-item,
+.cg-assign-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: var(--tap-min);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.cg-group-item:last-child,
+.cg-assign-item:last-child {
+  border-bottom: 0;
+}
+
+.cg-group-item__name,
+.cg-assign-item__name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-base);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cg-group-item__tag {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  padding: 0 var(--sp-2);
+}
+
+.cg-select {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  max-width: 140px;
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
 }

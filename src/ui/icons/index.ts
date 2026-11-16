@@ -62,7 +62,8 @@ export type LineIconName =
   | 'sparkle'
   | 'moments'
   | 'contacts'
-  | 'heart';
+  | 'heart'
+  | 'search';
 
 const LINE: Record<LineIconName, string> = {
   // 云 + 一条底线：服务商
@@ -190,6 +191,11 @@ const LINE: Record<LineIconName, string> = {
     '<path d="M2.8 19.6a6.2 6.2 0 0 1 12.4 0"/>' +
     '<path d="M16 5.2a3.4 3.4 0 0 1 0 6.6" opacity=".55"/>' +
     '<path d="M17.6 15.4a6.2 6.2 0 0 1 3.6 4.2" opacity=".55"/>',
+
+  // 搜索：放大镜
+  search:
+    '<circle cx="11" cy="11" r="6.5"/>' +
+    '<path d="m16 16 4.5 4.5"/>',
 };
 
 const LINE_ATTRS =

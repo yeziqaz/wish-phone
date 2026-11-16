@@ -77,6 +77,15 @@
 
 .confirm-row .input {
   flex: 1;
+  min-width: 0;
+}
+
+/* 覆盖 api.css 里 .danger-zone .btn--danger { width: 100% }：
+   输入框占大面积，清空按钮只占自身内容宽度 */
+.danger-zone .confirm-row .btn--danger {
+  width: auto;
+  flex-shrink: 0;
+  padding: 0 var(--sp-4);
 }
 
 .data-page__result {

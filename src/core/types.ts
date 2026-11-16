@@ -179,6 +179,12 @@ export interface Character {
    */
   relationToUser?: string;
 
+  /**
+   * 联系人分组（如「我的好友」「家人」「同事」）。
+   * 为空时在通讯录里归入默认的「我的好友」。
+   */
+  group?: string;
+
   /** 内置角色（wuli）。内置角色不能被当成普通卡删掉 */
   builtin?: boolean;
 
