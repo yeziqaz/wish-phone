@@ -1,0 +1,684 @@
+/* ==========================================================================
+   聊天美化面板
+
+   版面（全屏面板，从上到下）：
+     [顶栏 52]   ← 返回 + 标题 + 恢复默认
+     [模式切换 40] 预览 / 代码
+     [实时预览 约 190]
+     [六个板块标签 44]
+     [滚动编辑区]
+   一屏只有底部一个主按钮（保存），其余都是次级。
+   ========================================================================== */
+
+.beauty-panel {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.beauty-panel__mask {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 42%, transparent);
+  opacity: 0;
+  transition: opacity var(--dur-normal) var(--ease-out);
+  pointer-events: auto;
+}
+
+.beauty-panel__sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--surface);
+  transform: translateY(100%);
+  transition: transform var(--dur-normal) var(--ease-out);
+  pointer-events: auto;
+  padding-top: env(safe-area-inset-top);
+}
+
+.beauty-panel.is-open .beauty-panel__mask {
+  opacity: 1;
+}
+
+.beauty-panel.is-open .beauty-panel__sheet {
+  transform: translateY(0);
+}
+
+/* ---------- 顶栏 ---------- */
+
+.beauty-panel__head {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+  padding: var(--sp-1) var(--sp-3);
+  border-bottom: var(--border-w) solid var(--line);
+}
+
+.beauty-panel__back,
+.beauty-panel__reset {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font: inherit;
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.beauty-panel__titles {
+  min-width: 0;
+  text-align: center;
+}
+
+.beauty-panel__title {
+  margin: 0;
+  /* 面板里只留 3 档字号（base / sm / caption）。
+     标题靠字重和紧凑字距立层级，不靠再大一档 ——
+     这一屏信息密度高，多一档字号就挤。 */
+  font-size: var(--fs-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink);
+}
+
+.beauty-panel__sub {
+  margin: 2px 0 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 模式切换 ---------- */
+
+.beauty-mode {
+  align-self: center;
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+  margin: var(--sp-2) 0;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+}
+
+.beauty-mode__item {
+  position: relative;
+  min-width: 88px;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: color var(--dur-press) var(--ease-out),
+              background-color var(--dur-press) var(--ease-out);
+}
+
+/* 视觉 32，热区补到 44 */
+.beauty-mode__item::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+.beauty-mode__item.is-on {
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+/* ---------- 滚动主体 ---------- */
+
+.beauty-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------- 实时预览 ---------- */
+
+.beauty-prev {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: var(--sp-2) var(--sp-4) 0;
+  padding: var(--sp-3);
+  min-height: 170px;
+  background: var(--surface-2);
+  /* 外层比内层气泡（最小 0 圆角，一般是 4~22）小一档，不套圆角 */
+  border-radius: var(--radius-sm);
+}
+
+.beauty-prev__title {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.beauty-prev__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-2);
+}
+
+.beauty-prev__row--me {
+  justify-content: flex-end;
+}
+
+/* 预览头像：和真实头像同构，但小一号 */
+.beauty-prev__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  font-size: var(--fs-caption);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--ink-2);
+  /* 预览里的挂件不做挖孔（太小了看不出来），直接叠在上面 */
+  overflow: visible;
+}
+
+.beauty-prev__avatar--user {
+  background: var(--surface-2);
+}
+
+.beauty-prev__pendant {
+  position: absolute;
+  inset: -20%;
+  display: block;
+  width: 140%;
+  height: 140%;
+  pointer-events: none;
+}
+
+.beauty-prev__pendant svg,
+.beauty-prev__pendant img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.beauty-prev__bubble {
+  position: relative;
+  max-width: 70%;
+  padding: 9px 12px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--ink);
+  /* 具体样式由 JS 内联注入；这里给的是没设置时的兜底 */
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+/* ---------- 六个板块 ---------- */
+
+.beauty-tabs {
+  display: flex;
+  gap: var(--sp-1);
+  overflow-x: auto;
+  margin-top: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border-bottom: var(--border-w) solid var(--line);
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.beauty-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.beauty-tabs__item {
+  flex-shrink: 0;
+  position: relative;
+  min-height: 44px;
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: color var(--dur-press) var(--ease-out),
+              border-color var(--dur-press) var(--ease-out);
+}
+
+.beauty-tabs__item.is-on {
+  font-weight: var(--fw-semibold);
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* ---------- 编辑区 ---------- */
+
+.beauty-editor {
+  padding: var(--sp-4) var(--sp-4) 0;
+}
+
+.beauty-h2 {
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+}
+
+.beauty-h2:first-child {
+  margin-top: 0;
+}
+
+.beauty-note {
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-4);
+}
+
+/* 分段控件 */
+.beauty-seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-full);
+}
+
+.beauty-seg__item {
+  flex: 1;
+  position: relative;
+  min-height: 36px;
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.beauty-seg__item::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+
+.beauty-seg__item.is-on {
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+/* 分类横滑 */
+.beauty-cats {
+  display: flex;
+  gap: var(--sp-1);
+  overflow-x: auto;
+  margin-bottom: var(--sp-3);
+  scrollbar-width: none;
+}
+
+.beauty-cats::-webkit-scrollbar {
+  display: none;
+}
+
+.beauty-cat {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+/* 视觉 32，热区补到 44 */
+.beauty-cat::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+.beauty-cat.is-on {
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+}
+
+/* 挂件网格：三列 */
+.beauty-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+.beauty-grid--bubble {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.beauty-grid--sticker {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.beauty-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  min-height: 104px;
+  padding: var(--sp-2);
+  font: inherit;
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.beauty-card.is-on {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 12%, transparent);
+}
+
+.beauty-grid--sticker .beauty-card {
+  min-height: 82px;
+}
+
+.beauty-card__art {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+}
+
+.beauty-card__art svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.beauty-card__img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.beauty-card__name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+}
+
+.beauty-swatch {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-1);
+  text-align: center;
+  font-size: var(--fs-sm);
+  border: 2px solid;
+}
+
+/* 形状卡片的缩略图。
+   高度给足 —— 9-slice 的上下占位加起来会吃掉几十像素，
+   卡片太矮的话缩略图里只剩一条线，看不出形状。
+
+   注意这里不写 border-radius：异形气泡的圆角必须是 0，
+   否则九宫格图会被裁成圆角，四角装饰被切掉。 */
+.beauty-shape-preview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--sp-1);
+  font-size: var(--fs-caption);
+  line-height: 1.2;
+  box-sizing: border-box;
+}
+
+/* ---------- 表单行 ---------- */
+
+.beauty-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 44px;
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.beauty-field--range {
+  display: block;
+}
+
+.beauty-field__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.beauty-field__out {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.beauty-color {
+  flex-shrink: 0;
+  width: 44px;
+  height: 34px;
+  padding: 2px;
+  background: none;
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.beauty-range {
+  width: 100%;
+  margin-top: var(--sp-2);
+  accent-color: var(--ink);
+}
+
+.beauty-switch {
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  accent-color: var(--ink);
+}
+
+/* 已添加的贴纸 / 角落选择 */
+.beauty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.beauty-chip {
+  position: relative;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: var(--border-w) solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.beauty-chip.is-on {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--ink);
+}
+
+/* 视觉 32，热区补到 44 */
+.beauty-chip::after {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
+}
+
+.beauty-corners {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0;
+}
+
+.beauty-corners .beauty-field__label {
+  flex-basis: 100%;
+  justify-content: flex-start;
+}
+
+.beauty-controls {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: var(--border-w) solid var(--line);
+}
+
+/* ---------- 按钮 ---------- */
+
+.beauty-btn {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-base);
+}
+
+.beauty-btn--danger {
+  color: var(--danger);
+}
+
+.beauty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.beauty-actions .btn {
+  flex: 1;
+  min-width: 120px;
+  min-height: 44px;
+}
+
+/* ---------- 方案列表 ---------- */
+
+.beauty-schemes {
+  border-top: var(--border-w) solid var(--line);
+}
+
+.beauty-scheme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--sp-1);
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-bottom: var(--border-w) solid var(--line);
+  cursor: pointer;
+}
+
+.beauty-scheme.is-on {
+  font-weight: var(--fw-semibold);
+}
+
+.beauty-scheme small {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+.beauty-scheme-new {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.beauty-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 代码模式 ---------- */
+
+.beauty-code {
+  display: block;
+  margin-top: var(--sp-3);
+}
+
+.beauty-code__input {
+  width: 100%;
+  margin-top: var(--sp-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* ---------- 反馈 ---------- */
+
+.beauty-msg {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+/* ---------- 背景预览 ---------- */
+
+.beauty-bg-prev {
+  overflow: hidden;
+  margin: var(--sp-2) 0;
+  aspect-ratio: 16 / 9;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.beauty-bg-prev img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

@@ -6,7 +6,7 @@ import { line } from './icons';
    底部抽屉（bottom sheet）
 
    用途：一屏里要从一大堆东西里挑几项时用它，例如「拉取模型」。
-   放在 ui/ 而不是 features/ 里，因为角色、聊天以后也会用到同一套。
+   放在 ui/ 而不是某个 app 里，因为角色、聊天以后也会用到同一套。
 
    用法：
      const picked = await openSheet({ title: '选择模型', items: [...] });

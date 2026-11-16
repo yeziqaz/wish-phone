@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { parseCharacterAction } from '../src/features/chat/chat-action';
+import { parseCharacterAction } from '../src/apps/chat/room/action';
 
 test('parseCharacterAction extracts parenthesis actions correctly', () => {
   const result = parseCharacterAction('(尾巴一甩，从屏幕边角探出半个脑袋) 呜……你终于来啦。');

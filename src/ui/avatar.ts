@@ -1,5 +1,7 @@
 import { esc } from '../core/dom';
 import wuliAvatar from '../assets/wuli-avatar.jpg';
+import { avatarFrameHTML } from './avatar-frame';
+import { avatarDecorationHTML, type AvatarDecoration } from './avatar-decoration';
 
 /**
  * 头像。
@@ -58,17 +60,30 @@ export function avatarImage(avatarKey?: string): string | null {
   return BUILTIN_AVATARS[avatarKey] ?? (avatarKey.startsWith('data:') ? avatarKey : null);
 }
 
-/** 有图就用图，没图用名字首字 */
-export function avatarHTML(name: string, size = 40, avatarKey?: string): string {
+/**
+ * 有图就用图，没图用名字首字。
+ *
+ * @param frameId 头像框（可空）。框是纯装饰，不挡点击。
+ */
+export function avatarHTML(
+  name: string,
+  size = 40,
+  avatarKey?: string,
+  frameId?: string,
+  decoration?: AvatarDecoration,
+): string {
   const src = avatarImage(avatarKey);
+  // 优先用完整的装饰层（挂件框 + 贴纸）；没有就走旧的单框路径
+  const layer = decoration ? avatarDecorationHTML(decoration) : avatarFrameHTML(frameId, size);
+  const framed = layer ? ' avatar--framed' : '';
   if (src) {
     return (
-      `<span class="avatar avatar--image" style="--avatar-size:${size}px" aria-hidden="true">` +
-      `<img class="avatar__img" src="${esc(src)}" alt="" loading="lazy" decoding="async"></span>`
+      `<span class="avatar avatar--image${framed}" style="--avatar-size:${size}px" aria-hidden="true">` +
+      `<img class="avatar__img" src="${esc(src)}" alt="" loading="lazy" decoding="async">${layer}</span>`
     );
   }
   return (
-    `<span class="avatar ${avatarTone(name)}" style="--avatar-size:${size}px" ` +
-    `aria-hidden="true">${esc(avatarText(name))}</span>`
+    `<span class="avatar ${avatarTone(name)}${framed}" style="--avatar-size:${size}px" ` +
+    `aria-hidden="true">${esc(avatarText(name))}${layer}</span>`
   );
 }

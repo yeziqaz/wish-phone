@@ -1,0 +1,88 @@
+/* ==========================================================================
+   浮层小工具条（action bar）
+
+   长按一条消息时浮出的一小排命令。样式跟着 tooltip 的路子走：
+   白底、细描边、浮起来才给阴影（STYLE.md：阴影只给「浮起来」的东西）。
+   ========================================================================== */
+
+.action-bar {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  /* 只动 transform / opacity，不抢别的属性（STYLE.md §5） */
+  opacity: 0;
+  transform: scale(0.94);
+  transform-origin: center bottom;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.action-bar.is-open {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.action-bar__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* 触控区：宽不小于 56、高不小于 52，都超过 44 的下限 */
+  min-width: 56px;
+  min-height: 52px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--fs-caption);
+  line-height: 1.2;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  border-right: var(--border-w) solid var(--line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-bar__item:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.action-bar__item:last-child {
+  border-right: 0;
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.action-bar__item:active {
+  background: var(--surface-2);
+}
+
+.action-bar__item.is-danger {
+  color: var(--danger);
+}
+
+.action-bar__icon {
+  display: inline-grid;
+  place-items: center;
+  color: currentColor;
+  opacity: 0.85;
+}
+
+.action-bar__label {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-bar {
+    transition: none;
+  }
+}

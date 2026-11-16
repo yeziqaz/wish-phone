@@ -1,0 +1,975 @@
+/* ==========================================================================
+   聊天 App 首页（微信结构 + QQ 圆角风格）
+
+   微信给的是「结构」：底部四板块、顶部标题跟着板块走、列表行左头像右两行字。
+   QQ 给的是「手感」：行不是贴满屏的分割线，而是一张张独立圆角块，留白更松。
+
+   为什么不做 QQ 那种侧边栏：390 宽下它会吃掉近 1/4 宽度，
+   正文区变窄，长名字会被挤断。底部栏才是窄屏的正解。
+   ========================================================================== */
+
+.chatapp {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--bg);
+  /* 主题底色在这里兜底；下面主题层会覆盖它 */
+  background: var(--beauty-app-background, var(--bg));
+}
+
+/* ---------- 顶部栏 ----------
+   标题随板块变。右侧只有一个「+」，不做搜索框 ——
+   角色数量还不到需要搜索的规模，多一个框就是多一层壳。 */
+
+.chatapp__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  background: var(--beauty-app-navigation, var(--bg));
+  flex-shrink: 0;
+}
+
+.chatapp__title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+/* 顶栏右侧那个「+」：参考图是无框的纯符号。
+   44×44 是触控下限 —— 符号本身只有 ~20px，靠热区撑开。
+   这条规则原先在下面主题层里重复了一遍，2026-11-12 合并到这里。 */
+.chatapp__action {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--beauty-app-ink, var(--ink));
+  background: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chatapp__action:active {
+  background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 12%, transparent);
+}
+
+/* ---------- 内容区 ---------- */
+
+.chatapp__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* 底部留出 tabbar 的高度，否则最后一行会被遮住 */
+  padding: var(--sp-1) var(--sp-3) var(--sp-6);
+  -webkit-overflow-scrolling: touch;
+}
+
+.chatapp__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* ---------- 会话行（QQ 风格：独立圆角块） ----------
+
+   微信是一条条紧贴、靠分割线分开。
+   这里改成每行独立成块：白底 + 圆角 + 之间留 4px。
+   好处是头像不会被分割线切到，坏处是行数多时看起来更松 ——
+   但角色数量不会到几十个，松一点更像「卡片」。 */
+
+.chat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  text-align: left;
+  background: var(--beauty-app-panel, var(--surface));
+  border: var(--border-w) solid var(--line);
+  /* QQ 的手感主要来自这里：16px，比微信的方角圆得多 */
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.chat-row:active {
+  background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 8%, var(--beauty-app-panel, var(--surface)));
+}
+
+/* 联系人块不需要那么高，收紧一点 */
+.chat-row--contact {
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.chat-row__avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.chat-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-row__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.chat-row__name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--beauty-app-ink, var(--ink));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.chat-row__time {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--beauty-app-muted, var(--ink-4));
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-row__preview {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--beauty-app-muted, var(--ink-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 底部四板块 ----------
+   微信的排布：图标在上、文字在下，当前板块用深色图标表达。 */
+
+.chatapp__tabbar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: var(--border-w) solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.chatapp__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  /* 高 56，超过 44 的触控下限 */
+  min-height: 56px;
+  padding: var(--sp-1) 0;
+  font: inherit;
+  color: var(--beauty-app-muted, var(--ink-4));
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 当前板块用主题的强调色 —— 参考图里是蓝色。
+   同时图标加粗一档，让层级不只靠颜色（色弱也能分辨）。 */
+.chatapp__tab.is-on {
+  color: var(--beauty-app-accent, var(--ink));
+}
+
+.chatapp__tab.is-on .chatapp__tab-icon svg {
+  stroke-width: 2.1;
+}
+
+.chatapp__tab-icon {
+  display: grid;
+  place-items: center;
+  height: 24px;
+}
+
+.chatapp__tab-label {
+  font-size: var(--fs-caption);
+  line-height: 1.2;
+}
+
+.chatapp__tab.is-on .chatapp__tab-label {
+  font-weight: var(--fw-medium);
+}
+
+/* ---------- 空状态 ---------- */
+
+.chatapp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-10) var(--sp-6);
+  text-align: center;
+}
+
+.chatapp-empty__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.chatapp-empty__hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--beauty-app-muted, var(--ink-3));
+  max-width: 260px;
+}
+
+/* ==========================================================================
+   「我」板块
+
+   结构照微信「我」：顶部一张身份卡（大头像 + 名字 + 签名），
+   下面分组列表，每组之间留白。
+
+   身份卡刻意做得朴素 —— 没有渐变、没有底图。
+   本项目是黑白灰描边基调，一张花哨的名片会盖过所有角色。
+   ========================================================================== */
+
+.me-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding-top: var(--sp-1);
+}
+
+/* ---------- 身份卡 ---------- */
+
+.me-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-5) var(--sp-4);
+  background: var(--beauty-app-panel, var(--surface));
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-xl);
+}
+
+/* 头像本身是按钮：点它换图。外面那圈铅笔是提示，不是第二个按钮 */
+.me-card__avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 铅笔挂右下角，不压在脸上 */
+.me-card__edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--beauty-app-muted, var(--ink-3));
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+
+.me-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.me-card__name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--beauty-app-ink, var(--ink));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.me-card__sig {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--beauty-app-muted, var(--ink-3));
+  /* 最多两行，超了省略 —— 签名不该把卡片撑高 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- 分组列表 ----------
+   组内紧贴 + 细分割线，组间留白。这是本项目一贯的分组写法。 */
+
+.me-group {
+  background: var(--beauty-app-panel, var(--surface));
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.me-group__title {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  color: var(--beauty-app-muted, var(--ink-3));
+}
+
+.me-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  /* 行高 52，高于 44 触控下限 */
+  min-height: 52px;
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  text-align: left;
+  color: var(--beauty-app-ink, var(--ink));
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+.me-row + .me-row {
+  border-top: var(--border-w) solid var(--line);
+}
+
+.me-row:active {
+  background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 8%, var(--beauty-app-panel, var(--surface)));
+}
+
+.me-row__label {
+  flex-shrink: 0;
+  font-size: var(--fs-base);
+}
+
+.me-row__value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: var(--fs-sm);
+  color: var(--beauty-app-muted, var(--ink-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.me-row__chevron {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+/* 头像框那一组里，四列选项要有点内边距 */
+.me-group .cs-frames {
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+
+/* 头像框预览的底样：一个灰圆，用来对比框的形状 */
+.me-frame-sample {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--beauty-app-panel, var(--surface));
+  border: var(--border-w) solid var(--line);
+}
+
+/* ---------- 「我」板块的说明文字与提示 ---------- */
+
+.me-group__note {
+  margin: 0;
+  padding: 0 var(--sp-3) var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+/* 确认面板里的正文 */
+.me-prompt__text {
+  margin: 0;
+  padding: var(--sp-4);
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.me-prompt__text strong {
+  font-weight: var(--fw-semibold);
+  /* 这个弹层挂在 body 上，拿不到主题变量 */
+  color: var(--ink);
+}
+
+/* 两个按钮并排 */
+.me-prompt__foot {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.me-prompt__foot .btn {
+  flex: 1;
+}
+
+/* 轻提示：浮在底部，两秒自己走 */
+.me-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 88px);
+  z-index: var(--z-toast);
+  transform: translate(-50%, 8px);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transition: opacity var(--dur-normal) var(--ease-out),
+              transform var(--dur-normal) var(--ease-out);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.me-toast.is-on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ==========================================================================
+   朋友圈
+
+   微信的结构（头像在左、名字在正文上方、赞和评论压在底部），
+   本项目的皮（黑白灰、细描边、不填色）。
+
+   为什么不做顶部封面：微信放封面是为了展示个人形象，
+   而「我」板块已经在做这件事。一块没有真照片的假封面只是把动态挤下去。
+   ========================================================================== */
+
+.mo-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.mo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4) var(--sp-6);
+  list-style: none;
+}
+
+/* 一条动态 = 一块独立的圆角卡片（和聊天列表同一套语言） */
+.mo-item {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--beauty-app-panel, var(--surface));
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.mo-item__avatar {
+  flex-shrink: 0;
+}
+
+.mo-item__main {
+  flex: 1;
+  /* 没有这条，长英文/长链接会把卡片撑破 */
+  min-width: 0;
+}
+
+.mo-item__name {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.mo-item__text {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--beauty-app-ink, var(--ink));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 图片网格 ---------- */
+
+.mo-images {
+  display: grid;
+  gap: var(--sp-1);
+  margin-top: var(--sp-2);
+}
+
+/* 单张给一个明确的方框，不要拉满整行 —— 一张小图撑满 270px 会很怪 */
+.mo-images--1 {
+  grid-template-columns: 180px;
+}
+
+.mo-images--2,
+.mo-images--4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 200px;
+}
+
+.mo-images--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mo-images__item {
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.mo-images__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* 动态配图是内容，裁切比留白好看；人物为主的头像才用 contain */
+  object-fit: cover;
+}
+
+/* ---------- 时间与操作 ---------- */
+
+.mo-item__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.mo-item__time {
+  font-size: var(--fs-caption);
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+.mo-item__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* 操作按钮：视觉小、热区 44 —— 用 ::after 往外扩，不占布局 */
+.mo-act {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--beauty-app-muted, var(--ink-3));
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-press) var(--ease-out),
+              background-color var(--dur-press) var(--ease-out);
+}
+
+.mo-act::after {
+  content: '';
+  position: absolute;
+  inset: -6px -2px;
+}
+
+.mo-act.is-on {
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.mo-act--danger.is-armed {
+  color: var(--danger);
+  font-weight: var(--fw-medium);
+}
+
+/* ---------- 赞与评论 ---------- */
+
+.mo-social {
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.mo-likes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.mo-likes svg {
+  flex-shrink: 0;
+  color: var(--beauty-app-muted, var(--ink-3));
+}
+
+/* 赞和评论之间用一条线分开，不套第二个框 */
+.mo-comments {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: var(--border-w) solid var(--line);
+}
+
+.mo-comment {
+  margin: 0;
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.mo-comment + .mo-comment {
+  margin-top: 2px;
+}
+
+.mo-comment__name {
+  color: var(--beauty-app-muted, var(--ink-3));
+}
+
+/* ---------- 就地评论输入 ---------- */
+
+.mo-comment-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.mo-comment-input {
+  flex: 1;
+  min-width: 0;
+  /* 44 高，键盘弹起时也不会被顶到看不见 */
+  height: 44px;
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--beauty-app-ink, var(--ink));
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.mo-comment-input:focus {
+  border-color: var(--line-strong);
+}
+
+.mo-comment-send {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   发表动态的底部面板
+   ========================================================================== */
+
+.mo-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.mo-sheet__mask {
+  position: absolute;
+  inset: 0;
+  /* 和聊天设置那块面板用同一个遮罩算法，两块面板看起来才是一个 App */
+  background: color-mix(in srgb, var(--ink) 42%, transparent);
+  opacity: 0;
+  transition: opacity var(--dur-normal) var(--ease-out);
+  pointer-events: auto;
+}
+
+.mo-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 86dvh;
+  /* ⚠️ 这个面板挂在 document.body 上，在 .chatapp 之外 ——
+     拿不到主题变量。所以这里固定用 --surface，
+     不要写 --beauty-app-panel（那是靠 fallback 蒙对的）。 */
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  transform: translateY(100%);
+  transition: transform var(--dur-normal) var(--ease-out);
+  pointer-events: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mo-sheet.is-open .mo-sheet__mask {
+  opacity: 1;
+}
+
+.mo-sheet.is-open .mo-sheet__panel {
+  transform: translateY(0);
+}
+
+.mo-sheet__grip {
+  flex-shrink: 0;
+  width: 36px;
+  height: 4px;
+  margin: var(--sp-2) auto 0;
+  background: var(--line-strong);
+  border-radius: var(--radius-full);
+}
+
+.mo-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+}
+
+.mo-sheet__title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.mo-sheet__close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: calc(-1 * var(--sp-2));
+  font: inherit;
+  font-size: var(--fs-lg);
+  color: var(--beauty-app-muted, var(--ink-3));
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.mo-sheet__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-2) var(--sp-4) var(--sp-4);
+  -webkit-overflow-scrolling: touch;
+}
+
+.mo-sheet__input {
+  min-height: 96px;
+  resize: none;
+}
+
+/* 已选图片：横向一排，点了就移除（比加一个 × 角标更好按） */
+.mo-sheet__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.mo-thumb {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mo-thumb__x {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-radius: var(--radius-full);
+}
+
+.mo-sheet__add {
+  min-height: 44px;
+  margin-top: var(--sp-2);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--beauty-app-muted, var(--ink-3));
+  background: none;
+  border: var(--border-w) dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.mo-sheet__foot {
+  flex-shrink: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border-top: var(--border-w) solid var(--line);
+}
+
+.mo-sheet__foot .btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+/* ==========================================================================
+   聊天APP 全局外观（「我 → 聊天美化 → 聊天APP」）
+
+   变量挂在 .chatapp 上，由 chat-home.ts 写入。
+   所有取值都带 fallback，没设过时和以前完全一样。
+   ========================================================================== */
+
+.chatapp {
+  background: var(--beauty-app-background, var(--surface-2));
+}
+
+/* 顶栏和底栏：底色跟着 navigation 走。
+   ⚠️ 2026-11-12 修：这两处原先拿 --beauty-app-muted 当描边色 —— 那是「次要文字」
+   的灰，一旦用户改过外观就变成一条深灰硬线横贯屏顶屏底。参考图里没有这条线，
+   现在改用和背景同族的淡描边（见下面的 --app-line）。 */
+.chatapp__top {
+  background: var(--beauty-app-navigation, var(--surface));
+  color: var(--beauty-app-ink, var(--ink));
+  border-bottom: var(--border-w) solid var(--app-line);
+}
+
+.chatapp__title {
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.chatapp__tabbar {
+  /* 参考图里顶栏是蓝的、底栏是白的 —— 所以底栏走 panel 不走 navigation。
+     不加第七个字段：用户能改的色越少，越不容易配乱。 */
+  background: var(--beauty-app-panel, var(--surface));
+  border-top: var(--border-w) solid var(--app-line);
+}
+
+/* 未选中的板块用 muted，选中用 accent —— 参考图里当前项是蓝色 */
+.chatapp__tab {
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+.chatapp__tab.is-on {
+  color: var(--beauty-app-accent, var(--ink));
+}
+
+/* 列表与卡片用 --beauty-app-panel；次要文字用 --beauty-app-muted */
+.chat-row,
+.mo-item,
+.me-group,
+.cs-section {
+  background: var(--beauty-app-panel, var(--surface));
+}
+
+.chat-row__name,
+.mo-author,
+.me-row__label {
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.chat-row__preview,
+.chat-row__time,
+.mo-time,
+.me-row__value {
+  color: var(--beauty-app-muted, var(--ink-4));
+}
+
+/* ==========================================================================
+   主题层的三个派生值
+
+   这三样不开放给用户单独调 —— 它们应该是「背景色的一个函数」，
+   让人去拖色板只会配出不协调的组合。
+
+   用 color-mix 从用户已选的颜色里算出来，所以换成任何底色都还成立。
+   ========================================================================== */
+
+.chatapp {
+  /* 描边：底色往主文字方向压一点点。参考图里行与行几乎看不到线，
+     靠的是白卡片浮在淡蓝底上 —— 所以这里压得很轻。 */
+  --app-line: color-mix(in srgb, var(--beauty-app-ink, var(--ink)) 9%, var(--beauty-app-background, var(--surface-2)));
+}
+
+/* 列表行不用灰线，用同一条淡线；圆角保持原样 */
+.chat-row,
+.me-card,
+.mo-item,
+.me-group,
+.cs-section {
+  border-color: var(--app-line);
+}
+
+/* 空状态标题跟主题走 */
+.chatapp-empty__title {
+  color: var(--beauty-app-ink, var(--ink));
+}
+
+.chatapp-empty__hint {
+  color: var(--beauty-app-muted, var(--ink-3));
+}

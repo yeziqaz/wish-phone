@@ -154,6 +154,12 @@ export interface Character {
    */
   avatarKey?: string;
 
+  /**
+   * 头像框的内置 id（见 ui/avatar-frame.ts）。
+   * 纯装饰，可空。新增于 2026-11-10，可选字段，老数据没有时就是无框。
+   */
+  avatarFrame?: string;
+
   /** 第一张照片的比例（列表头像用，兼容老数据） */
   photoRatio?: PhotoRatio;
 
@@ -253,6 +259,35 @@ export interface Message {
   swipes?: string[];
   swipeId?: number;
   extra?: Record<string, unknown>;
+}
+
+/* ---------- 朋友圈 ---------- */
+
+/**
+ * 朋友圈的一条动态。
+ *
+ * authorId 用 'me' 表示用户自己，否则是角色 id ——
+ * 这样不用给「我」单独造一个角色记录，也不需要额外的类型判断。
+ */
+export interface Moment {
+  id: string;
+  /** 'me' = 用户自己；其他值 = 角色 id */
+  authorId: string;
+  /** 正文，可以空着（只发图） */
+  text: string;
+  /** 配图 data URL。最多 4 张（见 moments-view.ts 的 MAX_IMAGES） */
+  images: string[];
+  createdAt: number;
+  /** 点过赞的人：'me' 或角色 id */
+  likes: string[];
+  comments: MomentComment[];
+}
+
+export interface MomentComment {
+  id: string;
+  authorId: string;
+  text: string;
+  createdAt: number;
 }
 
 /* ---------- 设置 ---------- */

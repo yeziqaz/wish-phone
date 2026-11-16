@@ -45,17 +45,120 @@ src/
 │  ├─ store.ts  db.ts  router.ts  dom.ts
 ├─ ai/                     # 最危险的地方，必须独立
 │  ├─ types.ts  client.ts  errors.ts
-├─ features/               # 一屏一目录
-│  ├─ desktop/  chat/  character/  settings/
-└─ ui/                     # 跨屏复用原子
-   ├─ button.ts  sheet.ts  icons/
+├─ ui/                     # 跨屏复用原子（不许依赖任何 app）
+│  ├─ button.ts  sheet.ts  icons/
+│
+├─ shell/                  # 手机外壳：锁屏、桌面、APP 注册表
+│  ├─ registry.ts          ← 「有哪些 APP」的唯一真源
+│  ├─ desktop.ts  lockscreen.ts
+│
+├─ apps/                   # 桌面上的每个 APP 一个目录
+│  ├─ chat/                #   聊天APP
+│  │  ├─ home/             #     首页：消息/通讯录/朋友圈/我
+│  │  ├─ room/             #     聊天室：一间对话
+│  │  └─ beauty/           #     美化（完全独立，对 room 零依赖）
+│  │     ├─ model.ts  pendant.ts  css.ts  store.ts  render.ts
+│  │     └─ editor/        #     编辑器：panel + 各板块
+│  └─ character/           #   角色APP
+│
+├─ settings/               # 全局设置：不属于任何 APP，属于手机本身
+│  ├─ settings.ts  data-store.ts
+│  └─ lore/  worlds/  providers/  api/
+│
+└─ dev/                    # 开发工具（不进产物）
+   └─ db-probe.ts
 ```
 
-### 三条铁律
+### 四条铁律
 
 1. **`core/` 和 `ai/` 不许 import 任何 UI 代码** —— 它们必须能在没有 DOM 的环境里测试。
 2. **`src/ai/client.ts` 是全项目唯一能发 HTTP 的地方。** 将来加代理、兼容模式、Keystore，只改这一个文件。任何在别处冒出来的 `fetch(` 都是违规。
-3. **`features/*` 之间不许互相 import。** 共享的东西下沉到 `core/` 或 `ui/`。用 ESLint `import/no-restricted-paths` 强制，不靠口头约定。
+3. **APP 之间不许互相 import。** `apps/chat/` 不能引 `apps/character/`，反之亦然。
+   共享的东西按用途下沉：纯数据/算法 → `core/`，界面原子 → `ui/`，
+   **跨 APP 的弹层**（如模型选择器）→ 目前暂放 `settings/api/`，是已知例外，见 §2.1。
+4. **美化必须独立。** `apps/chat/beauty/` 不许 import `apps/chat/home/` 或 `apps/chat/room/`
+   的任何东西 —— 只能被它们引用，不能反向。
+   理由：美化是「用户绝对自由修改」的部分，混进业务逻辑里就改不动了。
+
+### 2.1 已知例外（不要模仿，各自记着为什么）
+
+| 位置 | 例外 | 原因 |
+|---|---|---|
+| `apps/chat/room/room.ts` | import `settings/api/model-picker` | 模型选择器是跨 APP 的弹层，还没下沉到 `ui/`（它带 `api.css`，搬过去会违反「ui 不引 app 样式」） |
+| `settings/providers/` | 与 `settings/api/` 并存 | v1.1 新版与老版两套，**老的是过渡层**，待合并 |
+
+### 2.2 加一个新 APP 要做什么
+
+1. 建 `src/apps/<名字>/`，导出 `mountXxx(root)`
+2. 在 `main.ts` 注册路由（注意 `'/x/new'` 必须排在 `'/x/:id'` 前）
+3. 往 `src/shell/registry.ts` 的 `APPS` 加一行
+
+**不要再往 `desktop.ts` 里硬编码 APP 列表** —— 那张表已经搬到 registry 了。
+**一个文件超过 400 行就该拆** —— 现在最大的业务文件是 `beauty/editor/panel.ts`（848 行，
+事件委托集中在一处），其余都在 450 以下。
+
+---
+
+## 2.3 「想改什么，去哪」速查表
+
+**改之前先在这里找，不要靠 grep 全项目。**
+
+### 聊天这块
+
+| 想改的东西 | 去这个文件 |
+|---|---|
+| 气泡长什么样（圆角/颜色/阴影/贴纸） | `apps/chat/room/bubbles.ts` + `apps/chat/beauty/css.ts` |
+| 异形气泡的画法与切片值 | `apps/chat/beauty/shape.ts`（文件头有「改图形前必读」） |
+| 九宫格怎么接进渲染 | `apps/chat/beauty/css.ts` 的 `bubbleShapeStyle` |
+| 一条回复拆几个气泡、每段多少字 | `apps/chat/room/split.ts`（`splitOptionsFor` 是尺子） |
+| 动作 / 心理怎么从气泡里剥出来 | `apps/chat/room/action.ts` |
+| 软键盘把界面顶歪了 | `apps/chat/room/viewport.ts`（三种浏览器行为都写在文件头） |
+| 时间分隔条什么时候出现 | `apps/chat/room/time.ts`（5 分钟阈值） |
+| 输入框、发送、加号面板 | `apps/chat/room/room.ts` |
+| 长按气泡弹出的工具条 | `apps/chat/room/room.ts`（搜「长按气泡」）+ `ui/action-bar.ts` |
+| 聊天设置面板（动作开关等） | `apps/chat/room/settings.ts` |
+| 会话列表 / 通讯录 / 朋友圈 / 「我」 | `apps/chat/home/` 各一个文件 |
+
+### 美化这块（完全独立，改这里不会碰业务）
+
+| 想改的东西 | 去这个文件 |
+|---|---|
+| 有哪些挂件预设、默认配色 | `apps/chat/beauty/model.ts` |
+| 那个猫耳朵 SVG 怎么画 | `apps/chat/beauty/pendant.ts` |
+| 气泡阴影算法、CSS 变量表 | `apps/chat/beauty/css.ts` |
+| 美化数据怎么存、怎么导入图片 | `apps/chat/beauty/store.ts` |
+| 头像挂件 / 气泡贴纸怎么挂到界面 | `apps/chat/beauty/render.ts` |
+| 编辑器整体（开关面板、保存、撤销） | `apps/chat/beauty/editor/panel.ts` |
+| 某一板块的界面（头像/气泡/背景/字体/APP/方案） | `apps/chat/beauty/editor/tab-*.ts` |
+| 滑杆、色板、挂件卡片这些控件的长相 | `apps/chat/beauty/editor/rows.ts` |
+| 贴纸位置微调的滑杆 | `apps/chat/beauty/editor/sticker-controls.ts` |
+
+### 手机外壳与全局
+
+| 想改的东西 | 去这个文件 |
+|---|---|
+| 桌面上有哪些 APP、摆在网格还是 Dock | `shell/registry.ts` |
+| 桌面怎么排、图标多大 | `shell/desktop.ts` |
+| 锁屏 | `shell/lockscreen.ts` |
+| 状态栏（信号/WiFi/电量） | `shell/desktop.ts` 顶部 |
+| 角色卡列表、编辑、导入 | `apps/character/` |
+| wuli 那张内置卡 | `apps/character/wuli-card.ts`（只读，改之前问） |
+| 设置首页目录 | `settings/settings.ts` |
+| 数据导出 / 导入 / 清空 | `settings/data-store.ts` |
+| 世界书 / 记忆条目 | `settings/worlds/`、`settings/lore/` |
+| 服务商、站点、模型分配 | `settings/providers/` + `settings/api/` |
+
+### 地基（改这里影响全部）
+
+| 想改的东西 | 去这个文件 |
+|---|---|
+| 路由规则、`navigate()` | `core/router.ts` |
+| IndexedDB 表结构、读写函数 | `core/db.ts`（**改表结构要迁移，见 §4**） |
+| 偏好设置（主题、动作开关、头像框） | `core/prefs.ts` |
+| 通用 DOM 工具（`esc` / `must` / `scopeCss`） | `core/dom.ts` |
+| 发 HTTP 请求（**唯一入口**） | `ai/client.ts` |
+| 报错翻成人话 | `ai/errors.ts` |
+| 颜色 / 间距 / 字号令牌 | `design/tokens.css` |
 
 ---
 

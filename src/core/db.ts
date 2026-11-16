@@ -18,6 +18,7 @@ import type {
   Character,
   Conversation,
   Message,
+  Moment,
   Provider,
   SettingRecord,
   World,
@@ -27,7 +28,7 @@ import type { Assignment, RequestLog, Site } from './api-types';
 import { LOG_RETENTION_DAYS } from './api-types';
 
 const DB_NAME = 'wish-phone';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 interface WishDB extends DBSchema {
   characters: {
@@ -86,6 +87,14 @@ interface WishDB extends DBSchema {
     key: string;
     value: RequestLog;
     indexes: { byTime: number; bySite: string };
+  };
+  /* v6 起：朋友圈动态。
+     一次最多 4 张图，整条记录直接带 data URL ——
+     和角色头像同一个思路，不为图片单独建表。 */
+  moments: {
+    key: string;
+    value: Moment;
+    indexes: { byCreatedAt: number };
   };
 }
 
@@ -152,10 +161,14 @@ export function db(): Promise<IDBPDatabase<WishDB>> {
         logs.createIndex('bySite', 'siteId');
       }
 
-      // 将来加字段时在这里续写，例如：
-      // if (oldVersion < 6) {
-      //   tx.objectStore('characters').createIndex('byName', 'name');
-      // }
+      // v5 → v6：加「朋友圈」表。
+      // 纯新增，不碰任何已有表 —— 老用户升级后朋友圈是空的，其他数据一个字不动。
+      if (oldVersion < 6) {
+        const moments = database.createObjectStore('moments', { keyPath: 'id' });
+        moments.createIndex('byCreatedAt', 'createdAt');
+      }
+
+      // 将来加字段时在这里续写。
       // ⛔ 永远不要 deleteObjectStore —— 那是直接抹掉用户的数据。
     },
   });
@@ -181,6 +194,26 @@ export function newId(): string {
 function conversationRange(conversationId: string): IDBKeyRange {
   // \uffff 是安全的字符串上界，能覆盖所有正常内容
   return IDBKeyRange.bound([conversationId, ''], [conversationId, '\uffff']);
+}
+
+/* ============================ 朋友圈 ============================ */
+
+/** 全部动态，最新在前 */
+export async function listMoments(): Promise<Moment[]> {
+  const database = await db();
+  const all = await database.getAll('moments');
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function putMoment(moment: Moment): Promise<void> {
+  const database = await db();
+  // put 返回的是主键，不是 void —— 这里只要「写完了」这个事实
+  await database.put('moments', moment);
+}
+
+export async function deleteMoment(id: string): Promise<void> {
+  const database = await db();
+  await database.delete('moments', id);
 }
 
 /* ============================ 角色 ============================ */
