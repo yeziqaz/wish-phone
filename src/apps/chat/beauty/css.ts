@@ -80,7 +80,10 @@ export function bubbleShadow(value: number): string {
  *
  * 返回的是可以直接塞进 style="..." 的字符串。
  */
-export function bubbleInlineStyle(participant: Participant): string {
+export function bubbleInlineStyle(
+  participant: Participant,
+  resolveAssetUrl?: (id: string, flipped?: boolean) => string,
+): string {
   const bubble = participant.bubble;
   const first = `color-mix(in srgb, ${bubble.fill} ${bubble.opacity * 100}%, transparent)`;
   const second = bubble.gradientColor
@@ -91,15 +94,16 @@ export function bubbleInlineStyle(participant: Participant): string {
     ? `linear-gradient(${bubble.gradientAngle}deg, ${first}, ${second})`
     : first;
 
-  const shape = bubbleShapeStyle(participant);
+  const shape = bubbleShapeStyle(participant, resolveAssetUrl);
 
   // 用异形时整个边框让位给 9-slice：background 清掉、border 变透明占位。
   // 这不是偷懒 —— 9-slice 的图自己带填充和描边，再叠一层背景会把图盖住。
   if (shape) {
+    const ink = bubble.bubbleShape.ink ? `color:${bubble.bubbleShape.ink};` : '';
     return [
       'background:transparent',
       `box-shadow:${bubbleShadow(bubble.shadow)}`,
-      shape,
+      `${ink}${shape}`,
     ].join(';');
   }
 
@@ -151,14 +155,19 @@ export function readableInkOn(fill: string): string {
  * slice 是图片像素（不带单位），width 是 CSS 像素（带 px）。
  * 写成同一个单位是最常见的错误：教程原话说「90% 的教程会搞错这点」。
  */
-export function bubbleShapeStyle(participant: Participant): string {
+export function bubbleShapeStyle(
+  participant: Participant,
+  resolveAssetUrl?: (id: string, flipped?: boolean) => string,
+): string {
   const shape = participant.bubble.bubbleShape;
   if (!shape?.shapeId) return '';
 
   const preset = shapePresetOf(shape.shapeId);
-  if (!preset) return ''; // 素材被删了 → 安静退回圆角矩形
+  const uri = preset
+    ? shapeDataUri(preset, participant.bubble.fill, participant.bubble.border)
+    : resolveAssetUrl?.(shape.shapeId, shape.flipped) ?? '';
+  if (!uri) return ''; // 素材被删了 → 安静退回圆角矩形
 
-  const uri = shapeDataUri(preset, participant.bubble.fill, participant.bubble.border);
   const slice = shape.slice.join(' ');
   const width = shape.width.map((n) => `${n}px`).join(' ');
 
@@ -181,15 +190,22 @@ export function bubbleShapeStyle(participant: Participant): string {
  *
  * 别减过头 —— 减到负数会把文字挤到边框上。
  */
-export function bubbleShapeInline(participant: Participant): string {
-  const base = bubbleShapeStyle(participant);
+export function bubbleShapeInline(
+  participant: Participant,
+  resolveAssetUrl?: (id: string, flipped?: boolean) => string,
+): string {
+  const base = bubbleShapeStyle(participant, resolveAssetUrl);
   if (!base) return '';
   return base;
 }
 
 /** 面板里的预览气泡也走同一个函数，所以在面板里看到的和聊天里一模一样 */
-export function previewBubbleStyle(scheme: BeautyScheme, role: BeautyRole): string {
-  return bubbleInlineStyle(scheme.participants[role]);
+export function previewBubbleStyle(
+  scheme: BeautyScheme,
+  role: BeautyRole,
+  resolveAssetUrl?: (id: string, flipped?: boolean) => string,
+): string {
+  return bubbleInlineStyle(scheme.participants[role], resolveAssetUrl);
 }
 
 /**

@@ -21,7 +21,7 @@ import { esc } from '../../../core/dom';
 import { actionNoteVisible, displayUserName, userAvatarKey } from '../../../core/prefs';
 import type { Character, Message } from '../../../core/types';
 import { avatarHTML } from '../../../ui/avatar';
-import { activeScheme } from '../beauty/store';
+import { activeScheme, assetUrl } from '../beauty/store';
 import { avatarDecorOf, bubbleStickersHTML } from '../beauty/render';
 import { bubbleShapeStyle, readableInkOn } from '../beauty/css';
 import type { Participant } from '../beauty/model';
@@ -81,11 +81,10 @@ function gradientStyle(isUser: boolean): ShapeStyle {
    *   · 渐变让位 —— 图自带填充，再叠渐变会把图盖住看不见
    *   · 加 has-shape 类 —— CSS 靠它把圆角归零、把文字色改回主色
    */
-  const shapeStyle = bubbleShapeStyle({ bubble } as Participant);
+  const shapeStyle = bubbleShapeStyle({ bubble } as Participant, assetUrl);
   if (shapeStyle) {
-    // 文字色要跟着「图的底色」走，不是跟着「是谁说的」走 ——
-    // 我自己的气泡默认就是深底，配深字等于看不见。
-    const ink = readableInkOn(bubble.fill);
+    // 文字色优先用自定义气泡保存的文字色，否则按气泡底色亮度自动算
+    const ink = bubble.bubbleShape.ink || readableInkOn(bubble.fill);
     return {
       cls: ' has-shape',
       style: ` style="--shape-ink:${ink};${shapeStyle}"`,

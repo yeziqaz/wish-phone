@@ -13,16 +13,19 @@ import {
   type Sticker,
   type StickerCorner,
 } from '../model';
-import { shapeOf } from '../shape';
+import { pickCustomBubble } from './bubble-crop';
 import { pendantSVG } from '../pendant';
 import {
   activeScheme,
   assetUrl,
   beautyData,
   editActive,
+  ensureFlippedBubbleAsset,
   importAssetFromDataUrl,
+  importCustomBubble,
   loadAppAppearance,
   loadBeauty,
+  removeCustomAsset,
   removeScheme,
   renameScheme,
   resetActive,
@@ -183,12 +186,12 @@ export async function openBeautyPanel(config: BeautyPanelConfig): Promise<void> 
           </div>
           <div class="beauty-prev__row">
             ${avatar('wuli', '角')}
-            <span class="beauty-prev__bubble" style="${previewBubbleStyle(scheme, 'wuli')}">
+            <span class="beauty-prev__bubble" style="${previewBubbleStyle(scheme, 'wuli', assetUrl)}">
               今天想换什么风格？${bubbleStickers('wuli')}
             </span>
           </div>
           <div class="beauty-prev__row beauty-prev__row--me">
-            <span class="beauty-prev__bubble" style="${previewBubbleStyle(scheme, 'user')}">
+            <span class="beauty-prev__bubble" style="${previewBubbleStyle(scheme, 'user', assetUrl)}">
               帮我试试这个方案${bubbleStickers('user')}
             </span>
             ${avatar('user', '我')}
@@ -378,20 +381,89 @@ export async function openBeautyPanel(config: BeautyPanelConfig): Promise<void> 
         return;
       }
 
-      /* 气泡形状（9-slice）。
+      /* 自定义气泡（9-slice）。
          空字符串 = 回到圆角矩形，所以要判 `!== undefined` 而不是真值。 */
       const shapeBtn = target.closest<HTMLElement>('[data-shape]');
       if (shapeBtn && shapeBtn.dataset.shape !== undefined) {
         const id = shapeBtn.dataset.shape;
-        const preset = id ? shapeOf(id) : undefined;
-        if (id && !preset) return;
+        if (!id) {
+          void apply((scheme) => {
+            scheme.participants[subject].bubble.bubbleShape = {
+              ...NO_SHAPE,
+              slice: [...NO_SHAPE.slice] as BubbleShape['slice'],
+              width: [...NO_SHAPE.width] as BubbleShape['width'],
+            };
+          });
+          return;
+        }
+        const asset = beautyData().customAssets.find((item) => item.id === id && item.type === 'bubble');
+        if (!asset) return;
+        const s = asset.bubbleShape;
         void apply((scheme) => {
-          scheme.participants[subject].bubble.bubbleShape = preset ?? {
-            ...NO_SHAPE,
-            slice: [...NO_SHAPE.slice] as BubbleShape['slice'],
-            width: [...NO_SHAPE.width] as BubbleShape['width'],
+          scheme.participants[subject].bubble.bubbleShape = {
+            shapeId: asset.id,
+            slice: s ? ([...s.slice] as BubbleShape['slice']) : [12, 16, 12, 16],
+            width: s ? ([...s.width] as BubbleShape['width']) : [10, 12, 10, 12],
+            fillMode: s?.fillMode ?? 'stretch',
+            ...(s?.ink ? { ink: s.ink } : {}),
           };
         });
+        return;
+      }
+
+      const delCustomBubbleBtn = target.closest<HTMLElement>('[data-delete-custom-bubble]');
+      if (delCustomBubbleBtn?.dataset.deleteCustomBubble) {
+        const id = delCustomBubbleBtn.dataset.deleteCustomBubble;
+        void (async () => {
+          await removeCustomAsset(id);
+          message = '已删除自定义气泡';
+          paint();
+          config.onChange();
+        })();
+        return;
+      }
+
+      if (target.closest('[data-flip-bubble]')) {
+        const shape = activeScheme().participants[subject].bubble.bubbleShape;
+        if (!shape?.shapeId) return;
+        void (async () => {
+          await ensureFlippedBubbleAsset(shape.shapeId);
+          await apply((scheme) => {
+            const cur = scheme.participants[subject].bubble.bubbleShape;
+            if (!cur?.shapeId) return;
+            const nextFlipped = !cur.flipped;
+            const [st, sr, sb, sl] = cur.slice;
+            const [wt, wr, wb, wl] = cur.width;
+            cur.slice = [st, sl, sb, sr];
+            cur.width = [wt, wl, wb, wr];
+            if (nextFlipped) cur.flipped = true;
+            else delete cur.flipped;
+          });
+        })();
+        return;
+      }
+
+      if (target.closest('[data-import-custom-bubble]')) {
+        void (async () => {
+          const cropped = await pickCustomBubble();
+          if (!cropped) return;
+          try {
+            const id = await importCustomBubble(cropped.dataUrl, cropped.bubbleShape, cropped.name);
+            await apply((scheme) => {
+              scheme.participants[subject].bubble.bubbleShape = {
+                shapeId: id,
+                slice: [...cropped.bubbleShape.slice] as BubbleShape['slice'],
+                width: [...cropped.bubbleShape.width] as BubbleShape['width'],
+                fillMode: cropped.bubbleShape.fillMode,
+                ...(cropped.bubbleShape.ink ? { ink: cropped.bubbleShape.ink } : {}),
+              };
+            });
+            message = `已导入「${cropped.name}」并应用`;
+          } catch (error) {
+            message = error instanceof Error ? error.message : String(error);
+          }
+          paint();
+        })();
         return;
       }
 
@@ -823,10 +895,10 @@ export async function openBeautyPanel(config: BeautyPanelConfig): Promise<void> 
         write(scheme);
         const bubbleRow = root.querySelector<HTMLElement>('.beauty-prev__row--me .beauty-prev__bubble');
         if (bubbleRow && scheme.participants.user) {
-          bubbleRow.setAttribute('style', previewBubbleStyle(scheme, 'user'));
+          bubbleRow.setAttribute('style', previewBubbleStyle(scheme, 'user', assetUrl));
         }
         const theirRow = root.querySelector<HTMLElement>('.beauty-prev__row:not(.beauty-prev__row--me) .beauty-prev__bubble');
-        if (theirRow) theirRow.setAttribute('style', previewBubbleStyle(scheme, 'wuli'));
+        if (theirRow) theirRow.setAttribute('style', previewBubbleStyle(scheme, 'wuli', assetUrl));
         if (path.startsWith('app.')) {
           sheet.style.setProperty('--beauty-panel-ink', scheme.app.ink);
         }

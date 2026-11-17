@@ -12,7 +12,6 @@ import type { Character, CharacterPhoto } from '../../core/types';
 import { avatarImage } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { blankCharacter } from './shared';
-import { forceReapplyBuiltins } from './defaults';
 import { pickPhoto } from '../../ui/photo-crop';
 import './characters.css';
 
@@ -130,26 +129,39 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
                 aria-label="和 TA 聊天">${line('chat', 22)}</button>`}
       </header>
 
-      ${isBuiltin
-        ? `<div class="dossier__builtin">
-             <p class="dossier__builtin-text">这是愿望机自带的角色，设定不能改。</p>
-             <button class="btn btn--sm" type="button" id="c-reinstall">重装最新设定</button>
-             <p class="dossier__builtin-hint" id="c-reinstall-hint">
-               内置卡更新后点这里装上新版。聊天记录不会动。
-             </p>
-           </div>`
-        : ''}
+      <section class="dossier-card">
+        <div class="dossier-card__head">
+          <span class="dossier__id">
+            <span class="dossier__dot" aria-hidden="true"></span>
+            CHAR-${shortId}
+          </span>
+          ${world
+            ? `<button class="dossier__world-chip" type="button" data-go="/world/${esc(world.id)}">${line('world', 12)}<span>${worldLine}</span></button>`
+            : `<span class="dossier__world-chip dossier__world-chip--static">${worldLine}</span>`}
+        </div>
 
-      <section class="gallery">
-        <div class="gallery__track" id="c-track"></div>
-        <div class="gallery__bar">
-          <span class="gallery__count" id="c-gallery-count"></span>
-          <div class="gallery__actions">
-            <button class="gallery__prompt-toggle" type="button" id="c-prompt-toggle"
-                    aria-expanded="false">提示词</button>
-            <button class="gallery__add" type="button" id="c-add-photo">＋ 加照片</button>
+        <div class="dossier-card__main">
+          <div class="dossier-photo">
+            <div class="gallery__track" id="c-track"></div>
+            <div class="dossier-photo__foot">
+              <span class="gallery__count tabular" id="c-gallery-count"></span>
+            </div>
+          </div>
+
+          <div class="dossier__info">
+            <h2 class="dossier__name" id="c-title">${esc(character.name || '未命名')}</h2>
+            <p class="dossier__relation" id="c-relation-line">
+              ${esc(character.relationToUser?.trim() || '还没写和你的关系')}
+            </p>
+            ${isBuiltin ? `<p class="dossier__builtin-badge">内置角色 · 设定只读</p>` : ''}
+            <div class="gallery__actions">
+              <button class="gallery__action-btn" type="button" id="c-prompt-toggle"
+                      aria-expanded="false">提示词</button>
+              <button class="gallery__action-btn gallery__action-btn--add" type="button" id="c-add-photo">＋ 照片</button>
+            </div>
           </div>
         </div>
+
         <div class="gallery__prompt" id="c-photo-prompt-box" hidden>
           <label class="field">
             <span class="field__label">这张图的提示词（生图用，可空）</span>
@@ -161,21 +173,9 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
         </div>
       </section>
 
-      <section class="dossier">
-        <div class="dossier__info">
-          <p class="dossier__id">CHAR-${shortId}</p>
-          <h2 class="dossier__name" id="c-title">${esc(character.name || '未命名')}</h2>
-          <p class="dossier__relation" id="c-relation-line">
-            ${esc(character.relationToUser?.trim() || '还没写和你的关系')}
-          </p>
-          <p class="dossier__world">${worldLine}</p>
-          ${world ? `<button class="dossier__link" type="button" data-go="/world/${esc(world.id)}">小世界设定</button>` : ''}
-        </div>
-      </section>
-
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="true">
-          基本信息<span class="fold__chevron">${line('chevron', 16)}</span>
+          <span class="fold__icon">${line('character', 16)}</span>基本信息<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body">
           <label class="field">
@@ -210,7 +210,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
 
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="false">
-          世界书<span class="fold__chevron">${line('chevron', 16)}</span>
+          <span class="fold__icon">${line('book', 16)}</span>世界书<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body" hidden>
           ${
@@ -244,7 +244,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
 
       <section class="fold">
         <button class="fold__head" type="button" data-fold aria-expanded="false">
-          更多设置<span class="fold__chevron">${line('chevron', 16)}</span>
+          <span class="fold__icon">${line('sparkle', 16)}</span>更多设置<span class="fold__chevron">${line('chevron', 16)}</span>
         </button>
         <div class="fold__body" hidden>
           <p class="field__hint">不写开场白也行。写多个就是从不同情景开始，像 IF 线。</p>
@@ -263,11 +263,17 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
         </div>
       </section>
 
-      ${isBuiltin ? '' : `<div class="row-actions row-actions--main">
-        <button class="btn btn--primary jelly" type="button" id="c-save">
-          ${isNew ? '创建' : '保存'}
-        </button>
-      </div>`}
+      ${isBuiltin
+        ? `<div class="row-actions row-actions--main">
+             <button class="btn btn--primary jelly" type="button" data-go="/chat/${esc(character.id)}">
+               和 ${esc(character.name || 'TA')} 聊天
+             </button>
+           </div>`
+        : `<div class="row-actions row-actions--main">
+             <button class="btn btn--primary jelly" type="button" id="c-save">
+               ${isNew ? '创建' : '保存'}
+             </button>
+           </div>`}
       <p class="field__note" id="c-save-result"></p>
     </div>`;
 
@@ -297,10 +303,10 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     const total = photos.length;
     countLabel.textContent =
       total === 0
-        ? '还没有照片'
+        ? '暂无照片'
         : total === 1
           ? '1 / 1'
-          : `${current + 1} / ${total} · 左滑看下一张`;
+          : `${current + 1} / ${total} · 左滑`;
     promptInput.value = photo?.prompt ?? '';
     promptInput.disabled = !photo;
     removeButton.disabled = !photo;
@@ -315,7 +321,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
     if (photos.length === 0) {
       track.innerHTML = `
         <div class="gallery__slide gallery__slide--empty">
-          <span>放一张人物参考图</span>
+          <span>暂无参考图</span>
         </div>`;
       syncGallery();
       return;
@@ -436,31 +442,6 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   /* ---------- 保存 ---------- */
   const read = (selector: string): string =>
     find<HTMLTextAreaElement | HTMLInputElement>(root, selector)?.value ?? '';
-
-  /* 内置角色：重装最新设定。
-     放在这里而不是「我」板块，因为它属于角色，不属于用户身份。 */
-  root.querySelector('#c-reinstall')?.addEventListener('click', () => {
-    void (async () => {
-      const hint = root.querySelector<HTMLElement>('#c-reinstall-hint');
-      if (hint) {
-        hint.textContent = '正在重装…';
-        hint.className = 'dossier__builtin-hint';
-      }
-      try {
-        await forceReapplyBuiltins();
-        if (hint) {
-          hint.textContent = '装好了。返回聊天就能看到新版开场白。';
-          hint.className = 'dossier__builtin-hint is-good';
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (hint) {
-          hint.textContent = `重装失败：${message}`;
-          hint.className = 'dossier__builtin-hint is-bad';
-        }
-      }
-    })();
-  });
 
   root.querySelector('#c-save')?.addEventListener('click', () => {
     void (async () => {

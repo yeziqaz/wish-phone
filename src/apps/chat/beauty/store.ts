@@ -15,12 +15,14 @@ import {
   APP_BEAUTY_KEY,
   BEAUTY_KEY,
   CHAT_ROOM_BEAUTY_PREFIX,
+  NO_SHAPE,
   cloneBeauty,
   defaultBeautyData,
   defaultScheme,
   validateBeauty,
   type BeautyData,
   type BeautyScheme,
+  type BubbleShape,
 } from './model';
 
 /** 默认方案的配色：全部取自设计令牌的实际值，不新增色相 */
@@ -67,7 +69,8 @@ export function beautyReady(): boolean {
   return ready;
 }
 
-export function assetUrl(id: string): string {
+export function assetUrl(id: string, flipped = false): string {
+  if (flipped) return assetUrls[`${id}:flip`] ?? assetUrls[id] ?? '';
   return assetUrls[id] ?? '';
 }
 
@@ -327,13 +330,116 @@ export async function importAssetFromDataUrl(
   return id;
 }
 
+async function flipDataUrl(dataUrl: string): Promise<string> {
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const w = img.naturalWidth || 1;
+  const h = img.naturalHeight || 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL('image/png');
+}
+
+/** 确保指定自定义气泡已有左右镜像图缓存（老数据懒生成） */
+export async function ensureFlippedBubbleAsset(id: string): Promise<void> {
+  if (assetUrls[`${id}:flip`]) return;
+  const orig = assetUrls[id] ?? (await getSetting<string>(`beautyAsset:${id}`));
+  if (typeof orig !== 'string' || !orig) return;
+  assetUrls[id] = orig;
+  const flipped = await flipDataUrl(orig).catch(() => '');
+  if (!flipped) return;
+  assetUrls[`${id}:flip`] = flipped;
+  await setSetting(`beautyAsset:${id}:flip`, flipped).catch(() => undefined);
+}
+
+/** 导入一张截图裁剪后的自定义气泡（带九宫格参数） */
+export async function importCustomBubble(
+  dataUrl: string,
+  bubbleShape: Omit<BubbleShape, 'shapeId'>,
+  name = '',
+): Promise<string> {
+  if (!dataUrl.startsWith('data:image/')) throw new Error('图片格式不正确。');
+  const bytes = Math.floor((dataUrl.length * 3) / 4);
+  if (bytes > LIMITS.pendant.maxBytes) {
+    throw new Error(`气泡图片超过 ${Math.round(LIMITS.pendant.maxBytes / 1024 / 1024)} MB。`);
+  }
+
+  const size = await decodeSize(dataUrl);
+  if (!size.width || !size.height || size.width * size.height > LIMITS.pendant.maxPixels) {
+    throw new Error('气泡图片尺寸过大。');
+  }
+
+  const id = `beauty-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  assetUrls[id] = dataUrl;
+  await setSetting(`beautyAsset:${id}`, dataUrl);
+
+  const flippedUrl = await flipDataUrl(dataUrl).catch(() => '');
+  if (flippedUrl) {
+    assetUrls[`${id}:flip`] = flippedUrl;
+    await setSetting(`beautyAsset:${id}:flip`, flippedUrl).catch(() => undefined);
+  }
+
+  const next = cloneBeauty(data);
+  next.customAssets.push({
+    id,
+    name: (name.trim() || '自定义气泡').slice(0, 50),
+    type: 'bubble',
+    category: '我的气泡',
+    bubbleShape,
+  });
+  await persist(next);
+  return id;
+}
+
+/** 删除一个自定义资源（并从当前方案中解绑引用） */
+export async function removeCustomAsset(id: string): Promise<void> {
+  const next = cloneBeauty(data);
+  next.customAssets = next.customAssets.filter((item) => item.id !== id);
+  for (const scheme of next.schemes) {
+    if (scheme.readonly) continue;
+    for (const role of ['user', 'wuli'] as const) {
+      const p = scheme.participants[role];
+      if (p.avatar.frameId === id) p.avatar.frameId = '';
+      p.avatar.stickers = p.avatar.stickers.filter((s) => s.assetId !== id);
+      p.bubble.stickers = p.bubble.stickers.filter((s) => s.assetId !== id);
+      if (p.bubble.bubbleShape.shapeId === id) {
+        p.bubble.bubbleShape = {
+          ...NO_SHAPE,
+          slice: [...NO_SHAPE.slice] as BubbleShape['slice'],
+          width: [...NO_SHAPE.width] as BubbleShape['width'],
+        };
+      }
+    }
+    if (scheme.background.assetId === id) scheme.background.assetId = '';
+  }
+  delete assetUrls[id];
+  delete assetUrls[`${id}:flip`];
+  await persist(next);
+}
+
 /** 启动时把所有自定义资源读进内存，供 <img src> 直接用 */
 export async function loadAssets(): Promise<void> {
   for (const asset of data.customAssets) {
-    if (assetUrls[asset.id]) continue;
     try {
-      const url = await getSetting<string>(`beautyAsset:${asset.id}`);
-      if (typeof url === 'string' && url) assetUrls[asset.id] = url;
+      if (!assetUrls[asset.id]) {
+        const url = await getSetting<string>(`beautyAsset:${asset.id}`);
+        if (typeof url === 'string' && url) assetUrls[asset.id] = url;
+      }
+      if (asset.type === 'bubble' && !assetUrls[`${asset.id}:flip`]) {
+        const flipUrl = await getSetting<string>(`beautyAsset:${asset.id}:flip`);
+        if (typeof flipUrl === 'string' && flipUrl) {
+          assetUrls[`${asset.id}:flip`] = flipUrl;
+        } else if (assetUrls[asset.id]) {
+          await ensureFlippedBubbleAsset(asset.id);
+        }
+      }
     } catch {
       // 单张资源读不出来不该让整个美化失效
     }

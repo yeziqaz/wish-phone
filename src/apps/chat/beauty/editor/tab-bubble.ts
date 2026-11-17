@@ -11,10 +11,16 @@
    ========================================================================== */
 
 import { esc } from '../../../../core/dom';
-import { BUBBLE_PRESETS, allPendants, type BeautyRole, type BeautyScheme, type Sticker } from '../model';
-import { beautyData } from '../store';
+import {
+  BUBBLE_PRESETS,
+  allPendants,
+  customBubbles,
+  type BeautyRole,
+  type BeautyScheme,
+  type Sticker,
+} from '../model';
+import { assetUrl, beautyData } from '../store';
 import { colorRow, pendantCard, rangeRow, segRow } from './rows';
-import { BUBBLE_SHAPES, shapeDataUri } from '../shape';
 import { bubbleStickerControls } from './sticker-controls';
 
 export interface BubbleTabState {
@@ -38,11 +44,9 @@ export function bubbleTabHTML(scheme: BeautyScheme, state: BubbleTabState): stri
       </button>`,
   ).join('');
 
-  /**
-   * 形状卡片：用真实配色现场画一张缩略图，
-   * 而不是放一张固定的示意 —— 这样用户能直接看到「我的颜色 + 这个形状」是什么样。
-   */
   const currentShape = bubble.bubbleShape?.shapeId ?? '';
+  const isFlipped = bubble.bubbleShape?.flipped === true;
+  const importedBubbles = customBubbles(data);
   const shapes =
     `<button class="beauty-card${!currentShape ? ' is-on' : ''}" type="button"
        data-shape="" aria-pressed="${!currentShape}">
@@ -50,18 +54,38 @@ export function bubbleTabHTML(scheme: BeautyScheme, state: BubbleTabState): stri
             style="background:${esc(bubble.fill)};border-color:${esc(bubble.border)}">你好</span>
       <small class="beauty-card__name">无（圆角）</small>
     </button>` +
-    BUBBLE_SHAPES.map((item) => {
-      const on = currentShape === item.id;
-      const uri = shapeDataUri(item, bubble.fill, bubble.border);
-      return `<button class="beauty-card${on ? ' is-on' : ''}" type="button"
-         data-shape="${esc(item.id)}" aria-pressed="${on}">
-        <span class="beauty-shape-preview" style="border-style:solid;border-color:transparent;
-              border-width:14px 16px 14px 16px;
-              border-image:url(&quot;${uri}&quot;) ${item.slice.join(' ')} fill / 14px 16px 14px 16px stretch;
-              border-radius:0;background:transparent">${esc(item.name)}</span>
-        <small class="beauty-card__name">${esc(item.name)}</small>
-      </button>`;
-    }).join('');
+    importedBubbles
+      .map((item) => {
+        const on = currentShape === item.id;
+        const useFlip = on && isFlipped;
+        const url = assetUrl(item.id, useFlip);
+        const s = on ? bubble.bubbleShape : item.bubbleShape;
+        const slice = (s?.slice ?? [12, 16, 12, 16]).join(' ');
+        const bw = (s?.width ?? [10, 12, 10, 12]).map((n) => `${Math.min(14, n)}px`).join(' ');
+        const ink = s?.ink ? `color:${esc(s.ink)};` : '';
+        const previewStyle = url
+          ? `${ink}border-style:solid;border-color:transparent;border-width:${bw};` +
+            `border-image:url(&quot;${esc(url)}&quot;) ${slice} fill / ${bw} ${s?.fillMode ?? 'stretch'};` +
+            'border-radius:0;background:transparent'
+          : '';
+        return `<div class="beauty-card-wrap">
+          <button class="beauty-card${on ? ' is-on' : ''}" type="button"
+             data-shape="${esc(item.id)}" aria-pressed="${on}">
+            <span class="beauty-shape-preview" style="${previewStyle}">你好</span>
+            <small class="beauty-card__name">${esc(item.name)}</small>
+          </button>
+          <button class="beauty-card__del" type="button" data-delete-custom-bubble="${esc(item.id)}"
+                  aria-label="删除${esc(item.name)}">×</button>
+        </div>`;
+      })
+      .join('');
+
+  const flipControl = currentShape
+    ? `<button class="btn beauty-btn beauty-bubble-flip${isFlipped ? ' is-on' : ''}" type="button"
+         data-flip-bubble aria-pressed="${isFlipped}">
+        左右翻转当前气泡（适配左/右两侧）${isFlipped ? ' · 已翻转' : ''}
+      </button>`
+    : '';
 
   const gradient = bubble.gradientColor
     ? colorRow('bubble.gradientColor', '渐变颜色', bubble.gradientColor) +
@@ -87,10 +111,11 @@ export function bubbleTabHTML(scheme: BeautyScheme, state: BubbleTabState): stri
 
   return `
     ${segRow('subject', [{ id: 'user', label: '我的气泡' }, { id: 'wuli', label: '角色气泡' }], state.subject)}
-    <h2 class="beauty-h2">气泡形状</h2>
-    <p class="beauty-note">选中后气泡按图片九宫格渲染 —— 四个角不变形，中间跟着文字拉伸。
-      没有选中的就是普通圆角矩形。</p>
+    <h2 class="beauty-h2">自定义气泡（截图复刻）</h2>
+    <p class="beauty-note">截取喜欢的聊天气泡，按提示缩放裁剪并固定边框样式后即可直接套用。</p>
     <div class="beauty-grid beauty-grid--bubble">${shapes}</div>
+    ${flipControl}
+    <button class="btn beauty-btn beauty-btn--import" type="button" data-import-custom-bubble>导入自定义气泡（截图裁剪）</button>
     <h2 class="beauty-h2">气泡模版</h2>
     <div class="beauty-grid beauty-grid--bubble">${templates}</div>
     ${rangeRow('bubble.opacity', '透明度', Math.round(bubble.opacity * 100), 0, 100, 1, '%')}

@@ -98,5 +98,5 @@ function esc2(text: string): string {
 /** 气泡的内联样式（空串表示用 CSS 里的默认值） */
 export function bubbleStyleOf(role: BeautyRole): string {
   if (!beautyReady()) return '';
-  return previewBubbleStyle(activeScheme(), role);
+  return previewBubbleStyle(activeScheme(), role, assetUrl);
 }

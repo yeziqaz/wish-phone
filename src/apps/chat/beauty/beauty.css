@@ -682,3 +682,462 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* ---------- 自定义气泡卡片与删除角标 ---------- */
+
+.beauty-card-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.beauty-card-wrap .beauty-card {
+  width: 100%;
+}
+
+.beauty-card__del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 视觉 24，触控热区补到 44 */
+.beauty-card__del::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+
+/* ---------- 截图气泡裁剪器（全屏覆盖，不依赖外部 crop 样式） ---------- */
+
+.bcrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  background: var(--bg);
+}
+
+.bcrop .crop__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 var(--sp-2);
+  flex-shrink: 0;
+}
+
+.bcrop .crop__btn {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--ink-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bcrop .crop__btn--ok {
+  color: var(--ink);
+  font-weight: var(--fw-semibold);
+}
+
+.bcrop .crop__title {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+}
+
+.bcrop__guide {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-3);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.bcrop__wrap {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  overflow: hidden;
+  background: var(--surface-2);
+  touch-action: none;
+}
+
+.bcrop__stage {
+  position: absolute;
+  overflow: visible;
+  background: var(--surface);
+  border: var(--border-w-strong) solid var(--ink);
+  box-shadow: 0 0 0 9999px var(--mask);
+  touch-action: none;
+  cursor: grab;
+}
+
+.bcrop__stage:active {
+  cursor: grabbing;
+}
+
+.bcrop__flip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bcrop .crop__img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.bcrop__guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bcrop__line {
+  position: absolute;
+  pointer-events: auto;
+  touch-action: none;
+  z-index: 2;
+}
+
+/* 扩大四条虚线的触控热区到 44px，手指不用瞄准 1px 的线 */
+.bcrop__line::after {
+  content: '';
+  position: absolute;
+}
+
+.bcrop__line--t {
+  left: 0;
+  right: 0;
+  top: var(--gt, 22%);
+  height: 0;
+  border-top: var(--border-w-strong) dashed var(--ink);
+  cursor: ns-resize;
+}
+
+.bcrop__line--t::after {
+  inset: -22px 0;
+}
+
+.bcrop__line--b {
+  left: 0;
+  right: 0;
+  bottom: var(--gb, 22%);
+  height: 0;
+  border-bottom: var(--border-w-strong) dashed var(--ink);
+  cursor: ns-resize;
+}
+
+.bcrop__line--b::after {
+  inset: -22px 0;
+}
+
+.bcrop__line--l {
+  top: 0;
+  bottom: 0;
+  left: var(--gl, 22%);
+  width: 0;
+  border-left: var(--border-w-strong) dashed var(--ink);
+  cursor: ew-resize;
+}
+
+.bcrop__line--l::after {
+  inset: 0 -22px;
+}
+
+.bcrop__line--r {
+  top: 0;
+  bottom: 0;
+  right: var(--gr, 22%);
+  width: 0;
+  border-right: var(--border-w-strong) dashed var(--ink);
+  cursor: ew-resize;
+}
+
+.bcrop__line--r::after {
+  inset: 0 -22px;
+}
+
+.bcrop__handle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 6px;
+  background: var(--surface);
+  border: var(--border-w) solid var(--ink);
+  border-radius: var(--radius-full);
+}
+
+.bcrop__line--l .bcrop__handle,
+.bcrop__line--r .bcrop__handle {
+  width: 6px;
+  height: 24px;
+}
+
+/* 四角自由调框手柄：视觉 16×16 L 型角标，触控热区 44×44 */
+.bcrop__corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: none;
+  border: 0;
+  z-index: 4;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bcrop__corner::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-color: var(--ink);
+  border-style: solid;
+  border-width: 0;
+  background: transparent;
+}
+
+.bcrop__corner::after {
+  content: '';
+  position: absolute;
+  inset: -13px;
+}
+
+.bcrop__corner--nw {
+  top: -4px;
+  left: -4px;
+  cursor: nwse-resize;
+}
+
+.bcrop__corner--nw::before {
+  border-top-width: 3px;
+  border-left-width: 3px;
+}
+
+.bcrop__corner--ne {
+  top: -4px;
+  right: -4px;
+  cursor: nesw-resize;
+}
+
+.bcrop__corner--ne::before {
+  border-top-width: 3px;
+  border-right-width: 3px;
+}
+
+.bcrop__corner--sw {
+  bottom: -4px;
+  left: -4px;
+  cursor: nesw-resize;
+}
+
+.bcrop__corner--sw::before {
+  border-bottom-width: 3px;
+  border-left-width: 3px;
+}
+
+.bcrop__corner--se {
+  bottom: -4px;
+  right: -4px;
+  cursor: nwse-resize;
+}
+
+.bcrop__corner--se::before {
+  border-bottom-width: 3px;
+  border-right-width: 3px;
+}
+
+.bcrop__size {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.bcrop__panel {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-4) calc(env(safe-area-inset-bottom) + var(--sp-3));
+  background: var(--surface);
+  border-top: var(--border-w) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.bcrop__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.bcrop .crop__ratios {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--sp-1);
+}
+
+.bcrop__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.bcrop__tool {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bcrop__tool[aria-pressed='true'] {
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-color: var(--inverse-bg);
+}
+
+.bcrop__tool[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.beauty-bubble-flip.is-on {
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-color: var(--inverse-bg);
+}
+
+.bcrop .crop__ratio {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bcrop .crop__ratio[aria-pressed='true'] {
+  color: var(--inverse-ink);
+  background: var(--inverse-bg);
+  border-color: var(--inverse-bg);
+}
+
+.bcrop .crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.bcrop .crop__zoom-label {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.bcrop .crop__range {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.bcrop__options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.bcrop__check,
+.bcrop__color {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: var(--tap-min);
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.bcrop__color input[type='color'] {
+  width: 32px;
+  height: 28px;
+  padding: 1px;
+  background: none;
+  border: var(--border-w) solid var(--line-strong);
+  border-radius: var(--radius-xs);
+}
+
+.bcrop__name {
+  flex: 1;
+  min-width: 100px;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.bcrop__preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  min-height: 52px;
+}
+
+.bcrop__preview-label {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.bcrop__preview-bubble {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  word-break: break-word;
+  box-sizing: border-box;
+}

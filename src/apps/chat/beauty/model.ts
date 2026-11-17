@@ -115,6 +115,10 @@ export interface BubbleShape {
   /** 边框占位：上 右 下 左（CSS px） */
   width: [number, number, number, number];
   fillMode: 'stretch' | 'round' | 'space';
+  /** 自定义截图气泡的文字颜色（空 = 按 bubble.fill 自动算） */
+  ink?: string;
+  /** 是否左右镜像翻转（同一张气泡图可一键适配左/右两测） */
+  flipped?: boolean;
 }
 
 /** 不启用异形时的值 */
@@ -192,8 +196,10 @@ export interface BeautyScheme {
 export interface CustomAsset {
   id: string;
   name: string;
-  type: 'sticker' | 'background' | 'frame';
+  type: 'sticker' | 'background' | 'frame' | 'bubble';
   category: string;
+  /** 自定义气泡导入时保存的默认九宫格参数 */
+  bubbleShape?: Omit<BubbleShape, 'shapeId'>;
 }
 
 export interface BeautyData {
@@ -341,7 +347,17 @@ function cleanShape(value: unknown): BubbleShape {
   const fillMode: BubbleShape['fillMode'] =
     mode === 'round' || mode === 'space' ? mode : 'stretch';
 
-  return { shapeId, slice: pair(raw.slice), width: pair(raw.width), fillMode };
+  const ink = optionalHex(raw.ink, '');
+  const flipped = raw.flipped === true;
+
+  return {
+    shapeId,
+    slice: pair(raw.slice),
+    width: pair(raw.width),
+    fillMode,
+    ...(ink ? { ink } : {}),
+    ...(flipped ? { flipped: true } : {}),
+  };
 }
 
 function cleanParticipant(value: unknown, fallback: Participant): Participant {
@@ -434,12 +450,29 @@ export function validateBeauty(value: unknown, bg: Parameters<typeof defaultSche
     ? source.customAssets
         .slice(0, 120)
         .filter((item): item is CustomAsset => !!item && /^beauty-[a-zA-Z0-9-]+$/.test(item.id ?? ''))
-        .map((item) => ({
-          id: item.id,
-          name: String(item.name ?? (item.type === 'background' ? '聊天背景' : '我的挂件')).slice(0, 50),
-          type: (['sticker', 'background'].includes(item.type) ? item.type : 'frame') as CustomAsset['type'],
-          category: item.type === 'background' ? '我的背景' : '我的挂件',
-        }))
+        .map((item) => {
+          const type: CustomAsset['type'] = (['sticker', 'background', 'bubble'] as const).includes(
+            item.type as 'sticker' | 'background' | 'bubble',
+          )
+            ? (item.type as CustomAsset['type'])
+            : 'frame';
+          const defaultName =
+            type === 'background' ? '聊天背景' : type === 'bubble' ? '自定义气泡' : '我的挂件';
+          const category =
+            type === 'background' ? '我的背景' : type === 'bubble' ? '我的气泡' : '我的挂件';
+          const baseAsset: CustomAsset = {
+            id: item.id,
+            name: String(item.name ?? defaultName).slice(0, 50),
+            type,
+            category,
+          };
+          if (type === 'bubble' && item.bubbleShape) {
+            const cleaned = cleanShape({ ...item.bubbleShape, shapeId: item.id });
+            const { shapeId: _, ...rest } = cleaned;
+            baseAsset.bubbleShape = rest;
+          }
+          return baseAsset;
+        })
     : [];
 
   return { version: BEAUTY_VERSION, activeSchemeId: activeSheetId, customAssets, schemes };
@@ -449,10 +482,10 @@ export function cloneBeauty(value: BeautyData): BeautyData {
   return structuredClone(value);
 }
 
-/** 全部可选挂件 = 内置预设 + 自定义资源 */
+/** 全部可选挂件 = 内置预设 + 自定义资源（不含聊天背景和自定义气泡） */
 export function allPendants(data: BeautyData): PendantPreset[] {
   const custom: PendantPreset[] = data.customAssets
-    .filter((item) => item.type !== 'background')
+    .filter((item) => item.type !== 'background' && item.type !== 'bubble')
     .map((item) => ({
       id: item.id,
       type: item.type === 'sticker' ? 'sticker' : 'frame',
@@ -462,6 +495,11 @@ export function allPendants(data: BeautyData): PendantPreset[] {
       color: 'currentColor',
     }));
   return [...PENDANT_PRESETS, ...custom];
+}
+
+/** 用户导入的自定义气泡列表 */
+export function customBubbles(data: BeautyData): CustomAsset[] {
+  return data.customAssets.filter((item) => item.type === 'bubble');
 }
 
 export function pendantOf(id: string, data: BeautyData): PendantPreset | undefined {
