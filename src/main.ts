@@ -22,6 +22,7 @@ import { mountWorldEdit } from './settings/worlds/world-edit';
 import { mountLoreList } from './settings/lore/lore-list';
 import { mountLoreEdit } from './settings/lore/lore-edit';
 import { ensureDefaults } from './apps/character/defaults';
+import { resetThemeColor } from './ui/theme-color';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
@@ -54,7 +55,9 @@ route('/desktop', () => mountDesktop(app));
 route('/character', () => void mountCharacterList(app));
 // 注意：'/character/new' 必须排在 '/character/:id' 前面，否则 new 会被当成 id
 route('/character/new', () => void mountCharacterEdit(app, 'new'));
-route('/character/:id', ({ params }) => void mountCharacterEdit(app, params.id ?? ''));
+route('/character/:id', ({ params, query }) =>
+  void mountCharacterEdit(app, params.id ?? '', { back: query.get('back') ?? undefined }),
+);
 route('/chat', () => void mountChatHome(app));
 route('/chat/:id', ({ params }) => mountChat(app, params.id ?? ''));
 route('/help', () => mountPlaceholder('帮助'));
@@ -106,6 +109,9 @@ void loadPrefs();
 void ensureDefaults().catch(() => {});
 
 if (!location.hash) navigate(HOME);
+// 换屏时先把顶部那条状态栏的颜色恢复默认，等新页面自己挂完再量一次
+// （注册在 startRouter 之前 → 比路由的 hashchange 先跑）
+addEventListener('hashchange', resetThemeColor);
 startRouter();
 
 // 顺序很重要：先把桌面渲染好（此时它被锁屏盖住），再盖上锁屏。

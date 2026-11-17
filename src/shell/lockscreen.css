@@ -1,6 +1,10 @@
 /* ==========================================================================
    锁屏样式
    ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+
+   两层结构：
+     .lock        铺满整屏的不透明底 —— 拖动时它**不动**，所以永远不会露出下面
+     .lock__inner 时钟/日期/提示，拖动时只移动这一层
    ========================================================================== */
 
 .lock {
@@ -9,6 +13,20 @@
   /* 盖在所有页面之上，但低于 toast —— 启动时若有提示气泡应当可见 */
   z-index: var(--z-dialog);
 
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+
+  /* 手势自己处理，别让浏览器去做滚动或下拉刷新 */
+  touch-action: none;
+  cursor: grab;
+
+  /* 解锁时整层淡出：这一刻露出来的才是真正的界面 */
+  transition: opacity 260ms var(--ease-out);
+}
+
+.lock__inner {
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,31 +35,35 @@
     var(--sp-5)
     calc(env(safe-area-inset-bottom) + var(--sp-8));
 
-  background: var(--bg);
-  color: var(--ink);
-
-  /* 手势自己处理，别让浏览器去做滚动或下拉刷新 */
-  touch-action: none;
-  cursor: grab;
-
-  /* 解锁飞出：减速曲线 */
-  transition: transform 360ms var(--ease-out);
+  /* 解锁飞出：减速曲线（拖动时贴手，见下面 --dragging） */
+  transition:
+    transform 360ms var(--ease-out),
+    opacity 260ms var(--ease-out);
 }
 
 /* 手指按着的时候不要过渡，否则跟手会有延迟感 */
-.lock--dragging {
+.lock--dragging,
+.lock--dragging .lock__inner {
   transition: none;
   cursor: grabbing;
 }
 
-/* 解锁时飞出去的这一段 */
+/* 解锁时：外层淡出，内层继续往上走一点，形成「抽走」的感觉 */
 .lock--leaving {
-  transition: transform 360ms var(--ease-out);
+  opacity: 0;
+}
+
+.lock--leaving .lock__inner {
+  transition:
+    transform 320ms var(--ease-out),
+    opacity 220ms var(--ease-out);
 }
 
 /* 没拖够、弹回来：用果冻曲线，手感是「吸」回去的 */
-.lock--snapback {
-  transition: transform 520ms var(--ease-jelly);
+.lock--snapback .lock__inner {
+  transition:
+    transform 520ms var(--ease-jelly),
+    opacity 320ms var(--ease-out);
 }
 
 /* ---------- 时钟 ---------- */
@@ -95,8 +117,9 @@
 /* 尊重系统的「减弱动态效果」设置 */
 @media (prefers-reduced-motion: reduce) {
   .lock,
-  .lock--leaving,
-  .lock--snapback {
+  .lock__inner,
+  .lock--leaving .lock__inner,
+  .lock--snapback .lock__inner {
     transition-duration: 1ms;
   }
   .lock__arrow {

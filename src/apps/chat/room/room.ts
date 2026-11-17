@@ -12,6 +12,7 @@ import {
 import { collectLore, renderLore } from '../../../core/lore';
 import type { Character, Conversation, Message } from '../../../core/types';
 import { esc, must } from '../../../core/dom';
+import { navigate } from '../../../core/router';
 import { avatarHTML } from '../../../ui/avatar';
 import { line } from '../../../ui/icons';
 import {
@@ -33,6 +34,8 @@ import {
 } from './bubbles';
 import { splitIntoBubbles, splitOptionsFor } from './split';
 import { openChatSettings } from './settings';
+import { openRoomMenu } from './room-menu';
+import { syncThemeColorFromTop } from '../../../ui/theme-color';
 import { avatarDecorOf } from '../beauty/render';
 import { beautyVariables } from '../beauty/css';
 import { activeScheme, adoptLegacyFrame, loadAssets, loadBeauty } from '../beauty/store';
@@ -226,7 +229,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
           <span class="chat-top__status"><span class="chat-top__dot"></span>${esc(statusText)}</span>
         </div>
         <div class="chat-top__right">
-          <button class="topbar__action jelly" type="button" data-go="/character/${esc(character.id)}" aria-label="角色档案">
+          <button class="topbar__action jelly" type="button" id="chat-more" aria-label="更多">
             ${line('more', 20)}
           </button>
         </div>
@@ -252,7 +255,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
                 <span class="drawer-item__icon">${line('refresh', 22)}</span>
                 <span class="drawer-item__label">重新回答</span>
               </button>
-              <button class="drawer-item" type="button" data-go="/character/${esc(character.id)}">
+              <button class="drawer-item" type="button" data-go="/character/${esc(character.id)}?back=%2Fchat%2F${esc(character.id)}">
                 <span class="drawer-item__icon">${line('pencil', 20)}</span>
                 <span class="drawer-item__label">角色设定</span>
               </button>
@@ -321,6 +324,8 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     } else {
       styleTag.textContent = '';
     }
+    // 顶栏颜色可能刚被换掉，顶部状态栏那条跟着重算
+    requestAnimationFrame(() => syncThemeColorFromTop());
   };
   void (async () => {
     // 读这个角色自己的那套配置（没有就用默认）
@@ -341,6 +346,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   const modelBtn = must<HTMLButtonElement>(root, '#drawer-model');
   const modelLabel = must<HTMLElement>(root, '#drawer-model-label');
   const chatSettingsBtn = must<HTMLButtonElement>(root, '#drawer-settings');
+  const moreBtn = must<HTMLButtonElement>(root, '#chat-more');
 
   let busy = false;
 
@@ -644,6 +650,21 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       renderAllMessages();
     });
   };
+
+  /* 右上角「···」：先分一层菜单，再决定进角色档案还是聊天室美化。
+     以前它是直通角色档案的 —— 用户 2026-11-17 指出这是两件事，要分开。 */
+  moreBtn.addEventListener('click', () => {
+    void openRoomMenu({ title: character.name || '未命名' }).then((choice) => {
+      if (choice === 'beauty') {
+        openBeauty();
+        return;
+      }
+      if (choice === 'dossier') {
+        // back 参数让档案页的返回键回到这间聊天室，而不是角色卡列表
+        navigate(`/character/${character.id}?back=${encodeURIComponent(`/chat/${character.id}`)}`);
+      }
+    });
+  });
 
   /* 聊天美化：全屏面板。
      它是独立的库里的一份配置，改完直接重画消息流 ——

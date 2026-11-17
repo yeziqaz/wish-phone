@@ -65,7 +65,21 @@ function collectOpenings(root: HTMLElement): string[] {
     .filter((value) => value.trim().length > 0);
 }
 
-export async function mountCharacterEdit(root: HTMLElement, id: string): Promise<void> {
+export async function mountCharacterEdit(
+  root: HTMLElement,
+  id: string,
+  options: { back?: string } = {},
+): Promise<void> {
+  /* 返回键回哪去。
+     从角色卡列表进来 → 回列表（默认）。
+     从聊天室的「···」进来 → 回那间聊天室。
+     用户 2026-11-17 指出：从聊天室点进档案，退出后掉到角色卡列表是错的。
+     只接受站内路径（以 / 开头），防止外面塞一个外链进来。 */
+  const backTo =
+    options.back && options.back.startsWith('/') && !options.back.startsWith('//')
+      ? options.back
+      : '/character';
+
   let character: Character;
 
   if (id === 'new') {
@@ -81,7 +95,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
       root.innerHTML = `
         <div class="page">
           <header class="topbar">
-            <button class="topbar__back jelly" type="button" data-go="/character" aria-label="返回">${line('back', 22)}</button>
+            <button class="topbar__back jelly" type="button" data-go="${esc(backTo)}" aria-label="返回">${line('back', 22)}</button>
             <h1 class="topbar__title">找不到</h1>
           </header>
           <p class="field__note">这个角色已经不在了，可能刚被删掉。</p>
@@ -123,7 +137,7 @@ export async function mountCharacterEdit(root: HTMLElement, id: string): Promise
   root.innerHTML = `
     <div class="page page--dossier">
       <header class="topbar">
-        <button class="topbar__back jelly" type="button" data-go="/character" aria-label="返回">${line('back', 22)}</button>
+        <button class="topbar__back jelly" type="button" data-go="${esc(backTo)}" aria-label="返回">${line('back', 22)}</button>
         <h1 class="topbar__title">角色档案</h1>
         ${isNew ? '' : `<button class="topbar__action jelly" type="button" data-go="/chat/${esc(character.id)}"
                 aria-label="和 TA 聊天">${line('chat', 22)}</button>`}

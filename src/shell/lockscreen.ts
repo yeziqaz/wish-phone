@@ -25,21 +25,30 @@ const UNLOCK_MIN_PX = 72;
 export function mountLockscreen(onUnlock: () => void = () => {}): () => void {
   const el = document.createElement('div');
   el.className = 'lock';
+  /* ⚠️ 内容包一层 .lock__inner。
+     拖动时**只移动这一层**，外层 .lock 的底色始终盖满整屏 ——
+     否则上拉的一瞬间，锁屏下面的桌面/APP 就会从底下露出来，
+     看起来像「半透明地掀开」，不是解锁。
+     解锁时才把整层淡出，那一刻露出来的才是真正的界面。 */
   el.innerHTML = `
-    <div class="lock__time" id="lock-clock">--:--</div>
-    <div class="lock__date" id="lock-date"></div>
-    <div class="lock__hint">
-      <span class="lock__arrow" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
-             stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 19V5M5 12l7-7 7 7" />
-        </svg>
-      </span>
-      <span>上滑解锁</span>
+    <div class="lock__inner">
+      <div class="lock__time" id="lock-clock">--:--</div>
+      <div class="lock__date" id="lock-date"></div>
+      <div class="lock__hint">
+        <span class="lock__arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+               stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+        </span>
+        <span>上滑解锁</span>
+      </div>
     </div>`;
 
   document.body.appendChild(el);
+
+  const inner = el.querySelector<HTMLElement>('.lock__inner');
 
   /* ---------- 时钟 ---------- */
 
@@ -82,7 +91,10 @@ export function mountLockscreen(onUnlock: () => void = () => {}): () => void {
       unlocked = true;
       el.classList.remove('lock--snapback');
       el.classList.add('lock--leaving');
-      el.style.transform = 'translateY(-100%)';
+      if (inner) {
+        inner.style.transform = 'translateY(-14%)';
+        inner.style.opacity = '0';
+      }
 
       // transitionend 万一不来（浏览器差异、元素被提前移除），
       // 用定时器兜底 —— 绝不能让用户卡在锁屏上出不来
@@ -93,14 +105,24 @@ export function mountLockscreen(onUnlock: () => void = () => {}): () => void {
         teardown();
         onUnlock();
       };
-      el.addEventListener('transitionend', done, { once: true });
+      el.addEventListener(
+        'transitionend',
+        (event) => {
+          // 只认外层的淡出，别被内层 transform 的 transitionend 提前触发
+          if (event.target === el) done();
+        },
+        { once: false },
+      );
       window.setTimeout(done, 900);
       return;
     }
 
     // 没拖够：弹回去，用果冻曲线，手感是「吸」回去的
     el.classList.add('lock--snapback');
-    el.style.transform = '';
+    if (inner) {
+      inner.style.transform = '';
+      inner.style.opacity = '';
+    }
     snapBackTimer.id = window.setTimeout(() => {
       el.classList.remove('lock--snapback');
     }, 560);
@@ -117,11 +139,18 @@ export function mountLockscreen(onUnlock: () => void = () => {}): () => void {
   }
 
   function onMove(e: PointerEvent): void {
-    if (!dragging || unlocked) return;
+    if (!dragging || unlocked || !inner) return;
     const delta = e.clientY - startY;
-    // 向上跟手，向下给阻尼 —— 否则往下拖时整个锁屏会跑出屏幕，很难看
+    // 向上跟手，向下给阻尼 —— 否则往下拖时内容会跑出屏幕，很难看
     offset = delta < 0 ? delta : delta * 0.22;
-    el.style.transform = `translateY(${offset}px)`;
+    // 最多跟到一屏高度，防止拖太远整块内容飞出去
+    const limit = window.innerHeight;
+    const moved = Math.max(-limit, offset);
+    // 越接近解锁阈值越透明，给出「快到了」的反馈；
+    // 但下限留 0.25，免得拖到一半时整块内容彻底看不见
+    const progress = Math.min(1, Math.abs(moved) / threshold());
+    inner.style.transform = `translateY(${moved}px)`;
+    inner.style.opacity = String(1 - progress * 0.75);
   }
 
   function onUp(): void {

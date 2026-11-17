@@ -5,6 +5,7 @@ import type { Character, Conversation, Moment } from '../../../core/types';
 import { avatarHTML } from '../../../ui/avatar';
 import { line } from '../../../ui/icons';
 import { appAppearanceOf, loadAppAppearance, loadAssets, loadBeauty } from '../beauty/store';
+import { syncThemeColorFromTop } from '../../../ui/theme-color';
 import {
   loadContactGroups,
   openGroupManager,
@@ -157,6 +158,8 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
     chatapp.style.setProperty('--beauty-app-accent', app.accent);
     chatapp.style.setProperty('--beauty-app-ink', app.ink);
     chatapp.style.setProperty('--beauty-app-muted', app.muted);
+    // 顶栏换色了，最上面那条状态栏跟着变成同一个颜色（不再是一条白边）
+    requestAnimationFrame(() => syncThemeColorFromTop());
   };
 
   void loadAppAppearance().then(applyAppAppearance);

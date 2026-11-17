@@ -699,6 +699,51 @@
   color: var(--ink-4);
 }
 
+/* ---------- 右上角「···」菜单（角色档案 / 聊天室美化） ----------
+   两项都要「一行说清点进去是什么」，所以图标 + 主副两行 + 右侧箭头，
+   比横排工具条读得清楚。行高 60，触控够大。 */
+
+.room-menu__row {
+  gap: var(--sp-3);
+  min-height: 60px;
+  border-radius: var(--radius-md);
+}
+
+.room-menu__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.room-menu__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.room-menu__title {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.room-menu__sub {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 一行开关：整行可点，高度撑到 56 */
 .cs-row {
   display: flex;
