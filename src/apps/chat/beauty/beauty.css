@@ -38,7 +38,7 @@
   transform: translateY(100%);
   transition: transform var(--dur-normal) var(--ease-out);
   pointer-events: auto;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--statusbar-h);
 }
 
 .beauty-panel.is-open .beauty-panel__mask {
@@ -729,7 +729,7 @@
   z-index: var(--z-dialog);
   display: flex;
   flex-direction: column;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--statusbar-h);
   background: var(--bg);
 }
 

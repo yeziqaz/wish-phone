@@ -52,6 +52,33 @@ export function setThemeColor(color: string): void {
   if (document.documentElement.style.backgroundColor !== value) {
     document.documentElement.style.backgroundColor = value;
   }
+  applyBarInk(value);
+}
+
+/**
+ * 状态栏上的字和图标该用什么颜色。
+ *
+ * 量到的底色越亮，字就越黑；越暗就越白。中间那道坎用 0.55 的
+ * 相对亮度（和 beautify 里自动定文字色用的是同一条经验值）。
+ *
+ * 颜色本身**不写死**，从 design/tokens.css 的 --ink / --inverse-ink 读，
+ * 将来换色卡时这里一个字都不用动。
+ */
+function applyBarInk(background: string): void {
+  const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(background);
+  if (!match) return;
+  const channel = (hex: string): number => {
+    const c = parseInt(hex, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const lum =
+    0.2126 * channel(match[1]!) + 0.7152 * channel(match[2]!) + 0.0722 * channel(match[3]!);
+
+  const styles = getComputedStyle(document.documentElement);
+  const ink = styles.getPropertyValue('--ink').trim();
+  const inverse = styles.getPropertyValue('--inverse-ink').trim();
+  const picked = lum > 0.55 ? ink : inverse;
+  if (picked) document.documentElement.style.setProperty('--osbar-ink', picked);
 }
 
 /** 回到「没进任何 APP」时的默认色 */

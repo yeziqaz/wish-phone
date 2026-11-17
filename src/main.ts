@@ -5,6 +5,7 @@ import { loadPrefs } from './core/prefs';
 import { HOME, navigate, route, startRouter } from './core/router';
 import { mountDesktop } from './shell/desktop';
 import { mountLockscreen } from './shell/lockscreen';
+import { mountStatusBar } from './shell/statusbar';
 import { mountProviderEdit } from './settings/providers/provider-edit';
 import { mountProviderList } from './settings/providers/provider-list';
 import { mountApiPage } from './settings/api/api-page';
@@ -113,6 +114,9 @@ if (!location.hash) navigate(HOME);
 // （注册在 startRouter 之前 → 比路由的 hashchange 先跑）
 addEventListener('hashchange', resetThemeColor);
 startRouter();
+
+// 状态栏是外壳：整块屏幕最上面那一条，每屏都在，只挂一次
+mountStatusBar();
 
 // 顺序很重要：先把桌面渲染好（此时它被锁屏盖住），再盖上锁屏。
 // 反过来的话，上滑解锁的那一瞬间底下还是空的，会闪一下白。

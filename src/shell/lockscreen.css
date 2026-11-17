@@ -31,7 +31,7 @@
   flex-direction: column;
   align-items: center;
   padding:
-    calc(env(safe-area-inset-top) + 20vh)
+    calc(var(--statusbar-h) + 20vh)
     var(--sp-5)
     calc(env(safe-area-inset-bottom) + var(--sp-8));
 

@@ -29,7 +29,7 @@
   /* 固定内容区高度 44px，上下各留 4px，总高 52px（和聊天室顶栏一致）；
      切到「我」隐藏右侧 + 号时，高度和标题垂直居中位置也不跳动 */
   height: var(--tap-min);
-  padding: calc(env(safe-area-inset-top) + var(--sp-1)) var(--sp-4) var(--sp-1);
+  padding: calc(var(--statusbar-h) + var(--sp-1)) var(--sp-4) var(--sp-1);
   box-sizing: content-box;
   background: var(--beauty-app-navigation, var(--bg));
   flex-shrink: 0;

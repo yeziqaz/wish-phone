@@ -9,6 +9,22 @@
     />
     <meta name="theme-color" content="#fafafa" />
     <meta name="description" content="愿望机 · 纯前端零后端的 AI 小手机" />
+
+    <!-- 全屏：让「小手机」真的占住整块屏，连灵动岛那条带子也归它自己。
+         光靠 viewport-fit=cover 做不到 —— 那只让内容能延伸到刘海下面，
+         浏览器/系统的状态栏仍然在最上层。真正的全屏要靠 manifest 的
+         display: fullscreen，而且**必须「添加到主屏幕」之后才生效**，
+         在浏览器标签页里打开是看不到区别的。
+         全屏之后系统状态栏被隐藏，我们自己画的那条（shell/statusbar.ts）
+         就落在真机原来的位置上，看起来就是同一套状态栏。 -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <!-- iOS：standalone + 状态栏透明，同样是「整块屏都归小手机」 -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="愿望机" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+
     <title>愿望机</title>
   </head>
   <body>

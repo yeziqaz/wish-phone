@@ -1,0 +1,67 @@
+/* ==========================================================================
+   小手机自己的状态栏（全局唯一一条）
+   ⚠️ 不出现任何裸色值，全部引用 design/tokens.css
+   ========================================================================== */
+
+.osbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-status);
+  height: var(--statusbar-h);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp-5);
+
+  /* 背景透明：底下是桌面灰 / 聊天 APP 蓝 / 聊天室白，它就跟什么颜色，
+     整块屏因此是一体的，不会在顶上多出一条别的颜色的带子 */
+  background: transparent;
+  /* 文字颜色由 ui/theme-color.ts 量出底下亮度后写进来 */
+  color: var(--osbar-ink, var(--ink));
+
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+  line-height: 1;
+
+  /* 它是外壳，不该拦截任何手势 */
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ⚠️ 必须显式写这一条：
+   hidden 属性靠浏览器的 `[hidden] { display: none }` 生效，
+   那是**标签选择器级别**的优先级，打不过上面 .osbar 的 display: flex。
+   少了这一句，设置里的「顶部状态栏」开关就会按了没反应。 */
+.osbar[hidden] {
+  display: none;
+}
+
+.osbar__clock {
+  /* 等宽数字：分钟跳动时整行不会左右晃 */
+  font-variant-numeric: tabular-nums;
+}
+
+.osbar__icons {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.osbar__icons > span {
+  display: grid;
+  place-items: center;
+}
+
+/* 断网时 WiFi 变淡 */
+.osbar__wifi.is-off {
+  opacity: 0.3;
+}
+
+/* 用户把「顶部状态栏」关掉时：这条带子收回安全区高度，
+   页面因此可以往上多吃一点，不会空出 24px */
+.no-osbar {
+  --statusbar-h: env(safe-area-inset-top, 0px);
+}

@@ -28,7 +28,7 @@
   flex-shrink: 0;
   height: 52px;
   padding:
-    calc(env(safe-area-inset-top) + var(--sp-2))
+    calc(var(--statusbar-h) + var(--sp-2))
     var(--sp-2)
     var(--sp-2)
     var(--sp-2);
