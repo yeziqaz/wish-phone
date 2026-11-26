@@ -840,13 +840,14 @@
 }
 
 .api-assign-row__label {
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .api-assign-row__value {
   font-size: var(--fs-sm);
-  color: var(--ink);
+  color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -854,6 +855,14 @@
 
 .api-assign-row__value.is-unset {
   color: var(--ink-4);
+}
+
+/* 挂在下面的备用 / 改写行：从属一档，标题不抢主行 */
+.api-assign-row.is-aux .api-assign-row__label,
+.api-assign-row.is-indented .api-assign-row__label {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--ink-3);
 }
 
 .api-assign-row__sub {
@@ -875,7 +884,127 @@
   cursor: pointer;
   flex-shrink: 0;
 }
-
+/* 一个分配块 = 一行 + 就地展开的面板。分隔线挂在块上，
+   这样展开时线跟着面板走，行与行之间不会断 */
+.api-assign {
+  border-bottom: 1px solid var(--line);
+}
+.api-assign:last-child {
+  border-bottom: 0;
+}
+.api-assign > .api-assign-row {
+  border-bottom: 0;
+}
+.api-assign__inline {
+  margin: 0 0 var(--sp-3) var(--sp-4);
+}
+/* ---------- 页内两级选择器（先站点，再模型） ---------- */
+.api-picker {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.api-picker__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+.api-picker__title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.api-picker__close {
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-2);
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.api-picker__body {
+  display: flex;
+  flex-direction: column;
+}
+.api-picker__none,
+.api-picker__site,
+.api-picker__model {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-2);
+}
+.api-picker__none {
+  border-top: 0;
+}
+.api-picker__none.is-on,
+.api-picker__model.is-on {
+  color: var(--ink);
+  font-weight: 600;
+}
+.api-picker__site {
+  font-size: var(--fs-base);
+  color: var(--ink);
+}
+.api-picker__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.api-picker__meta {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  font-weight: 400;
+  color: var(--ink-4);
+}
+.api-picker__site svg,
+.api-picker__none svg,
+.api-picker__model svg {
+  flex-shrink: 0;
+}
+/* 展开了模型列表的站点：箭头转下来 */
+.api-picker__group.is-open .api-picker__site {
+  color: var(--accent);
+}
+.api-picker__group.is-open .api-picker__site svg {
+  transform: rotate(90deg);
+  transition: transform 160ms ease;
+}
+.api-picker__models {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.api-picker__model {
+  padding-left: var(--sp-5);
+  font-size: var(--fs-sm);
+  border-top: 1px solid var(--line);
+}
+.api-picker__model.is-on svg {
+  color: var(--accent);
+}
+.api-picker__empty {
+  margin: 0;
+  padding: var(--sp-3);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--ink-4);
+}
 /* ---------- 竖排选项（选择器 / 改写模式都用） ---------- */
 
 .api-choice-list {
@@ -930,11 +1059,17 @@
    分配页的分组标题 / App 折叠
    ========================================================================== */
 
+/* 页面级分区标题（全局设置 / App 设置 / 角色）：比条目名再大一档，撑起层级 */
 .api-part {
-  margin: var(--sp-5) 0 0;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--ink-3);
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+
+.api-part:first-child {
+  margin-top: 0;
 }
 
 .api-part + .api-section {
@@ -1332,52 +1467,75 @@
   min-width: 0;
 }
 
-/* 全部可用 / 已启用：共用一只气泡框，中缝斜切，当前项用黑白反色。 */
+/* 全部可用 / 仅启用：一整个黑块，斜着一刀切。
+   黑块不画在按钮上，而是画在容器的 ::before 上（叫它「刀」）。
+   · 选「全部可用」：刀铺满整块，两个字都压在黑上；
+   · 选「仅启用」：刀只剩右半边，左半边斜着被切掉，
+     所以看起来是「一整块被斜切了一刀」，而不是两个胶囊各切一刀。 */
 .api-view-switch {
   position: relative;
   isolation: isolate;
   display: flex;
   flex: 0 0 auto;
   min-height: 44px;
-  padding: 3px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-full);
-  background: var(--surface-2);
+  background: var(--surface);
+  overflow: hidden;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }
 
+.api-view-switch::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition: clip-path var(--dur-normal) var(--ease-out);
+  pointer-events: none;
+}
+
+/* 只留右半边：斜边从中线略右上方拉到略左下方，这一刀才是「斜的」 */
+.api-view-switch:has(> .api-view-switch__item[data-view='enabled'][aria-pressed='true'])::before {
+  clip-path: polygon(34% 0, 100% 0, 100% 100%, 26% 100%);
+}
+
 .api-view-switch__item {
   position: relative;
   z-index: 1;
+  flex: 1;
   min-width: 0;
-  min-height: 36px;
-  padding: 0 var(--sp-3);
+  min-height: 42px;
+  padding: 0 var(--sp-4);
   border: 0;
-  border-radius: var(--radius-full);
   background: transparent;
   color: var(--ink-3);
   font: inherit;
   font-size: var(--fs-sm);
   white-space: nowrap;
   cursor: pointer;
+  transition: color var(--dur-normal) var(--ease-out);
 }
 
 .api-view-switch__item[aria-pressed='true'] {
-  background: var(--accent);
   color: var(--accent-ink);
   font-weight: 600;
-  clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%);
-  padding-right: calc(var(--sp-3) + 4px);
 }
 
-.api-view-switch__item:last-child[aria-pressed='true'] {
-  clip-path: polygon(12% 0, 100% 0, 100% 100%, 0 100%);
-  padding-left: calc(var(--sp-3) + 4px);
+.api-view-switch__item[data-view='enabled'][aria-pressed='true'] {
+  padding-left: calc(var(--sp-4) + 6px);
+}
+
+.api-view-switch__item[data-view='all'][aria-pressed='true'] {
+  padding-right: calc(var(--sp-4) + 6px);
 }
 
 .api-view-switch__item:focus-visible {
   outline: 2px solid var(--ink);
-  outline-offset: 2px;
+  outline-offset: -4px;
+  border-radius: var(--radius-full);
 }

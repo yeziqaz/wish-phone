@@ -6,6 +6,7 @@ import { CAPABILITIES, CAPABILITY_LABEL } from '../../core/api-types';
 import { line } from '../../ui/icons';
 import { assign, clearCustom } from '../../ai/call';
 import { openModelPicker } from './model-picker';
+import { inlinePickerHTML } from './picker-inline';
 
 /* ==========================================================================
    分配 Tab（设计文档 §7）
@@ -18,6 +19,13 @@ import { openModelPicker } from './model-picker';
    ⚠️ §7.6：未自定义的项不许只写「默认」，要显示实际生效的值。
       所以「跟随」的项也往上解析一次，把真实模型名显示出来。
    ⚠️ 分配页只能选择和引用，不许在这里改站点或模型。
+   ⚠️ 选模型是**页内两级展开**（先站点、再模型）：用户明确要求
+      「在当前界面内下拉」，不要再改回 model-picker 那种全屏覆盖层。
+      model-picker 只留给聊天室抽屉这类「临时插一句」的场合。
+
+   实现要点：每行是一个 BlockSpec（读取函数 + 提交函数），
+   渲染统一走 blockHTML(spec)；展开/收起只替换那一块 outerHTML，
+   所以滚动位置不动、输入框不会被重建。
    ========================================================================== */
 
 interface Group {
@@ -41,7 +49,38 @@ const APPS: Array<{ id: string; name: string; kinds: Capability[] }> = [
   { id: 'moments', name: '朋友圈', kinds: ['text', 'image'] },
 ];
 
+/** 页内选择器当前展开在哪一行；null = 全部收起 */
+interface PickState {
+  key: string;
+  /** 展开到第二级时是哪个站点 */
+  expanded: string | null;
+}
+
+let pickState: PickState | null = null;
+
+/** 一行「标签 + 当前值 + 箭头 + 可选展开区」的完整描述 */
+interface BlockSpec {
+  key: string;
+  kind: Capability;
+  label: string;
+  ariaLabel: string;
+  aux?: boolean;
+  allowNone: boolean;
+  noneLabel?: string;
+  /** 现算当前值和显示文案，保证选完重绘时是最新的 */
+  read(): {
+    current: { siteId: string; modelId: string } | null;
+    value: string;
+    unset: boolean;
+  };
+  /** 写入选择结果；null = 「跟随上级」/「不要备用模型」 */
+  commit(picked: { siteId: string; modelId: string } | null): Promise<void>;
+}
+
 export async function mountAssignView(host: HTMLElement, onChange: () => void): Promise<void> {
+  // 每次重绘都从「没有展开任何选择器」开始
+  pickState = null;
+
   const [sites, assignments, characters] = await Promise.all([
     listSites(),
     listAssignments(),
@@ -87,6 +126,18 @@ export async function mountAssignView(host: HTMLElement, onChange: () => void): 
 
   // ---------------------------------------------------------------- 渲染
 
+  /** 本次挂载里所有已渲染的块，按 key 索引；局部重绘靠它拿回 spec */
+  const specs = new Map<string, BlockSpec>();
+
+  function register(spec: BlockSpec): BlockSpec {
+    specs.set(spec.key, spec);
+    return spec;
+  }
+
+  function rowKey(kind: Capability, scope: Assignment['scope'], scopeId: string): string {
+    return `${kind}|${scope}|${scopeId}`;
+  }
+
   function summaryHTML(): string {
     return SUMMARY_KINDS.map((kind) => {
       const item = globalOf(kind);
@@ -95,27 +146,110 @@ export async function mountAssignView(host: HTMLElement, onChange: () => void): 
     }).join('');
   }
 
-  function rowHTML(kind: Capability, scope: Assignment['scope'], scopeId: string): string {
-    const own = scope === 'global' ? globalOf(kind) : scopedOf(scope, scopeId, kind);
-    const hasOwn = Boolean(own?.target);
-    const text =
-      scope === 'global'
-        ? hasOwn
-          ? describe(own?.target)
-          : '未设置'
-        : hasOwn
-          ? describe(own?.target)
-          : inheritedText(scope, kind);
+  /** 一个模型分配行（按能力） */
+  function modelSpec(kind: Capability, scope: Assignment['scope'], scopeId: string): BlockSpec {
+    const own = () => (scope === 'global' ? globalOf(kind) : scopedOf(scope, scopeId, kind));
+    return {
+      key: rowKey(kind, scope, scopeId),
+      kind,
+      label: `${CAPABILITY_LABEL[kind]}模型`,
+      ariaLabel: `选择${CAPABILITY_LABEL[kind]}模型`,
+      allowNone: scope !== 'global',
+      noneLabel: scope === 'app' ? '跟随全局' : '跟随上级',
+      read: () => {
+        const item = own();
+        const hasOwn = Boolean(item?.target);
+        const value =
+          hasOwn || scope === 'global' ? describe(item?.target) : inheritedText(scope, kind);
+        return {
+          current: item?.target ?? null,
+          value,
+          unset: !hasOwn && scope !== 'global',
+        };
+      },
+      commit: async (picked) => {
+        // 全局必须先有一个；点「跟随上级」在全局没有意义，直接忽略
+        if (picked === null && scope === 'global') return;
+        await assign(
+          scope,
+          scopeId,
+          kind,
+          picked ? { type: 'model', siteId: picked.siteId, modelId: picked.modelId } : null,
+        );
+      },
+    };
+  }
 
+  /** 备用文本模型：只在全局·核心·文本下面出现，写入 fallback 字段 */
+  function fallbackSpec(): BlockSpec {
+    return {
+      key: `${rowKey('text', 'global', '')}|fallback`,
+      kind: 'text',
+      label: '备用文本模型',
+      ariaLabel: '设置备用文本模型',
+      aux: true,
+      allowNone: true,
+      noneLabel: '不要备用模型',
+      read: () => {
+        const fallback = globalOf('text')?.fallback ?? null;
+        return {
+          current: fallback,
+          value: fallback ? describe(fallback) : '没设置（失败就不切换）',
+          unset: !fallback,
+        };
+      },
+      commit: async (picked) => {
+        const item = globalOf('text');
+        if (picked === null && !item?.fallback) return;
+        await assign('global', '', 'text', item?.target ?? null, {
+          fallback: picked ? { siteId: picked.siteId, modelId: picked.modelId } : null,
+        });
+      },
+    };
+  }
+
+  function blockHTML(spec: BlockSpec): string {
+    const state = spec.read();
+    const open = pickState?.key === spec.key;
     return `
-      <div class="api-assign-row">
-        <span class="api-assign-row__main">
-          <span class="api-assign-row__label">${CAPABILITY_LABEL[kind]}模型</span>
-          <span class="api-assign-row__value${hasOwn || scope === 'global' ? '' : ' is-unset'}">${esc(text)}</span>
-        </span>
-        <button class="api-assign-row__pick" type="button"
-          data-pick="${kind}" data-scope="${scope}" data-scope-id="${esc(scopeId)}"
-          aria-label="选择${CAPABILITY_LABEL[kind]}模型">${line('chevron', 18)}</button>
+      <div class="api-assign" data-pick-key="${esc(spec.key)}">
+        <div class="api-assign-row${spec.aux ? ' is-aux' : ''}">
+          <span class="api-assign-row__main">
+            <span class="api-assign-row__label">${esc(spec.label)}</span>
+            <span class="api-assign-row__value${state.unset ? ' is-unset' : ''}">${esc(state.value)}</span>
+          </span>
+          <button class="api-assign-row__pick" type="button" data-toggle
+            aria-label="${esc(spec.ariaLabel)}" aria-expanded="${open}">${line('chevron', 18)}</button>
+        </div>
+        ${
+          open
+            ? `<div class="api-assign__inline">${inlinePickerHTML(
+                spec.kind,
+                sites,
+                state.current,
+                { expanded: pickState?.expanded ?? null },
+                { allowNone: spec.allowNone, noneLabel: spec.noneLabel },
+              )}</div>`
+            : ''
+        }
+      </div>`;
+  }
+
+  function rowHTML(kind: Capability, scope: Assignment['scope'], scopeId: string): string {
+    return blockHTML(register(modelSpec(kind, scope, scopeId)));
+  }
+
+  /** 提示词改写：三选一，仍走小浮层（它不是「挑模型」，是挑模式） */
+  function auxRowHTML(kind: Capability): string {
+    return `
+      <div class="api-assign">
+        <div class="api-assign-row is-aux">
+          <span class="api-assign-row__main">
+            <span class="api-assign-row__label">提示词改写</span>
+            <span class="api-assign-row__value">${esc(auxText(globalOf(kind)))}</span>
+          </span>
+          <button class="api-assign-row__pick" type="button" data-aux-pick="${kind}" aria-label="设置提示词改写">${line('chevron', 18)}</button>
+        </div>
       </div>`;
   }
 
@@ -129,32 +263,12 @@ export async function mountAssignView(host: HTMLElement, onChange: () => void): 
           ${shown
             .map((kind) => {
               let extra = '';
-
               if (kind === 'text' && scope === 'global') {
-                const fallback = globalOf('text')?.fallback ?? null;
-                extra = `
-                  <div class="api-assign-row is-aux">
-                    <span class="api-assign-row__main">
-                      <span class="api-assign-row__label">备用文本模型</span>
-                      <span class="api-assign-row__value${fallback ? '' : ' is-unset'}">${esc(
-                        fallback ? describe(fallback) : '没设置（失败就不切换）',
-                      )}</span>
-                    </span>
-                    <button class="api-assign-row__pick" type="button" data-fallback-pick aria-label="设置备用文本模型">${line('chevron', 18)}</button>
-                  </div>`;
+                extra = blockHTML(register(fallbackSpec()));
               }
-
               if ((kind === 'image' || kind === 'video') && scope === 'global') {
-                extra = `
-                  <div class="api-assign-row is-aux">
-                    <span class="api-assign-row__main">
-                      <span class="api-assign-row__label">提示词改写</span>
-                      <span class="api-assign-row__value">${esc(auxText(globalOf(kind)))}</span>
-                    </span>
-                    <button class="api-assign-row__pick" type="button" data-aux-pick="${kind}" aria-label="设置提示词改写">${line('chevron', 18)}</button>
-                  </div>`;
+                extra = auxRowHTML(kind);
               }
-
               return rowHTML(kind, scope, scopeId) + extra;
             })
             .join('')}
@@ -215,54 +329,84 @@ export async function mountAssignView(host: HTMLElement, onChange: () => void): 
 
   // ---------------------------------------------------------------- 事件
 
-  async function pick(
-    scope: Assignment['scope'],
-    scopeId: string,
-    kind: Capability,
-  ): Promise<void> {
-    const current =
-      (scope === 'global' ? globalOf(kind) : scopedOf(scope, scopeId, kind))?.target ?? null;
-    const picked = await openModelPicker(kind, current, {
-      allowNone: scope !== 'global',
-      noneLabel: scope === 'app' ? '跟随全局' : '跟随上级',
-    });
+  /** 从任意被点击元素找回它所属的块 */
+  function blockOf(element: HTMLElement): { box: HTMLElement; spec: BlockSpec } | null {
+    const box = element.closest<HTMLElement>('.api-assign');
+    const key = box?.dataset.pickKey;
+    const spec = key ? specs.get(key) : undefined;
+    if (!box || !spec) return null;
+    return { box, spec };
+  }
 
-    // 全局必须先有一个；其余作用域点「跟随上级」就是要清掉自定义
-    if (picked === null && scope === 'global') return;
-    await assign(scope, scopeId, kind, picked);
-    await mountAssignView(host, onChange);
+  function repaint(found: { box: HTMLElement; spec: BlockSpec }): void {
+    found.box.outerHTML = blockHTML(found.spec);
   }
 
   bindOnce(host, 'assign-click', 'click', (event) => {
     const target = event.target as HTMLElement;
 
-    const pickButton = target.closest<HTMLElement>('[data-pick]');
-    if (pickButton) {
-      void pick(
-        (pickButton.dataset.scope ?? 'global') as Assignment['scope'],
-        pickButton.dataset.scopeId ?? '',
-        pickButton.dataset.pick as Capability,
-      );
+    // 第一级：点站点名展开 / 收起该站点的模型列表
+    const siteButton = target.closest<HTMLElement>('[data-inline-site]');
+    if (siteButton) {
+      const found = blockOf(siteButton);
+      if (!found) return;
+      const siteId = siteButton.dataset.inlineSite ?? '';
+      pickState = {
+        key: found.spec.key,
+        expanded: pickState?.expanded === siteId ? null : siteId,
+      };
+      repaint(found);
       return;
     }
 
-    if (target.closest('[data-fallback-pick]')) {
+    // 第二级：选中某个模型
+    const modelButton = target.closest<HTMLElement>('[data-inline-model]');
+    if (modelButton) {
+      const found = blockOf(modelButton);
+      if (!found) return;
       void (async () => {
-        const current = globalOf('text')?.fallback ?? null;
-        const picked = await openModelPicker('text', current, {
-          allowNone: true,
-          noneLabel: '不要备用模型',
-          title: '备用文本模型',
+        await found.spec.commit({
+          siteId: modelButton.dataset.site ?? '',
+          modelId: modelButton.dataset.model ?? '',
         });
-        if (picked === null && !current) return;
-        await assign('global', '', 'text', globalOf('text')?.target ?? null, {
-          fallback: picked ? { siteId: picked.siteId, modelId: picked.modelId } : null,
-        });
+        pickState = null;
         await mountAssignView(host, onChange);
       })();
       return;
     }
 
+    // 「跟随全局 / 跟随上级 / 不要备用模型」
+    if (target.closest('[data-inline-none]')) {
+      const found = blockOf(target);
+      if (!found) return;
+      void (async () => {
+        await found.spec.commit(null);
+        pickState = null;
+        await mountAssignView(host, onChange);
+      })();
+      return;
+    }
+
+    // 收起
+    if (target.closest('[data-inline-close]')) {
+      const found = blockOf(target);
+      if (!found) return;
+      pickState = null;
+      repaint(found);
+      return;
+    }
+
+    // 点行右侧箭头：展开 / 收起
+    if (target.closest('[data-toggle]')) {
+      const found = blockOf(target);
+      if (!found) return;
+      pickState =
+        pickState?.key === found.spec.key ? null : { key: found.spec.key, expanded: null };
+      repaint(found);
+      return;
+    }
+
+    // 提示词改写：三选一的小浮层（挑模式，不是挑模型）
     const auxPick = target.closest<HTMLElement>('[data-aux-pick]');
     if (auxPick) {
       void openAuxSheet(auxPick.dataset.auxPick as Capability, () =>

@@ -143,7 +143,7 @@ export function mountModelsTab(
           <input class="input api-search" type="search" data-search value="${esc(filter.text)}" placeholder="搜模型名" autocomplete="off" />
           <div class="api-view-switch" data-view-row role="group" aria-label="模型显示范围">
             <button type="button" class="api-view-switch__item" data-view="all" aria-pressed="${filter.view === 'all'}">全部可用</button>
-            <button type="button" class="api-view-switch__item" data-view="enabled" aria-pressed="${filter.view === 'enabled'}">已启用</button>
+            <button type="button" class="api-view-switch__item" data-view="enabled" aria-pressed="${filter.view === 'enabled'}">仅启用</button>
           </div>
         </div>
       </div>

@@ -79,8 +79,9 @@ function resolve(): void {
   const mark = raw.indexOf('?');
   const path = mark >= 0 ? raw.slice(0, mark) : raw;
   const query = new URLSearchParams(mark >= 0 ? raw.slice(mark + 1) : '');
+  const full = query.toString() ? `${path}?${query.toString()}` : path;
 
-  if (path === current) return;
+  if (full === current) return;
 
   const matched = routes.find((r) => r.regex.test(path));
   if (!matched) {
@@ -99,14 +100,14 @@ function resolve(): void {
   // 先拆掉上一页，再搭新页 —— 顺序反了会清掉新页刚建立的东西
   cleanup?.();
   cleanup = null;
-  current = path;
+  current = full;
 
   const returned = matched.handler({ params, query, path });
   if (typeof returned === 'function') {
     cleanup = returned;
   } else if (returned instanceof Promise) {
     returned.then((res) => {
-      if (typeof res === 'function' && current === path) {
+      if (typeof res === 'function' && current === full) {
         cleanup = res;
       }
     }).catch(() => {});

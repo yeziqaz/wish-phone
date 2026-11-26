@@ -79,7 +79,7 @@ route('/world/:id', ({ params }) => void mountWorldEdit(app, params.id ?? ''));
 route('/settings/lore', () => void mountLoreList(app));
 route('/settings/lore/:id', ({ params }) => mountLoreEdit(app, params.id ?? ''));
 // 新版「API 与模型」（设计文档 v1.1）。必须注册在老路由 /settings/api/:kind 之前
-route('/settings/api', () => void mountApiPage(app));
+route('/settings/api', ({ query }) => void mountApiPage(app, query.get('tab')));
 // 站点详情。带 /site/ 前缀，免得和老路由 /settings/api/:kind 撞上
 route('/settings/api/site/:id', ({ params }) => void mountSiteDetail(app, params.id ?? ''));
 // 角色模型设置：列表 + 单个角色。必须注册在 /settings/api 之后、:kind 之前

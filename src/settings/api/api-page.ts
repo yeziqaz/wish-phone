@@ -17,16 +17,23 @@ import { mountUsageView } from './assign-usage';
    步骤 2 只做「站点」，分配和用量等步骤 7 / 8。
    ========================================================================== */
 
-type Tab = 'sites' | 'assign' | 'usage';
+export type ApiTab = 'sites' | 'assign' | 'usage';
 
-const TAB_LABEL: Record<Tab, string> = {
+const TAB_LABEL: Record<ApiTab, string> = {
   sites: '站点',
   assign: '分配',
   usage: '用量',
 };
 
-export async function mountApiPage(root: HTMLElement): Promise<void> {
-  let tab: Tab = 'sites';
+function normalizeTab(value: string | null | undefined): ApiTab {
+  return value === 'assign' || value === 'usage' || value === 'sites' ? value : 'sites';
+}
+
+export async function mountApiPage(
+  root: HTMLElement,
+  initialTab?: string | null,
+): Promise<void> {
+  let tab: ApiTab = normalizeTab(initialTab);
   let sites: Site[] = await listSites();
   let assignments: Assignment[] = await listAssignments();
 
@@ -39,7 +46,7 @@ export async function mountApiPage(root: HTMLElement): Promise<void> {
       </header>
 
       <div class="api-tabs" role="tablist">
-        ${(Object.keys(TAB_LABEL) as Tab[])
+        ${(Object.keys(TAB_LABEL) as ApiTab[])
           .map(
             (key) =>
               `<button type="button" role="tab" data-tab="${key}" aria-selected="${key === tab}">${TAB_LABEL[key]}</button>`,
@@ -162,7 +169,7 @@ export async function mountApiPage(root: HTMLElement): Promise<void> {
   // 切 Tab：只换内容区，不动整页
   root.querySelector('.api-tabs')?.addEventListener('click', (event) => {
     const button = (event.target as HTMLElement).closest<HTMLElement>('[data-tab]');
-    const next = button?.dataset.tab as Tab | undefined;
+    const next = button?.dataset.tab as ApiTab | undefined;
     if (!next || next === tab) return;
     tab = next;
     for (const item of root.querySelectorAll<HTMLElement>('[data-tab]')) {

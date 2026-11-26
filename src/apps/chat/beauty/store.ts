@@ -497,11 +497,7 @@ export interface AppAppearance {
 }
 
 /**
- * 聊天APP 的默认外观：蓝白调。
- *
- * 2026-11-12 用户给了参考图（QQ 风格蓝白），要求默认就长这样。
- * 取值直接来自参考图采样，不是配色灵感 —— 想核对就去看
- * design/tokens.css 里的 --sky-* 注释。
+ * 聊天APP 的默认外观：黑白灰调，与项目主体（design/tokens.css）一致。
  *
  * 六个字段的分工：
  *   background  页面底（列表行之间的缝）
@@ -515,6 +511,16 @@ export interface AppAppearance {
  * 「恢复默认外观」回到的就是这一组。
  */
 const DEFAULT_APP: AppAppearance = {
+  background: '#F4F4F5',
+  panel: '#FFFFFF',
+  navigation: '#FAFAFA',
+  accent: '#111114',
+  ink: '#111114',
+  muted: '#6F6F79',
+};
+
+/** 历史蓝白默认配色（用于无感迁移：从未自定义过的老设备自动切到新默认） */
+const LEGACY_SKY_DEFAULT_APP: AppAppearance = {
   background: '#FAFBFF',
   panel: '#FFFFFF',
   navigation: '#F0F4FF',
@@ -527,6 +533,10 @@ let appAppearance: AppAppearance = { ...DEFAULT_APP };
 
 export function appAppearanceOf(): AppAppearance {
   return { ...appAppearance };
+}
+
+function sameApp(a: AppAppearance, b: AppAppearance): boolean {
+  return (Object.keys(DEFAULT_APP) as Array<keyof AppAppearance>).every((key) => a[key] === b[key]);
 }
 
 function cleanApp(value: unknown): AppAppearance {
@@ -549,7 +559,13 @@ function cleanApp(value: unknown): AppAppearance {
 
 export async function loadAppAppearance(): Promise<void> {
   try {
-    appAppearance = cleanApp(await getSetting<unknown>(APP_BEAUTY_KEY));
+    const loaded = cleanApp(await getSetting<unknown>(APP_BEAUTY_KEY));
+    if (sameApp(loaded, LEGACY_SKY_DEFAULT_APP)) {
+      appAppearance = { ...DEFAULT_APP };
+      await setSetting(APP_BEAUTY_KEY, appAppearance);
+      return;
+    }
+    appAppearance = loaded;
   } catch {
     appAppearance = { ...DEFAULT_APP };
   }

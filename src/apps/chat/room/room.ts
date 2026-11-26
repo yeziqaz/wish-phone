@@ -344,6 +344,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   })();
   const input = must<HTMLTextAreaElement>(root, '#chat-text');
   const sendButton = must<HTMLButtonElement>(root, '#chat-send');
+  const plusButton = must<HTMLButtonElement>(root, '#chat-plus');
   const drawer = must<HTMLElement>(root, '#chat-drawer');
   const retryBtn = must<HTMLButtonElement>(root, '#drawer-retry');
   const imageBtn = must<HTMLButtonElement>(root, '#drawer-image');
@@ -478,7 +479,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       <div class="msg-content" style="max-width: 100%;">
         <div class="msg-bubble">
           ${esc(message)}
-          ${withSetupLink ? '<button class="btn btn--sm chat-error__link" type="button" data-go="/settings/api">去设置模型</button>' : ''}
+          ${withSetupLink ? '<button class="btn btn--sm chat-error__link" type="button" data-go="/settings/api?tab=assign">去设置模型</button>' : ''}
         </div>
       </div>`;
     list.appendChild(wrapper);
@@ -888,6 +889,33 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     },
   });
 
+  sendButton.addEventListener('click', () => {
+    void send();
+  });
+
+  plusButton.addEventListener('click', () => {
+    drawer.hidden = !drawer.hidden;
+    chatPage.classList.toggle('is-drawer', !drawer.hidden);
+    if (!drawer.hidden) {
+      input.blur();
+      viewport.sync();
+      if (!viewport.keyboardHeight()) {
+        chatPage.style.setProperty('--chat-keyboard-height', '300px');
+      }
+      window.setTimeout(scrollToBottom, 50);
+    }
+  });
+
+  input.addEventListener('focus', () => {
+    drawer.hidden = true;
+    chatPage.classList.remove('is-drawer');
+    viewport.sync();
+  });
+
+  input.addEventListener('blur', () => {
+    viewport.sync();
+  });
+
   input.addEventListener('input', () => {
     input.style.height = 'auto';
     input.style.height = `${Math.min(120, input.scrollHeight)}px`;
@@ -914,7 +942,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     banner.className = 'chat-setup';
     banner.innerHTML = `
       <span>${esc(error.message)}</span>
-      <button class="btn btn--sm" type="button" data-go="/settings/api">去设置</button>`;
+      <button class="btn btn--sm" type="button" data-go="/settings/api?tab=assign">去设置</button>`;
     list.prepend(banner);
   });
 
