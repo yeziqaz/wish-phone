@@ -26,6 +26,8 @@ import type {
 } from './types';
 import type { Assignment, RequestLog, Site } from './api-types';
 import { LOG_RETENTION_DAYS } from './api-types';
+import { BACKUP_TABLES, buildBackup } from './backup';
+import type { BackupFile, BackupTable } from './backup';
 
 const DB_NAME = 'wish-phone';
 const DB_VERSION = 6;
@@ -519,23 +521,16 @@ export async function deleteProviderRecord(id: string): Promise<void> {
 /**
  * 清空全部数据（设置页的「清空数据」用它）。
  * 只清空对象仓库，不删数据库本身 —— 删库再重建会让连接句柄失效。
+ *
+ * ⚠️ 表清单直接用 BACKUP_TABLES，不要手写字面量。
+ *    以前这里手写了 8 张表，后来加了 sites / assignments / requestLogs / moments
+ *    却没同步，结果「清空全部数据」留下了半屋子东西。
+ *    现在和导出共用同一份清单，加表时只改一处。
  */
 export async function clearAll(): Promise<void> {
   const database = await db();
-  const tx = database.transaction(
-    ['characters', 'conversations', 'messages', 'providers', 'settings', 'worlds', 'branches', 'worldbooks'],
-    'readwrite',
-  );
-  await Promise.all([
-    tx.objectStore('characters').clear(),
-    tx.objectStore('conversations').clear(),
-    tx.objectStore('messages').clear(),
-    tx.objectStore('providers').clear(),
-    tx.objectStore('settings').clear(),
-    tx.objectStore('worlds').clear(),
-    tx.objectStore('branches').clear(),
-    tx.objectStore('worldbooks').clear(),
-  ]);
+  const tx = database.transaction([...BACKUP_TABLES], 'readwrite');
+  await Promise.all(BACKUP_TABLES.map((name) => tx.objectStore(name).clear()));
   await tx.done;
 }
 
@@ -719,4 +714,51 @@ export async function pruneLogs(retentionDays = LOG_RETENTION_DAYS): Promise<num
 export async function clearLogs(): Promise<void> {
   const database = await db();
   await database.clear('requestLogs');
+}
+
+/* ============================ 备份 / 恢复 ============================ */
+
+/**
+ * 把库里 12 张表全部读出来，打成一个备份对象。
+ *
+ * 为什么整表原样搬运、不按字段重建：见 core/backup.ts 开头的说明。
+ * 一句话 —— 角色卡里有我们不认识的字段，重建会抹掉它们。
+ *
+ * 读的时候用 getAll()，它不关心主键叫什么名字
+ * （settings 表的主键是 key，其余是 id）。
+ */
+export async function createBackup(): Promise<BackupFile> {
+  const database = await db();
+  const tables = {} as Record<BackupTable, unknown[]>;
+  for (const name of BACKUP_TABLES) {
+    tables[name] = await database.getAll(name);
+  }
+  return buildBackup(tables, DB_VERSION);
+}
+
+/**
+ * 用一份备份覆盖整个库。
+ *
+ * 顺序很重要：先在一个事务里清空 12 张表，再逐条写回。
+ * 中间任何一步抛错，整个事务回滚 —— 不会出现「清了一半」的库。
+ *
+ * ⚠️ 写回时不要对 Character 做任何字段级处理，整条 put 进去就行。
+ */
+export async function restoreBackup(file: BackupFile): Promise<void> {
+  const database = await db();
+  const tx = database.transaction([...BACKUP_TABLES], 'readwrite');
+
+  for (const name of BACKUP_TABLES) {
+    await tx.objectStore(name).clear();
+  }
+  for (const name of BACKUP_TABLES) {
+    const store = tx.objectStore(name);
+    for (const row of file.tables[name]) {
+      // row 来自我们自己导出的文件，结构就是这张表的 value；
+      // 但类型上它只是 unknown，所以这里必须断言，不能让 TS 猜。
+      await store.put(row as never);
+    }
+  }
+
+  await tx.done;
 }
