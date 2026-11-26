@@ -402,10 +402,38 @@ export async function deleteConversation(id: string): Promise<void> {
 
 /* ============================ 消息 ============================ */
 
-export async function listMessages(conversationId: string): Promise<Message[]> {
+/**
+ * 某个会话的消息，按时间正序。
+ *
+ * options.limit 表示「只要最后 N 条」。
+ * 为什么要这个参数：聊天首页要给每个角色显示最后一条预览，
+ * 以前的写法是把整段对话全读出来、再取最后一条 ——
+ * 一个聊了半年的会话有几千条消息，为了 40 个字的预览
+ * 把几千条全搬进内存，首页一进去就要等好几秒。现在倒着取 1 条就够。
+ *
+ * 为什么不用 getAllFromIndex 的 count 参数：那个是从**头**取 N 条，
+ * 我们要的是尾巴。所以这里用游标从后往前走，取完再翻回时间正序。
+ */
+export async function listMessages(
+  conversationId: string,
+  options: { limit?: number } = {},
+): Promise<Message[]> {
   const database = await db();
-  // 复合索引 [conversationId, createdAt]，所以拿到的天然就是时间顺序
-  return database.getAllFromIndex('messages', 'byConversation', conversationRange(conversationId));
+  const range = conversationRange(conversationId);
+  const limit = options.limit;
+  if (limit === undefined) {
+    // 复合索引 [conversationId, createdAt]，所以拿到的天然就是时间顺序
+    return database.getAllFromIndex('messages', 'byConversation', range);
+  }
+  if (limit <= 0) return [];
+  const picked: Message[] = [];
+  const store = database.transaction('messages').store;
+  let cursor = await store.index('byConversation').openCursor(range, 'prev');
+  while (cursor && picked.length < limit) {
+    picked.push(cursor.value);
+    cursor = await cursor.continue();
+  }
+  return picked.reverse();
 }
 
 export function getMessage(id: string): Promise<Message | undefined> {
