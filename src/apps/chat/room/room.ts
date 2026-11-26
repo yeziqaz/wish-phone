@@ -57,6 +57,11 @@ import '../beauty/beauty.css';
    ========================================================================== */
 
 const HISTORY_LIMIT = 20;
+/* 屏幕上最多同时画多少条消息。
+   以前是「有多少画多少」：一个聊了半年的会话，一进聊天室就把几千个气泡
+   全塞进 DOM，手机上要卡一两秒，往下滑也发涩。
+   只画最后 60 条，往上看再点「看更早的」继续放 —— 60 条已经够划三四屏了。 */
+const RENDER_LIMIT = 60;
 /* 两条气泡之间的停顿：真人在微信上连发，中间大约就是这个节奏。
    太短像机器一次性吐出来，太长会让人等得烦。 */
 const BUBBLE_GAP_MS = 260;
@@ -387,16 +392,33 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
      为什么不做成气泡上方一整条：一段回复常拆成 3~4 个气泡，
      每条都顶一条动作，消息流会被撑得很碎。 */
 
-  const renderAllMessages = (): void => {
+  /* 当前画了多少条（从末尾往前算）。点「看更早的」会往上加。 */
+  let renderCount = RENDER_LIMIT;
+  const renderAllMessages = (keepPosition = false): void => {
+    /* 记住「离底部有多远」。往上看历史时如果直接重画，画面会跳回顶部，
+       用户刚看的那一句就没了。重画完按同样的距离还原，视觉上几乎不动。 */
+    const fromBottom = list.scrollHeight - list.scrollTop;
     list.innerHTML = '';
     if (messages.length === 0) {
       list.innerHTML = '<p class="chat-empty">还没有对话。<br>说点什么开始。</p>';
       return;
     }
+    /* 只画最后 renderCount 条。更早的那些还在内存里（messages 是完整的），
+       点「看更早的」就能放出来，所以不丢东西。 */
+    const start = Math.max(0, messages.length - renderCount);
+    const visible = messages.slice(start);
     const lastAssistantIdx = messages.map((m) => m.role).lastIndexOf('assistant');
     const showActionNote = actionNoteVisible();
-    messages.forEach((message, index) => {
-      if (shouldShowTime(messages[index - 1], message)) {
+    if (start > 0) {
+      list.insertAdjacentHTML(
+        'beforeend',
+        `<button class="chat-more" type="button" id="chat-more-early">看更早的 ${start} 条</button>`,
+      );
+    }
+    visible.forEach((message, offset) => {
+      const index = start + offset;
+      // 第一条不需要跟「上一条」比 —— 它上面本来就没画东西
+      if (offset > 0 && shouldShowTime(messages[index - 1], message)) {
         list.insertAdjacentHTML('beforeend', timeHTML(message.createdAt));
       }
       list.insertAdjacentHTML(
@@ -409,10 +431,19 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
         }),
       );
     });
-    scrollToBottom();
+    if (keepPosition) list.scrollTop = list.scrollHeight - fromBottom;
+    else scrollToBottom();
   };
-
   renderAllMessages();
+
+  /* 「看更早的」：一次多放 60 条上去。
+     用事件委托挂在列表上，因为按钮每次重画都是新的。 */
+  list.addEventListener('click', (event) => {
+    const more = (event.target as HTMLElement).closest<HTMLElement>('#chat-more-early');
+    if (!more) return;
+    renderCount += RENDER_LIMIT;
+    renderAllMessages(true);
+  });
 
   /* ---------- 配置解析 ---------- */
   // 步骤 6 起不再直接读老的 Provider / Bindings，一律走 ai/call.ts 的统一入口。
@@ -506,6 +537,8 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       };
       messages.push(assistant);
       await putMessage(assistant);
+      // 下面直接追加气泡、没走重画，所以已画条数要跟着 +1，否则「看更早的 N 条」会算错一条
+      renderCount += 1;
       conversation.updatedAt = Date.now();
       await putConversation(conversation);
 
@@ -571,6 +604,8 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     };
     messages.push(userMessage);
     await putMessage(userMessage);
+    // 同样：这条是直接追加到列表末尾的，没走重画，已画条数要跟着 +1
+    renderCount += 1;
 
     const prev = messages[messages.length - 2];
     list.querySelector('.chat-empty')?.remove();
