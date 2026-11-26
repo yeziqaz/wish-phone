@@ -219,7 +219,7 @@ function blankBubble(fill: string): Participant['bubble'] {
     gradientColor: '',
     gradientAngle: 135,
     opacity: 1,
-    radius: 4,
+    radius: 16,
     shadow: 0,
     border: fill,
     borderWidth: 0,
@@ -238,10 +238,13 @@ export function blankParticipant(bubbleFill: string): Participant {
 /**
  * 默认方案。
  *
- * ⚠️ 唯一一处有意偏离原项目：原默认让「我」的气泡是 `#A6E976`（薄荷绿），
- *    角色是白色。本项目基调是**黑白灰描边**（design/STYLE.md §4「反色块红线」），
- *    所以这里改成「我 = 反色深底、角色 = 浅底描边」，视觉关系完全一致，
- *    只是不引入新色相。其余所有字段名、数值、范围都与原项目相同。
+ * ⚠️ 两处有意偏离原项目：
+ *    1. 配色：原默认让「我」的气泡是 `#A6E976`（薄荷绿），角色是白色。本项目基调是
+ *       **黑白灰描边**（design/STYLE.md §4「反色块红线」），所以这里改成「我 = 反色
+ *       深底、角色 = 浅底描边」，视觉关系完全一致，只是不引入新色相。
+ *    2. 默认圆角：原项目基线 4px 在无边框灰白气泡上接近直角，改为 16px（与「柔和填充」
+ *       预设及正在输入气泡一致），让开箱就是正常聊天软件的圆润气泡。
+ *    其余所有字段名、数值、范围都与原项目相同。
  */
 export function defaultScheme(bg: {
   background: string;

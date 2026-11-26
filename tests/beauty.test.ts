@@ -96,7 +96,7 @@ test('气泡内联样式包含四项：背景、边框、圆角、阴影', () =>
   const style = bubbleInlineStyle(defaultBeautyData(BG).schemes[0]!.participants.wuli);
   assert.match(style, /background:/);
   assert.match(style, /border:0px solid/);
-  assert.match(style, /border-radius:4px/);
+  assert.match(style, /border-radius:16px/);
   assert.match(style, /box-shadow:none/);
 });
 
@@ -169,7 +169,7 @@ test('默认方案永远是只读基线，篡改无效', () => {
     activeSchemeId: 'default',
   } as unknown as BeautyData;
   const clean = validateBeauty(tampered, BG);
-  assert.strictEqual(clean.schemes[0]!.participants.wuli.bubble.radius, 4);
+  assert.strictEqual(clean.schemes[0]!.participants.wuli.bubble.radius, 16);
 });
 
 test('activeSchemeId 指向不存在的方案时退回第一个', () => {
@@ -185,13 +185,18 @@ test('方案数量上限 30 个', () => {
 
 /* ---------- 变量 ---------- */
 
-test('变量表覆盖双方气泡的三个关键项', () => {
+test('变量表覆盖双方气泡的三个关键项，且尺寸类变量带单位、无单位计算项保持裸数', () => {
   const vars = beautyVariables(defaultScheme(BG));
   assert.ok(vars['--beauty-wuli-fill']);
   assert.ok(vars['--beauty-user-fill']);
-  assert.ok(vars['--beauty-wuli-radius']);
+  assert.strictEqual(vars['--beauty-wuli-radius'], '16px');
+  assert.strictEqual(vars['--beauty-user-radius'], '16px');
+  assert.strictEqual(vars['--beauty-wuli-border-width'], '0px');
+  assert.strictEqual(vars['--beauty-user-border-width'], '0px');
+  assert.strictEqual(vars['--beauty-font-size'], '16px');
+  assert.strictEqual(vars['--beauty-wuli-gradient-angle'], '135deg');
+  assert.strictEqual(vars['--beauty-wuli-opacity'], '1');
   assert.ok(vars['--beauty-app-background']);
-  assert.ok(vars['--beauty-font-size']);
 });
 
 test('空字符串的字段不进变量表（让 CSS fallback 生效）', () => {

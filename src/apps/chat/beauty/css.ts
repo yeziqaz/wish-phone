@@ -52,6 +52,25 @@ export const BEAUTY_VARIABLE_PATHS: Record<string, string> = {
 };
 
 /**
+ * 数值类 CSS 变量需要带单位 —— 直接把裸数字（如 "16"）塞进
+ * `border-radius: var(--beauty-user-radius)` 会被浏览器当成非法值丢弃，
+ * 气泡就退化成直角。
+ *
+ * 注意：opacity / bg-overlay / shadow 在 CSS 里参与无单位计算（如 color-mix
+ * 的 `calc(var(--beauty-*-opacity, 1) * 100%)`），必须保持裸数，不能加单位。
+ */
+const BEAUTY_VARIABLE_UNITS: Partial<Record<string, 'px' | 'deg'>> = {
+  '--beauty-bg-blur': 'px',
+  '--beauty-font-size': 'px',
+  '--beauty-user-radius': 'px',
+  '--beauty-user-border-width': 'px',
+  '--beauty-user-gradient-angle': 'deg',
+  '--beauty-wuli-radius': 'px',
+  '--beauty-wuli-border-width': 'px',
+  '--beauty-wuli-gradient-angle': 'deg',
+};
+
+/**
  * 阴影强度 → box-shadow。
  *
  * ⚠️ 这条曲线的用意在原项目的注释里写得很清楚，照搬过来：
@@ -222,7 +241,8 @@ export function beautyVariables(scheme: BeautyScheme): Record<string, string> {
   for (const [name, path] of Object.entries(BEAUTY_VARIABLE_PATHS)) {
     const value = read(path);
     if (value === '' || value == null) continue;
-    vars[name] = String(value);
+    const unit = BEAUTY_VARIABLE_UNITS[name];
+    vars[name] = unit ? `${value}${unit}` : String(value);
   }
 
   return vars;

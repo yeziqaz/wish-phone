@@ -232,11 +232,21 @@
 }
 
 .msg-row--error .msg-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   max-width: 100%;
+  padding: 10px 14px;
   font-size: var(--fs-sm);
   color: var(--danger);
   background: var(--danger-bg);
   border: 0;
+  border-radius: var(--bubble-radius, 16px);
+}
+
+.chat-error__link {
+  margin-top: var(--sp-2);
+  align-self: flex-start;
 }
 
 /* 消息底部辅助条：重新生成 / 复制 / 删除 */
@@ -548,6 +558,34 @@
   .chat-typing span {
     animation: none;
     opacity: 0.6;
+  }
+}
+
+/* 窄屏小手机（≤380px，如 360px / 375px）：收紧顶栏、列表与输入区留白，给气泡多让出横向宽度 */
+@media (max-width: 380px) {
+  .chat-top {
+    height: 48px;
+    padding:
+      calc(var(--statusbar-h) + var(--sp-1))
+      var(--sp-1)
+      var(--sp-1)
+      var(--sp-1);
+  }
+
+  .chat-list {
+    padding: var(--sp-2) var(--sp-2) var(--sp-2);
+  }
+
+  .msg-content {
+    max-width: var(--bubble-max-width, 82%);
+  }
+
+  .chat-compose {
+    gap: var(--sp-1);
+    padding:
+      var(--sp-2)
+      var(--sp-2)
+      calc(env(safe-area-inset-bottom) + var(--sp-2));
   }
 }
 
