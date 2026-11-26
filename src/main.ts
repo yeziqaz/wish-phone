@@ -27,7 +27,6 @@ import { resetThemeColor } from './ui/theme-color';
 
 /* ==========================================================================
    入口：注册路由、挂载页面。
-
    设置页现在是**目录式**的（见 AGENTS.md §3.7）：
      /settings                      目录
      /settings/data                 数据储存
@@ -35,7 +34,17 @@ import { resetThemeColor } from './ui/theme-color';
      /settings/providers/new        新建
      /settings/providers/:id        编辑
 
-   角色和聊天仍是占位，会在 T5 / T6 里替换掉。
+   ⚠️ 关于下面那些 `void mountXxx(app)`：
+   路由（src/core/router.ts）支持页面返回一个「清理函数」，切走时自动执行。
+   但清理函数是 mount 函数的 **返回值**，而 mount 大多是 async 的 ——
+   清理函数其实藏在 Promise 里。写了 `void` 就等于把这个 Promise 丢掉，
+   路由拿不到它，页面离开时该收的定时器 / 监听器就永远收不掉。
+
+   所以规则是：
+     · 页面**不需要**清理 → 可以写 `void mountXxx(app)`，纯粹表示「故意不等它」
+     · 页面**需要**清理 → 必须 `() => mountXxx(app)` 直接返回 Promise，**不许加 void**
+   目前只有聊天室（/chat/:id）和世界书编辑（/settings/lore/:id）会返回清理函数，
+   它们都已经按第二种写法注册。以后给哪个页面加清理函数，记得把那一行的 void 去掉。
    ========================================================================== */
 
 const found = document.querySelector<HTMLDivElement>('#app');
