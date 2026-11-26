@@ -114,6 +114,26 @@
   color: var(--ink-4);
 }
 
+/* 「看更早的」——消息列表最上面那一枚。故意做得像一条淡提示，
+   不像按钮：它不该抢戏，用户想翻历史时才需要看见它。 */
+.chat-more {
+  align-self: center;
+  min-height: var(--tap-min);
+  margin: var(--sp-2) 0 var(--sp-1);
+  padding: 0 var(--sp-4);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+.chat-more:active {
+  color: var(--ink-2);
+  background: var(--surface);
+}
+
 /* 微信风格胶囊时间戳 */
 .chat-time {
   margin: var(--sp-2) auto;
