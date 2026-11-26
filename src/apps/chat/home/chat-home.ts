@@ -91,8 +91,8 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
     const conversation = byCharacter.get(character.id);
     let preview = '还没聊过';
     if (conversation) {
-      const history = await listMessages(conversation.id);
-      const last = history[history.length - 1];
+      // 只要最后一条来做预览。传 limit 是为了不把几千条历史全读进内存
+      const last = (await listMessages(conversation.id, { limit: 1 }))[0];
       if (last) preview = last.content.replace(/\s+/g, ' ').slice(0, 40);
     }
     rows.push({
