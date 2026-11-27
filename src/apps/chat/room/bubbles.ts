@@ -146,18 +146,34 @@ export function bubbleRowHTML(options: BubbleRowOptions): string {
   const actionNote =
     showActionNote && parsed.actionText ? actionNoteHTML(parsed.actionText) : '';
 
+  const quoteObj =
+    message.extra?.quote && typeof message.extra.quote === 'object'
+      ? (message.extra.quote as { role?: string; content?: string })
+      : null;
+  const quoteHTML =
+    quoteObj && typeof quoteObj.content === 'string' && quoteObj.content
+      ? `<div class="msg-quote"><span class="msg-quote__sender">${esc(
+          quoteObj.role === 'user' ? displayUserName() : character.name || '未命名',
+        )}</span><span class="msg-quote__text">${esc(quoteObj.content)}</span></div>`
+      : '';
+
   const retry = isLastAssistant
     ? '<button class="msg-action-btn" type="button" data-act="retry">重新生成</button>'
     : '';
+  const favLabel = message.extra?.favorited === true ? '已收藏' : '收藏';
 
   return `<div class="msg-row ${isUser ? 'msg-row--user' : 'msg-row--assistant'}" data-msg-id="${esc(message.id)}">
     <div class="msg-avatar">${avatar}</div>
     <div class="msg-content">
+      ${quoteHTML}
       ${body}
       ${actionNote}
       <div class="msg-actions">
         <button class="msg-action-btn" type="button" data-act="copy">复制</button>
         ${retry}
+        <button class="msg-action-btn" type="button" data-act="quote">引用</button>
+        <button class="msg-action-btn" type="button" data-act="fav">${favLabel}</button>
+        <button class="msg-action-btn" type="button" data-act="multi">多选</button>
         <button class="msg-action-btn" type="button" data-act="del">删除</button>
       </div>
     </div>
