@@ -243,6 +243,14 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       <main class="chat-list" id="chat-list"></main>
 
       <footer class="chat-bottom">
+        <div class="chat-quote-bar" id="chat-quote-bar" hidden>
+          <div class="chat-quote-bar__body">
+            <span class="chat-quote-bar__label" id="chat-quote-label"></span>
+            <span class="chat-quote-bar__text" id="chat-quote-text"></span>
+          </div>
+          <button class="chat-quote-bar__close" type="button" id="chat-quote-close" aria-label="取消引用">×</button>
+        </div>
+
         <div class="chat-compose">
           <button class="chat-icon-btn jelly" type="button" id="chat-plus" aria-label="扩展菜单">
             ${line('plus', 22)}
@@ -251,6 +259,16 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
           <button class="chat-send jelly" type="button" id="chat-send" aria-label="发送">
             ${line('send', 20)}
           </button>
+        </div>
+
+        <div class="chat-multi-bar" id="chat-multi-bar" hidden>
+          <span class="chat-multi-bar__count" id="chat-multi-count">已选 0 条</span>
+          <div class="chat-multi-bar__actions">
+            <button class="chat-multi-btn" type="button" id="multi-copy">复制</button>
+            <button class="chat-multi-btn" type="button" id="multi-fav">收藏</button>
+            <button class="chat-multi-btn is-danger" type="button" id="multi-del">删除</button>
+            <button class="chat-multi-btn" type="button" id="multi-cancel">取消</button>
+          </div>
         </div>
 
         <div class="chat-drawer" id="chat-drawer" hidden>
@@ -353,8 +371,115 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
   const modelLabel = must<HTMLElement>(root, '#drawer-model-label');
   const chatSettingsBtn = must<HTMLButtonElement>(root, '#drawer-settings');
   const moreBtn = must<HTMLButtonElement>(root, '#chat-more');
+  const quoteBar = must<HTMLElement>(root, '#chat-quote-bar');
+  const quoteLabel = must<HTMLElement>(root, '#chat-quote-label');
+  const quoteText = must<HTMLElement>(root, '#chat-quote-text');
+  const quoteClose = must<HTMLButtonElement>(root, '#chat-quote-close');
+  const multiBar = must<HTMLElement>(root, '#chat-multi-bar');
+  const multiCount = must<HTMLElement>(root, '#chat-multi-count');
+  const multiCopy = must<HTMLButtonElement>(root, '#multi-copy');
+  const multiFav = must<HTMLButtonElement>(root, '#multi-fav');
+  const multiDel = must<HTMLButtonElement>(root, '#multi-del');
+  const multiCancel = must<HTMLButtonElement>(root, '#multi-cancel');
 
   let busy = false;
+  let pendingQuote: Message | null = null;
+  let multiMode = false;
+  const selectedIds = new Set<string>();
+
+  const clearQuote = (): void => {
+    pendingQuote = null;
+    quoteBar.hidden = true;
+    quoteLabel.textContent = '';
+    quoteText.textContent = '';
+  };
+
+  const setQuote = (msg: Message): void => {
+    pendingQuote = msg;
+    const sender = msg.role === 'user' ? displayUserName() : character.name || '未命名';
+    quoteLabel.textContent = `引用 ${sender}`;
+    quoteText.textContent = msg.content.replace(/\s+/g, ' ').slice(0, 80);
+    quoteBar.hidden = false;
+    input.focus();
+  };
+
+  const updateMultiUI = (): void => {
+    multiCount.textContent = `已选 ${selectedIds.size} 条`;
+    const empty = selectedIds.size === 0;
+    multiCopy.disabled = empty;
+    multiFav.disabled = empty;
+    multiDel.disabled = empty;
+  };
+
+  const exitMultiMode = (): void => {
+    multiMode = false;
+    selectedIds.clear();
+    chatPage.classList.remove('is-multi');
+    multiBar.hidden = true;
+    list.querySelectorAll('.msg-row.is-multi-selected').forEach((el) => {
+      el.classList.remove('is-multi-selected');
+    });
+    updateMultiUI();
+  };
+
+  const enterMultiMode = (initialId?: string): void => {
+    multiMode = true;
+    selectedIds.clear();
+    drawer.hidden = true;
+    chatPage.classList.add('is-multi');
+    multiBar.hidden = false;
+    list.querySelectorAll('.msg-row.is-selected').forEach((el) => el.classList.remove('is-selected'));
+    if (initialId) {
+      selectedIds.add(initialId);
+      const row = list.querySelector<HTMLElement>(`.msg-row[data-msg-id="${CSS.escape(initialId)}"]`);
+      row?.classList.add('is-multi-selected');
+    }
+    updateMultiUI();
+  };
+
+  quoteClose.addEventListener('click', clearQuote);
+  multiCancel.addEventListener('click', exitMultiMode);
+
+  multiCopy.addEventListener('click', () => {
+    const picked = messages.filter((m) => selectedIds.has(m.id));
+    if (picked.length === 0) return;
+    const text = picked.map((m) => m.content).join('\n\n');
+    void navigator.clipboard?.writeText(text);
+    exitMultiMode();
+  });
+
+  multiFav.addEventListener('click', () => {
+    void (async () => {
+      const now = new Date().toISOString();
+      for (let i = 0; i < messages.length; i++) {
+        const m = messages[i];
+        if (!m || !selectedIds.has(m.id)) continue;
+        const updated: Message = {
+          ...m,
+          extra: { ...(m.extra ?? {}), favorited: true, favoritedAt: now },
+        };
+        await putMessage(updated);
+        messages[i] = updated;
+        const row = list.querySelector<HTMLElement>(`.msg-row[data-msg-id="${CSS.escape(m.id)}"]`);
+        const favBtn = row?.querySelector<HTMLElement>('[data-act="fav"]');
+        if (favBtn) favBtn.textContent = '已收藏';
+      }
+      exitMultiMode();
+    })();
+  });
+
+  multiDel.addEventListener('click', () => {
+    void (async () => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      for (const id of ids) {
+        await deleteMessage(id);
+      }
+      messages = messages.filter((m) => !selectedIds.has(m.id));
+      exitMultiMode();
+      renderAllMessages();
+    })();
+  });
 
   const scrollToBottom = (): void => {
     list.scrollTop = list.scrollHeight;
@@ -563,6 +688,9 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
             <div class="msg-actions">
               <button class="msg-action-btn" type="button" data-act="copy">复制</button>
               <button class="msg-action-btn" type="button" data-act="retry">重新生成</button>
+              <button class="msg-action-btn" type="button" data-act="quote">引用</button>
+              <button class="msg-action-btn" type="button" data-act="fav">收藏</button>
+              <button class="msg-action-btn" type="button" data-act="multi">多选</button>
               <button class="msg-action-btn" type="button" data-act="del">删除</button>
             </div>
           </div>
@@ -592,9 +720,11 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     const text = input.value.trim();
     if (!text) return;
 
+    const quote = pendingQuote;
     input.value = '';
     input.style.height = 'auto';
     drawer.hidden = true;
+    clearQuote();
 
     const userMessage: Message = {
       id: newId(),
@@ -602,6 +732,17 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       role: 'user',
       content: text,
       createdAt: new Date().toISOString(),
+      ...(quote
+        ? {
+            extra: {
+              quote: {
+                id: quote.id,
+                role: quote.role,
+                content: quote.content,
+              },
+            },
+          }
+        : {}),
     };
     messages.push(userMessage);
     await putMessage(userMessage);
@@ -814,6 +955,36 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
 
     if (act === 'retry') {
       void retryLast();
+      return;
+    }
+
+    if (act === 'quote') {
+      setQuote(msg);
+      return;
+    }
+
+    if (act === 'fav') {
+      void (async () => {
+        const already = msg.extra?.favorited === true;
+        const nextFav = !already;
+        const nextExtra: Record<string, unknown> = { ...(msg.extra ?? {}), favorited: nextFav };
+        if (nextFav) {
+          nextExtra.favoritedAt = new Date().toISOString();
+        } else {
+          delete nextExtra.favoritedAt;
+        }
+        const updated: Message = { ...msg, extra: nextExtra };
+        await putMessage(updated);
+        const idx = messages.findIndex((item) => item.id === msg.id);
+        if (idx >= 0) messages[idx] = updated;
+        const favBtn = row.querySelector<HTMLElement>('[data-act="fav"]');
+        if (favBtn) favBtn.textContent = nextFav ? '已收藏' : '收藏';
+      })();
+      return;
+    }
+
+    if (act === 'multi') {
+      enterMultiMode(msg.id);
     }
   };
 
@@ -838,6 +1009,18 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     const msg = messages.find((item) => item.id === msgId);
     if (!msg) return;
 
+    if (multiMode) {
+      if (selectedIds.has(msg.id)) {
+        selectedIds.delete(msg.id);
+        row.classList.remove('is-multi-selected');
+      } else {
+        selectedIds.add(msg.id);
+        row.classList.add('is-multi-selected');
+      }
+      updateMultiUI();
+      return;
+    }
+
     if (act === 'copy') {
       void navigator.clipboard?.writeText(msg.content);
       target.textContent = '已复制';
@@ -858,6 +1041,11 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
 
     if (act === 'retry') {
       void retryLast();
+      return;
+    }
+
+    if (act === 'quote' || act === 'fav' || act === 'multi') {
+      runMessageCommand(act, row, target);
       return;
     }
 
