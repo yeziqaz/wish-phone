@@ -250,43 +250,16 @@
   align-self: flex-start;
 }
 
-/* 消息底部辅助条：重新生成 / 复制 / 删除 */
-.msg-actions {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-top: 4px;
-}
-
-.msg-row--assistant .msg-actions {
-  justify-content: flex-start;
-}
-
-.msg-row--user .msg-actions {
-  justify-content: flex-end;
-}
-
-.msg-row.is-selected .msg-actions {
-  display: flex;
-}
-
-.msg-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 8px;
-  font-size: var(--fs-caption);
-  color: var(--ink-2);
+/* 撤销保留可读原文，灰阶状态与用户自定义气泡底色分离。 */
+.msg-row.is-revoked .msg-bubble {
+  color: var(--ink-3);
   background: var(--surface-2);
-  border: var(--border-w) solid var(--line);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  border: var(--border-w) dashed var(--line-strong);
 }
-
-.msg-action-btn:active {
-  background: var(--line-strong);
+.msg-revoked-label {
+  color: var(--ink-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-base);
 }
 
 /* 对方正在输入（微信QQ呼吸三点） */

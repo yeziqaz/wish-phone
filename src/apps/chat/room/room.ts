@@ -15,6 +15,8 @@ import { esc, must } from '../../../core/dom';
 import { navigate } from '../../../core/router';
 import { avatarHTML } from '../../../ui/avatar';
 import { line } from '../../../ui/icons';
+import { openNoticeSheet } from '../../../ui/sheet';
+import { historyMessage, messageActionBlock } from './message-state';
 import {
   callText,
   getProfile,
@@ -52,7 +54,7 @@ import '../beauty/beauty.css';
    设计亮点：
      - 顶部：返回 + 居中角色名 + 下方在线状态点/世界标签 + 右侧「···」直达角色档案
      - 气泡：微信/QQ 左右分立排布，圆角微尖角尾巴，用户反色、AI 白底描边
-     - 交互：点击气泡弹出快捷操作条（复制、重新生成、删除）
+     - 交互：长按气泡弹出操作条，轻点仅在多选时选择消息
      - 底部：自动伸缩输入框、发送按钮、QQ 风格「+」扩展面板（重新生成、清除消息等）
    ========================================================================== */
 
@@ -460,9 +462,6 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
         };
         await putMessage(updated);
         messages[i] = updated;
-        const row = list.querySelector<HTMLElement>(`.msg-row[data-msg-id="${CSS.escape(m.id)}"]`);
-        const favBtn = row?.querySelector<HTMLElement>('[data-act="fav"]');
-        if (favBtn) favBtn.textContent = '已收藏';
       }
       exitMultiMode();
     })();
@@ -638,13 +637,11 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     showTyping();
 
     try {
-      const history = messages.slice(-HISTORY_LIMIT).map((message) => ({
-        role: message.role,
-        content: message.content,
-      }));
-
-      const lastUserContent = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-      const scanContext = [...history.slice(-5).map((m) => m.content), lastUserContent].join('\n');
+      const history = messages.slice(-HISTORY_LIMIT).map(historyMessage);
+      // 撤销原文仍作为历史传给 AI，但不再激活世界书关键词。
+      const activeHistory = messages.filter((m) => m.extra?.revoked !== true);
+      const lastUserContent = [...activeHistory].reverse().find((m) => m.role === 'user')?.content ?? '';
+      const scanContext = [...activeHistory.slice(-5).map((m) => m.content), lastUserContent].join('\n');
       const system = systemFor(scanContext);
 
       const result = await callText(
@@ -685,14 +682,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
           <div class="msg-content">
             ${streamedPieces.map(() => '<div class="msg-bubble" data-bubble></div>').join('')}
             ${streamedNote}
-            <div class="msg-actions">
-              <button class="msg-action-btn" type="button" data-act="copy">复制</button>
-              <button class="msg-action-btn" type="button" data-act="retry">重新生成</button>
-              <button class="msg-action-btn" type="button" data-act="quote">引用</button>
-              <button class="msg-action-btn" type="button" data-act="fav">收藏</button>
-              <button class="msg-action-btn" type="button" data-act="multi">多选</button>
-              <button class="msg-action-btn" type="button" data-act="del">删除</button>
-            </div>
+
           </div>
         </div>`,
       );
@@ -923,27 +913,80 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     })();
   });
 
-  /* ---------- 一条消息的命令集合 ----------
-     点击（行内操作条）和长按（浮层工具条）走同一套命令，
-     保证两处行为完全一致 —— 这也是 Apple HIG 要求的：
-     上下文菜单里的条目，在主界面里也必须能用到。 */
-
-  const runMessageCommand = (act: string, row: HTMLElement, feedback: HTMLElement | null): void => {
+  /* ---------- 长按消息命令 ---------- */
+  let messageActionPending = false;
+  const runMessageCommand = (act: string, row: HTMLElement): void => {
     const msgId = row.dataset.msgId;
     const msg = messages.find((item) => item.id === msgId);
     if (!msg) return;
 
     if (act === 'copy') {
       void navigator.clipboard?.writeText(msg.content);
-      if (feedback) {
-        feedback.textContent = '已复制';
-        window.setTimeout(() => {
-          feedback.textContent = '复制';
-        }, 1500);
-      }
       return;
     }
 
+    if (act === 'edit' || act === 'undo') {
+      if (msg.role !== 'user' || messageActionPending) return;
+      const editing = act === 'edit';
+      const block = (): string | null => messageActionBlock(busy, input.value, editing)
+        ?? (editing && pendingQuote ? '输入框里已有引用草稿，请先处理草稿。' : null);
+      messageActionPending = true;
+      void (async () => {
+        let writing = false;
+        try {
+          const reason = block();
+          if (reason) {
+            await openNoticeSheet({ title: '暂时不能操作', message: reason });
+            return;
+          }
+          if (editing) {
+            const confirmed = await openNoticeSheet({
+              title: '回退编辑这条消息？',
+              message: '仅移除选中的这条用户消息，并把原文放回输入框。后面的角色回复会保留；修改后需重新发送。',
+              confirmLabel: '移除并回退编辑',
+              danger: true,
+            });
+            if (!confirmed || !chatPage.isConnected) return;
+            const changed = block();
+            if (changed) {
+              await openNoticeSheet({ title: '暂时不能操作', message: changed });
+              return;
+            }
+          }
+          const current = messages.find((item) => item.id === msg.id);
+          if (!current || !chatPage.isConnected) return;
+          // 落库期间阻止发起 AI 请求，避免消息历史与持久化状态竞争。
+          busy = true;
+          writing = true;
+          sendButton.disabled = true;
+          if (editing) {
+            await deleteMessage(current.id);
+            messages = messages.filter((item) => item.id !== current.id);
+            input.value = current.content;
+            input.style.height = 'auto';
+            input.style.height = `${Math.min(120, input.scrollHeight)}px`;
+            drawer.hidden = true;
+            renderAllMessages(true);
+            input.focus();
+          } else if (current.extra?.revoked !== true) {
+            const updated: Message = { ...current, extra: { ...current.extra, revoked: true } };
+            await putMessage(updated);
+            const index = messages.findIndex((item) => item.id === current.id);
+            if (index >= 0) messages[index] = updated;
+            renderAllMessages(true);
+          }
+        } catch (error) {
+          await openNoticeSheet({ title: '操作失败', message: describe(error) });
+        } finally {
+          if (writing) {
+            busy = false;
+            sendButton.disabled = false;
+          }
+          messageActionPending = false;
+        }
+      })();
+      return;
+    }
     if (act === 'del') {
       void (async () => {
         await deleteMessage(msg.id);
@@ -977,8 +1020,6 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
         await putMessage(updated);
         const idx = messages.findIndex((item) => item.id === msg.id);
         if (idx >= 0) messages[idx] = updated;
-        const favBtn = row.querySelector<HTMLElement>('[data-act="fav"]');
-        if (favBtn) favBtn.textContent = nextFav ? '已收藏' : '收藏';
       })();
       return;
     }
@@ -988,10 +1029,8 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     }
   };
 
-  /* ---------- 气泡快捷点击 / 操作栏 ----------
 
-     和长按的浮层工具条是两套入口、同一套命令（见上面 runMessageCommand）：
-     轻点气泡展开行内操作条，长按弹浮层。 */
+  /* ---------- 轻点仅用于多选，普通气泡没有第二套操作入口 ---------- */
   list.addEventListener('click', (event) => {
     // 长按刚生效，这一次 click 是它的尾巴，吞掉
     if (suppressClick) {
@@ -1001,7 +1040,6 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
 
     const target = event.target as HTMLElement;
 
-    const act = target.dataset.act;
     const row = target.closest<HTMLElement>('.msg-row');
     if (!row) return;
 
@@ -1021,42 +1059,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
       return;
     }
 
-    if (act === 'copy') {
-      void navigator.clipboard?.writeText(msg.content);
-      target.textContent = '已复制';
-      window.setTimeout(() => {
-        target.textContent = '复制';
-      }, 1500);
-      return;
-    }
-
-    if (act === 'del') {
-      void (async () => {
-        await deleteMessage(msg.id);
-        messages = messages.filter((item) => item.id !== msg.id);
-        renderAllMessages();
-      })();
-      return;
-    }
-
-    if (act === 'retry') {
-      void retryLast();
-      return;
-    }
-
-    if (act === 'quote' || act === 'fav' || act === 'multi') {
-      runMessageCommand(act, row, target);
-      return;
-    }
-
-    // 点击气泡：切换展示操作条
-    if (target.dataset.bubble !== undefined) {
-      const wasSelected = row.classList.contains('is-selected');
-      list.querySelectorAll('.msg-row.is-selected').forEach((el) => el.classList.remove('is-selected'));
-      if (!wasSelected) row.classList.add('is-selected');
-    }
   });
-
   /* ---------- 长按气泡：浮层小工具条 ----------
 
      实现和阈值说明都在 long-press.ts。这里只把两个回调挂上去。 */
@@ -1071,7 +1074,7 @@ export async function mountChat(root: HTMLElement, characterId: string): Promise
     list,
     lastAssistantId,
     onSpeak: () => void speakLast(mediaDeps()),
-    onCommand: (command, row) => runMessageCommand(command, row, null),
+    onCommand: (command, row) => runMessageCommand(command, row),
     setSuppressClick: (value) => {
       suppressClick = value;
     },

@@ -102,7 +102,7 @@ function gradientStyle(isUser: boolean): ShapeStyle {
 }
 
 export function bubbleRowHTML(options: BubbleRowOptions): string {
-  const { message, character, isLastAssistant, showActionNote = actionNoteVisible() } = options;
+  const { message, character, showActionNote = actionNoteVisible() } = options;
   const isUser = message.role === 'user';
 
   // 双方的嘴脸都要有：自己也有头像，这才像真在聊天
@@ -157,25 +157,14 @@ export function bubbleRowHTML(options: BubbleRowOptions): string {
         )}</span><span class="msg-quote__text">${esc(quoteObj.content)}</span></div>`
       : '';
 
-  const retry = isLastAssistant
-    ? '<button class="msg-action-btn" type="button" data-act="retry">重新生成</button>'
-    : '';
-  const favLabel = message.extra?.favorited === true ? '已收藏' : '收藏';
-
-  return `<div class="msg-row ${isUser ? 'msg-row--user' : 'msg-row--assistant'}" data-msg-id="${esc(message.id)}">
+  const revoked = isUser && message.extra?.revoked === true;
+  return `<div class="msg-row ${isUser ? 'msg-row--user' : 'msg-row--assistant'}${revoked ? ' is-revoked' : ''}" data-msg-id="${esc(message.id)}">
     <div class="msg-avatar">${avatar}</div>
     <div class="msg-content">
       ${quoteHTML}
       ${body}
       ${actionNote}
-      <div class="msg-actions">
-        <button class="msg-action-btn" type="button" data-act="copy">复制</button>
-        ${retry}
-        <button class="msg-action-btn" type="button" data-act="quote">引用</button>
-        <button class="msg-action-btn" type="button" data-act="fav">${favLabel}</button>
-        <button class="msg-action-btn" type="button" data-act="multi">多选</button>
-        <button class="msg-action-btn" type="button" data-act="del">删除</button>
-      </div>
+      ${revoked ? '<span class="msg-revoked-label">已撤销 · 原文保留</span>' : ''}
     </div>
   </div>`;
 }

@@ -237,3 +237,56 @@ export function openSheet(config: SheetConfig): Promise<SheetItem[] | null> {
     requestAnimationFrame(() => root.classList.add('is-open'));
   });
 }
+
+/** 简单提示 / 二次确认：复用 sheet 外观，不夹带多选器的搜索和勾选流程。 */
+export function openNoticeSheet(config: {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+}): Promise<boolean> {
+  return new Promise((resolve) => {
+    const previous = document.activeElement as HTMLElement | null;
+    const root = document.createElement('div');
+    root.className = 'sheet';
+    root.innerHTML = `
+      <div class="sheet__mask" data-close></div>
+      <div class="sheet__panel" role="dialog" aria-modal="true" aria-label="${esc(config.title)}">
+        <header class="sheet__head"><h2 class="sheet__title">${esc(config.title)}</h2></header>
+        <p class="sheet__notice">${esc(config.message)}</p>
+        <footer class="sheet__foot">
+          <button class="btn btn--secondary jelly" type="button" data-close>${config.confirmLabel ? '取消' : '知道了'}</button>
+          ${config.confirmLabel ? `<button class="btn ${config.danger ? 'btn--danger' : 'btn--primary'} jelly" type="button" data-ok>${esc(config.confirmLabel)}</button>` : ''}
+        </footer>
+      </div>`;
+    let closed = false;
+    const close = (confirmed: boolean): void => {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener('keydown', onKey);
+      root.remove();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      resolve(confirmed);
+    };
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('button')];
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close(false);
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        buttons[(index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus();
+      }
+    };
+    root.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('[data-close]')) close(false);
+      else if (target.closest('[data-ok]')) close(true);
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(root);
+    buttons[0]?.focus();
+    requestAnimationFrame(() => { if (!closed) root.classList.add('is-open'); });
+  });
+}

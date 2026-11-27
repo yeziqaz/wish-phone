@@ -289,3 +289,12 @@
     transition: none;
   }
 }
+
+.sheet__notice {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-5) var(--sp-5);
+  color: var(--ink-2);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  white-space: pre-wrap;
+}

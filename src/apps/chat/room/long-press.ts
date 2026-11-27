@@ -13,7 +13,7 @@
    浏览器的 contextmenu 在 Android 上行为不一致（有的长按选中文字、
    有的弹系统菜单），而且拿不到「按在哪一行上」。
    所以用 pointerdown + 定时器自己判，同时在长按生效后吞掉紧随的 click，
-   不然工具条弹出来的同时行内操作条也会展开，两个浮层打架。
+   避免同一次手势又触发轻点选择。
 
    ---------- 阈值 ----------
 
@@ -60,8 +60,8 @@ export function installLongPress(deps: LongPressDeps): void {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
     const target = event.target as HTMLElement;
-    // 翻译块和行内操作条自己有交互，不在它们身上弹工具条
-    if (target.closest('[data-action-note], .msg-actions')) return;
+    // 翻译块自己有交互，不在它身上弹工具条
+    if (target.closest('[data-action-note]')) return;
 
     const row = target.closest<HTMLElement>('.msg-row');
     if (!row || !row.dataset.msgId) return;
@@ -79,7 +79,7 @@ export function installLongPress(deps: LongPressDeps): void {
       cancelPress();
       if (!current) return;
 
-      // 长按已生效：吞掉紧接着那次 click，别让它顺带展开行内操作条
+      // 长按已生效：吞掉紧接着那次 click，避免同时触发轻点选择
       deps.setSuppressClick(true);
 
       const isAssistant = current.classList.contains('msg-row--assistant');
@@ -97,7 +97,14 @@ export function installLongPress(deps: LongPressDeps): void {
         { id: 'fav', label: '收藏', icon: line('heart', 17) },
         { id: 'multi', label: '多选', icon: line('check', 17) },
       );
-      items.push({ id: 'del', label: '删除', icon: line('trash', 17), danger: true });
+      if (isAssistant) {
+        items.push({ id: 'del', label: '删除', icon: line('trash', 17), danger: true });
+      } else {
+        items.push(
+          { id: 'edit', label: '回退编辑', icon: line('pencil', 17), danger: true },
+          { id: 'undo', label: '撤销', icon: line('back', 17) },
+        );
+      }
 
       void openActionBar({ anchor: current, items }).then((picked) => {
         if (!picked) return;
