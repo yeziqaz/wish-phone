@@ -92,6 +92,11 @@ export function installLongPress(deps: LongPressDeps): void {
       if (isAssistant) {
         items.push({ id: 'speak', label: '读出来', icon: line('mic', 17) });
       }
+      items.push(
+        { id: 'quote', label: '引用', icon: line('chat', 17) },
+        { id: 'fav', label: '收藏', icon: line('heart', 17) },
+        { id: 'multi', label: '多选', icon: line('check', 17) },
+      );
       items.push({ id: 'del', label: '删除', icon: line('trash', 17), danger: true });
 
       void openActionBar({ anchor: current, items }).then((picked) => {
