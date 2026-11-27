@@ -18,6 +18,7 @@ import { mountCharacterEdit } from './apps/character/character-edit';
 import { mountDataStore } from './settings/data-store';
 import { mountSettings } from './settings/settings';
 import { mountChatHome } from './apps/chat/home/chat-home';
+import { mountFavoritesView } from './apps/chat/home/favorites-view';
 import { mountChat } from './apps/chat/room/room';
 import { mountWorldEdit } from './settings/worlds/world-edit';
 import { mountLoreList } from './settings/lore/lore-list';
@@ -69,6 +70,8 @@ route('/character/:id', ({ params, query }) =>
   void mountCharacterEdit(app, params.id ?? '', { back: query.get('back') ?? undefined }),
 );
 route('/chat', () => void mountChatHome(app));
+// 注意：'/chat/favorites' 必须排在 '/chat/:id' 前面，否则 favorites 会被当成 id
+route('/chat/favorites', () => void mountFavoritesView(app));
 route('/chat/:id', ({ params }) => mountChat(app, params.id ?? ''));
 route('/help', () => mountPlaceholder('帮助'));
 

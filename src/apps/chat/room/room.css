@@ -212,7 +212,8 @@
   border-radius: var(--bubble-radius, 14px);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  user-select: text;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .msg-row--assistant .msg-bubble {
@@ -252,6 +253,7 @@
 /* 消息底部辅助条：重新生成 / 复制 / 删除 */
 .msg-actions {
   display: none;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
   margin-top: 4px;
@@ -522,7 +524,8 @@
   background: var(--surface);
   border: var(--border-w) solid var(--line);
   border-radius: var(--radius-md);
-  user-select: text;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .msg-action-note__text {
@@ -586,6 +589,22 @@
       var(--sp-2)
       var(--sp-2)
       calc(env(safe-area-inset-bottom) + var(--sp-2));
+  }
+
+  .chat-multi-bar {
+    flex-wrap: wrap;
+    padding:
+      var(--sp-2)
+      var(--sp-2)
+      calc(env(safe-area-inset-bottom) + var(--sp-2));
+  }
+
+  .chat-multi-bar__actions {
+    gap: var(--sp-1);
+  }
+
+  .chat-multi-btn {
+    padding: 0 10px;
   }
 }
 
@@ -1006,4 +1025,142 @@
 /* 气泡贴纸需要气泡本身作为定位容器 */
 .msg-bubble {
   position: relative;
+}
+
+/* ---------- 引用预览条 / 多选操作栏 / 气泡内引用块 ---------- */
+
+.chat-quote-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-3);
+  border-bottom: var(--border-w) solid var(--line);
+  background: var(--surface-2);
+}
+
+.chat-quote-bar[hidden] {
+  display: none;
+}
+
+.chat-quote-bar__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--sp-2);
+  border-left: 2px solid var(--ink-3);
+}
+
+.chat-quote-bar__label {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.chat-quote-bar__text {
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-quote-bar__close {
+  flex-shrink: 0;
+  width: var(--tap-min, 44px);
+  height: var(--tap-min, 44px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--ink-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.chat-page.is-multi .chat-compose {
+  display: none;
+}
+
+.chat-multi-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) calc(env(safe-area-inset-bottom) + var(--sp-2));
+}
+
+.chat-multi-bar[hidden] {
+  display: none;
+}
+
+.chat-page.is-keyboard .chat-multi-bar,
+.chat-page.is-drawer .chat-multi-bar {
+  padding-bottom: var(--sp-2);
+}
+
+.chat-multi-bar__count {
+  font-size: var(--fs-caption);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.chat-multi-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.chat-multi-btn {
+  min-height: var(--tap-min, 44px);
+  padding: 0 12px;
+  font-size: var(--fs-caption);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.chat-multi-btn.is-danger {
+  color: var(--danger);
+}
+
+.chat-multi-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.msg-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-left: 2px solid var(--ink-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+}
+
+.msg-quote__sender {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.msg-quote__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.msg-row.is-multi-selected {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: var(--radius-md);
 }

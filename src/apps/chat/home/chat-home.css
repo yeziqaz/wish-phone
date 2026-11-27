@@ -22,12 +22,11 @@
    角色数量还不到需要搜索的规模，多一个框就是多一层壳。 */
 
 .chatapp__top {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--tap-min) 1fr var(--tap-min);
   align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
   /* 固定内容区高度 44px，上下各留 4px，总高 52px（和聊天室顶栏一致）；
-     切到「我」隐藏右侧 + 号时，高度和标题垂直居中位置也不跳动 */
+     切到「我」隐藏右侧 + 号时，用 visibility: hidden 占位，标题居中位置也不跳动 */
   height: var(--tap-min);
   padding: calc(var(--statusbar-h) + var(--sp-1)) var(--sp-4) var(--sp-1);
   box-sizing: content-box;
@@ -37,6 +36,7 @@
 
 .chatapp__title {
   margin: 0;
+  text-align: center;
   font-family: var(--font-sans);
   font-size: var(--fs-title);
   font-weight: var(--fw-semibold);
@@ -44,11 +44,13 @@
   letter-spacing: var(--tracking-tight);
   color: var(--beauty-app-ink, var(--ink));
   white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* 顶栏右侧那个「+」：参考图是无框的纯符号。
-   44×44 是触控下限 —— 符号本身只有 ~20px，靠热区撑开。
-   这条规则原先在下面主题层里重复了一遍，2026-11-12 合并到这里。 */
+/* 顶栏左右按钮（返回 / 新建）：无框纯符号，44×44 触控热区。 */
+.chatapp__back,
 .chatapp__action {
   display: grid;
   place-items: center;
@@ -63,6 +65,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.chatapp__back:active,
 .chatapp__action:active {
   background: color-mix(in srgb, var(--beauty-app-accent, var(--ink)) 12%, transparent);
 }
@@ -1196,4 +1199,83 @@
   background: var(--surface-2);
   border: var(--border-w) solid var(--line-strong);
   border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   「收藏」列表页（/chat/favorites）
+   ========================================================================== */
+
+.fav-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fav-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.fav-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.fav-card__sender {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fav-card__time {
+  flex-shrink: 0;
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+}
+
+.fav-card__content {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fav-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.fav-card__btn {
+  min-height: var(--tap-min, 44px);
+  padding: 0 var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-caption);
+  color: var(--ink);
+  background: var(--surface-2);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fav-card__btn.is-muted {
+  color: var(--ink-3);
 }

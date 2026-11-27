@@ -119,6 +119,9 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
   root.innerHTML = `
     <div class="chatapp">
       <header class="chatapp__top">
+        <button class="chatapp__back jelly" type="button" id="chatapp-back" aria-label="返回">
+          ${line('back', 20)}
+        </button>
         <h1 class="chatapp__title" id="chatapp-title">${TITLES[active]}</h1>
         <button class="chatapp__action jelly" type="button" id="chatapp-new" aria-label="新建">
           ${line('plus', 22)}
@@ -222,9 +225,12 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
     tabController = new AbortController();
     const signal = tabController.signal;
 
-    // 顶栏那个按钮跟着板块换身份：朋友圈是「发动态」，我 是「隐藏」
+    // 顶栏那个按钮跟着板块换身份：朋友圈是「发动态」，我 是「隐藏但占位」
     if (actionBtn) {
-      actionBtn.hidden = tab === 'me';
+      const hideAction = tab === 'me';
+      actionBtn.style.visibility = hideAction ? 'hidden' : '';
+      actionBtn.disabled = hideAction;
+      actionBtn.setAttribute('aria-hidden', String(hideAction));
       actionBtn.setAttribute('aria-label', tab === 'moments' ? '发动态' : '新建');
     }
 
@@ -355,10 +361,31 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
     });
   };
 
+  const selectTab = (next: Tab): void => {
+    if (next === active) return;
+    active = next;
+    root.querySelectorAll<HTMLElement>('[data-tab]').forEach((button) => {
+      const on = button.dataset.tab === next;
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-selected', String(on));
+    });
+    paint(next);
+  };
+
   paint(active);
 
   root.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
+
+    // 顶栏返回：非「消息」板块先回到「消息」，已在「消息」才返回桌面
+    if (target.closest('#chatapp-back')) {
+      if (active !== 'chats') {
+        selectTab('chats');
+      } else {
+        navigate('/desktop');
+      }
+      return;
+    }
 
     // 朋友圈的空状态按钮和顶栏按钮，都走发表面板
     if (target.closest('[data-compose]') || target.closest('#chatapp-new')) {
@@ -376,13 +403,7 @@ export async function mountChatHome(root: HTMLElement): Promise<void> {
     const tabButton = target.closest<HTMLElement>('[data-tab]');
     if (!tabButton) return;
     const next = tabButton.dataset.tab as Tab | undefined;
-    if (!next || next === active) return;
-    active = next;
-    root.querySelectorAll<HTMLElement>('[data-tab]').forEach((button) => {
-      const on = button.dataset.tab === next;
-      button.classList.toggle('is-on', on);
-      button.setAttribute('aria-selected', String(on));
-    });
-    paint(next);
+    if (!next) return;
+    selectTab(next);
   });
 }

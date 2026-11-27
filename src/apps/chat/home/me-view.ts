@@ -1,4 +1,5 @@
 import { esc } from '../../../core/dom';
+import { navigate } from '../../../core/router';
 import {
   displayUserName,
   setUserAvatar,
@@ -59,6 +60,14 @@ export function meViewHTML(): string {
         <button class="me-row" type="button" id="me-beauty">
           <span class="me-row__label">聊天美化</span>
           <span class="me-row__value">头像挂件 · 气泡 · 背景 · 聊天APP</span>
+          <span class="me-row__chevron">${line('chevron', 16)}</span>
+        </button>
+      </section>
+
+      <section class="me-group">
+        <button class="me-row" type="button" id="me-favorites">
+          <span class="me-row__label">收藏</span>
+          <span class="me-row__value">已收藏的消息</span>
           <span class="me-row__chevron">${line('chevron', 16)}</span>
         </button>
       </section>
@@ -187,6 +196,11 @@ export function mountMeView(
         onChange,
         onAppChange: onChange,
       }).then(onChange);
+      return;
+    }
+
+    if (target.closest('#me-favorites')) {
+      navigate('/chat/favorites');
       return;
     }
 
