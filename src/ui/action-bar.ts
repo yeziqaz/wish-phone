@@ -7,7 +7,7 @@ import { esc } from '../core/dom';
    用途：长按一条消息、一张卡片时，在它旁边浮出一小排命令。
    参考 Apple HIG《Context menus》（2026-11-08 取回原文）：
      · 「提供一个项目的相关功能，且不弄乱界面」—— 所以它默认隐藏
-     · 「条目要少：太长会难扫读、难滚动」—— 所以横排、一屏放得下
+     · 「条目要少：太长会难扫读、难滚动」—— 所以条目按 5 列折行，不做横向滚动
      · 「不可用的条目不显示，而不是变灰」
      · 「最常用的放在手指起手最近处」—— 顺序由调用方给
      · 「必须在主界面里也有同样的入口」—— 所以行内操作条不能删
@@ -62,26 +62,36 @@ export function openActionBar(config: ActionBarConfig): Promise<string | null> {
 
     /* ---------- 定位 ----------
        默认浮在锚点上方；上方放不下就翻到下方。
-       横向以锚点中线对齐，再钳进屏幕内，避免贴边被切掉。 */
+       横向以锚点中线对齐，再钳进屏幕内，避免贴边被切掉。
+
+       量尺寸用 offsetWidth / offsetHeight，不能用 getBoundingClientRect：
+       浮层此刻还带着 transform: scale(0.94)（等 is-open 才到 1），
+       rect 量到的是缩小后的尺寸，定位会系统性偏 6%。 */
     const place = (): void => {
       const box = config.anchor.getBoundingClientRect();
-      const bar = root.getBoundingClientRect();
+      const barW = root.offsetWidth;
+      const barH = root.offsetHeight;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
 
-      let top = box.top - bar.height - GAP;
+      let top = box.top - barH - GAP;
+      let below = false;
       if (top < EDGE) {
         // 上方不够：翻到下方
         top = box.bottom + GAP;
+        below = true;
       }
       // 下方也放不下（极少见）：贴底
-      if (top + bar.height > vh - EDGE) {
-        top = Math.max(EDGE, vh - EDGE - bar.height);
+      if (top + barH > vh - EDGE) {
+        top = Math.max(EDGE, vh - EDGE - barH);
+        below = false;
       }
 
-      let left = box.left + box.width / 2 - bar.width / 2;
-      left = Math.min(Math.max(EDGE, left), vw - EDGE - bar.width);
+      let left = box.left + box.width / 2 - barW / 2;
+      left = Math.min(Math.max(EDGE, left), vw - EDGE - barW);
 
+      // 从锚点那一侧长出来：在锚点上方就贴着自己底边放大，翻到下方就改贴顶边
+      root.style.transformOrigin = below ? 'center top' : 'center bottom';
       root.style.top = `${Math.round(top)}px`;
       root.style.left = `${Math.round(left)}px`;
     };

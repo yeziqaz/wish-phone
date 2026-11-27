@@ -689,7 +689,8 @@
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  /* 整张面板用浅灰底，白卡才浮得起来（参考图：微信「聊天设置」灰底 + 白卡） */
+  background: color-mix(in srgb, var(--ink) 6%, var(--surface));
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   box-shadow: var(--shadow-pop);
   padding-bottom: env(safe-area-inset-bottom);
@@ -750,16 +751,28 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--sp-4) var(--sp-3);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
 }
 
-/* 分组：组与组之间 24，组内不留缝 */
+/* 分组卡片：以前靠一条贯穿的 border-top 分组，读起来像「一整张长表」；
+   参考图是每组一张独立白卡、卡间留 8px 缝、各自圆角，
+   一眼能看出「哪几行说的是一件事」。 */
 .cs-group {
-  padding: var(--sp-3) 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  border: var(--border-w) solid var(--line);
+  border-radius: var(--radius-lg);
 }
 
 .cs-group + .cs-group {
-  border-top: var(--border-w) solid var(--line);
+  margin-top: var(--sp-2);
+}
+
+/* 卡片自己已经有左右内边距，行里再缩一次就成了双重缩进，
+   会和组标题对不齐。所以卡片里的 me-row 只管竖向。 */
+.cs-group .me-row {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .cs-group__title {

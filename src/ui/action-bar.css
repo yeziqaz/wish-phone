@@ -3,21 +3,29 @@
 
    长按一条消息时浮出的一小排命令。样式跟着 tooltip 的路子走：
    白底、细描边、浮起来才给阴影（STYLE.md：阴影只给「浮起来」的东西）。
+
+   ---------- 为什么是网格不是一排 ----------
+   参考微信 / QQ 的长按面板（2026-11 用户给的参考图）：
+   图标在上、小字在下，固定 5 列，条目多了往第二行折。
+   以前这里是一排按钮 + 横向滚动：手机上 7 个条目加起来超过一屏，
+   最右边的「删除」得先横滑才够得着 —— 长按面板不该有「藏起来的动作」。
+   折成两行以后一屏放得下，代价是面板高一点，比「要滑」划算。
    ========================================================================== */
 
 .action-bar {
   position: fixed;
   z-index: 60;
-  display: flex;
-  align-items: stretch;
-  gap: 0;
+  display: grid;
+  /* 五列折行；保留 8px 热区间距，窄屏允许列宽缩到触控下限。 */
+  grid-template-columns: repeat(5, minmax(var(--tap-min), 1fr));
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  width: 324px;
   max-width: calc(100vw - 16px);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 0;
+  padding: 6px;
   background: var(--surface);
   border: var(--border-w) solid var(--line-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pop);
   /* 只动 transform / opacity，不抢别的属性（STYLE.md §5） */
   opacity: 0;
@@ -40,30 +48,21 @@
   justify-content: center;
   flex-shrink: 0;
   gap: 3px;
-  /* 触控区：宽不小于 56、高不小于 52，都超过 44 的下限 */
-  min-width: 56px;
-  min-height: 52px;
-  padding: 8px 10px;
+  /* 常规列宽 56px，窄屏可缩到 44px；高度保持 56px。 */
+  min-width: var(--tap-min);
+  min-height: 56px;
+  padding: 6px 4px;
   font: inherit;
   font-size: var(--fs-caption);
   line-height: 1.2;
   color: var(--ink);
   background: none;
+  /* 网格布局下不留竖分隔线：参考图是「一块面板里的格子」，
+     不是「一串并排按钮」，分隔线会把格子切回按钮串的观感 */
   border: 0;
-  border-right: var(--border-w) solid var(--line);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-}
-
-.action-bar__item:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-bottom-left-radius: var(--radius-md);
-}
-
-.action-bar__item:last-child {
-  border-right: 0;
-  border-top-right-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
 }
 
 .action-bar__item:active {
