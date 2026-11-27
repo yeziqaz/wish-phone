@@ -450,6 +450,18 @@ export async function deleteMessage(id: string): Promise<void> {
   await database.delete('messages', id);
 }
 
+export async function listFavoritedMessages(): Promise<Message[]> {
+  const database = await db();
+  const all = await database.getAll('messages');
+  return all
+    .filter((m) => m.extra?.favorited === true)
+    .sort((a, b) => {
+      const ta = typeof a.extra?.favoritedAt === 'string' ? a.extra.favoritedAt : a.createdAt;
+      const tb = typeof b.extra?.favoritedAt === 'string' ? b.extra.favoritedAt : b.createdAt;
+      return tb.localeCompare(ta);
+    });
+}
+
 /* ============================ 设置 ============================ */
 
 export async function getSetting<T>(key: string): Promise<T | undefined> {
