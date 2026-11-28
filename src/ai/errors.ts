@@ -39,17 +39,14 @@ const COPY: Record<ApiErrorKind, { title: string; detail: string; hint: string }
     hint: '先连上 Wi-Fi 或流量，再点测试连接。',
   },
   cors: {
-    title: '被浏览器拦住了（跨域）',
-    detail:
-      '地址是通的，但浏览器不允许网页从这个地址读数据。这是浏览器的安全限制，不是接口坏了。',
-    hint:
-      '看看接口文档里有没有「允许跨域」的开关，或者换一个自带跨域支持的服务（DeepSeek、OpenRouter、硅基流动等都支持）。自建中转服务通常默认就放开了。',
+    title: '浏览器无法读取接口响应（可能跨域）',
+    detail: '浏览器未能读取接口响应，可能是站点未允许跨域访问，也可能是网络、证书或接口地址问题；仅凭这个报错无法确定。',
+    hint: '若相同配置在原生客户端可用、网页不可用，请联系站点确认 CORS 支持。自建接口需允许当前网页来源、OPTIONS 预检及 Authorization、Content-Type 请求头。不要使用公共代理转发 Key。',
   },
   network: {
-    title: '连不上这个地址',
-    detail: '地址根本没有回应。可能是域名写错、端口不对、地址不通，或者接口需要连特定网络。',
-    hint:
-      '确认地址有没有抄错（含 /v1 时通常需要，不含时一般不用）。如果是局域网里自建的服务，确认手机和电脑在同一个 Wi-Fi 下。',
+    title: '接口请求失败',
+    detail: '浏览器未能完成接口请求。可能是网络、证书、接口地址或跨域访问限制；无法据此确认接口是否正常。',
+    hint: '检查地址和网络。HTTPS 网页访问 HTTP 接口还可能被混合内容规则拦截，请使用站点提供的 HTTPS 地址；若原生客户端可用而网页不可用，请确认站点的 CORS 支持。',
   },
   auth: {
     title: '密钥不对',
@@ -243,45 +240,14 @@ export async function describeResponse(response: Response): Promise<ApiError | n
   });
 }
 
-/**
- * 把 fetch 抛出来的东西分类。
- *
- * 这里有一个**真的能区分「跨域」和「连不上」**的做法：
- * 用一次 mode: 'no-cors' 的探测请求。
- *   - no-cors 的响应是 opaque（读不到内容），但它能告诉我们「服务器到底有没有回应」
- *   - 拿到响应 → 服务器活着，那之前的失败就是跨域
- *   - 抛错 → 根本没连上（域名、端口、网络、被墙）
- * 这样用户就能被告知准确的原因，而不是一句含糊的「连不上」。
- */
-export async function describeFailure(
-  error: unknown,
-  options: { probeUrl?: string } = {},
-): Promise<ApiError> {
-  if (!navigator.onLine) {
-    return classify('offline', {
-      raw: error instanceof Error ? error.message : String(error),
-    });
-  }
-
+/** 浏览器不暴露 CORS/TLS/DNS 的确切失败原因，不额外发 no-cors 探测。 */
+export async function describeFailure(error: unknown): Promise<ApiError> {
   const raw = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-
-  const reachable = await probeReachable(options.probeUrl);
-  return reachable
-    ? classify('cors', { raw })
-    : classify('network', { raw });
-}
-
-/** 用 no-cors 探测某个地址能不能连上。失败一律当作「连不上」 */
-async function probeReachable(url?: string): Promise<boolean> {
-  if (!url) return true; // 探测不了就保守一点，交给上层给出含糊但诚实的说明
-  try {
-    await fetch(url, { mode: 'no-cors', credentials: 'omit', signal: AbortSignal.timeout(6000) });
-    return true;
-  } catch {
-    return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return classify('offline', { raw });
   }
+  return classify('network', { raw });
 }
-
 /**
  * 把任何抛出的东西统一成一个 ApiError（已经是 ApiError 就原样返回）。
  *

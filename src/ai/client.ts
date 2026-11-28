@@ -31,7 +31,9 @@ const TIMEOUT_MS = 60_000;
  *     （但 chat/completions 的路径要拼对，见下面 buildUrl）
  */
 export function normalizeBaseUrl(input: string): string {
-  return input.trim().replace(/\/+$/, '');
+  const base = input.trim().replace(/\/+$/, '');
+  // 允许粘贴完整的常见 OpenAI 接口地址；不猜 /v1，也不改域名。
+  return base.replace(/\/(?:chat\/completions|models|images\/generations|audio\/speech)$/i, '');
 }
 
 /**
@@ -64,8 +66,8 @@ async function request(
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...authHeader(config.apiKey),
+    ...(init.body != null ? { 'Content-Type': 'application/json' } : {}),
+    ...authHeader(config.apiKey.trim()),
     ...(init.headers as Record<string, string> | undefined),
   };
 
@@ -95,7 +97,7 @@ async function request(
     }
 
     // 其他 fetch 失败（TypeError 等）= 跨域或连不上
-    throw await describeFailure(error, { probeUrl: url });
+    throw await describeFailure(error);
   } finally {
     clearTimeout(timeout);
   }
@@ -106,19 +108,26 @@ export async function listModels(config: ApiConfig): Promise<ModelInfo[]> {
   const url = buildUrl(config.baseUrl, '/models');
   const response = await request(url, config, { method: 'GET' });
 
-  type RawModel = { id: string } & Record<string, unknown>;
-  const data = (await response.json()) as { data?: RawModel[]; models?: RawModel[] };
-  // OpenAI 格式是 { data: [{id}] }，有些服务返回 { models: [{id}] }
-  const list = data.data ?? data.models ?? [];
-  return list
-    .map((m) => {
-      // 上下文长度没有统一字段名，常见的几种都试一下；都没有就不填
-      const ctx = [m.context_length, m.context_window, m.max_context_length, m.max_model_len].find(
-        (v): v is number => typeof v === 'number' && v > 0,
-      );
-      return ctx ? { id: m.id, contextLength: ctx } : { id: m.id };
-    })
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const data: unknown = await response.json();
+  const envelope = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+  const list = Array.isArray(data) ? data : envelope.data ?? envelope.models;
+  if (!Array.isArray(list)) {
+    throw classify('server', {
+      detail: '接口响应里没有可识别的模型列表。',
+      hint: '可手动填写模型名；部分站点支持聊天，但不提供模型列表。',
+    });
+  }
+  const models = new Map<string, ModelInfo>();
+  for (const value of list) {
+    const item = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+    const rawId = typeof value === 'string' ? value : item.id ?? item.name ?? item.model;
+    if (typeof rawId !== 'string' || !rawId.trim()) continue;
+    const id = rawId.trim();
+    const ctx = [item.context_length, item.context_window, item.max_context_length, item.max_model_len]
+      .find((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0);
+    models.set(id, ctx ? { id, contextLength: ctx } : { id });
+  }
+  return [...models.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /**
@@ -148,7 +157,7 @@ export async function chat(
 
   const data = (await response.json()) as {
     choices?: Array<{
-      message?: { content?: string };
+      message?: { content?: string | Array<{ type?: string; text?: string }> };
       finish_reason?: string;
     }>;
     model?: string;
@@ -156,7 +165,12 @@ export async function chat(
   };
 
   const choice = data.choices?.[0];
-  if (!choice?.message?.content) {
+  const content = choice?.message?.content;
+  const text = typeof content === 'string' ? content : Array.isArray(content)
+    ? content.filter((part) => part && (part.type === 'text' || part.type === 'output_text' || !part.type))
+      .map((part) => typeof part.text === 'string' ? part.text : '').join('')
+    : '';
+  if (!text) {
     throw classify('server', {
       raw: JSON.stringify(data).slice(0, 1200),
       detail: '接口返回了成功状态，但消息体里没有内容。',
@@ -165,14 +179,14 @@ export async function chat(
   }
 
   return {
-    text: choice.message.content,
+    text,
     model: data.model ?? config.model,
     usage: {
       promptTokens: data.usage?.prompt_tokens ?? 0,
       completionTokens: data.usage?.completion_tokens ?? 0,
       totalTokens: data.usage?.total_tokens ?? 0,
     },
-    finishReason: choice.finish_reason ?? null,
+    finishReason: choice?.finish_reason ?? null,
   };
 }
 
