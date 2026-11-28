@@ -3,7 +3,7 @@ import type { Site, SiteBalance, SiteModel, SiteTest } from '../../core/api-type
 import { putSite } from '../../core/db';
 import { inferKinds, inferSeries } from '../../core/api-catalog';
 import { ApiError, toApiError } from '../errors';
-import { listModels, silentJsonGet, testConnection } from '../client';
+import { chat, listModels, silentJsonGet, testConnection } from '../client';
 
 /* ==========================================================================
    OpenAI 兼容适配器（设计文档 §9.1 / §9.2）
@@ -89,6 +89,75 @@ export async function testSite(site: Site): Promise<SiteTest> {
   } catch (error) {
     return { ok: false, at: Date.now(), message: humanize(error) };
   }
+}
+
+export interface ModelProbeResult {
+  modelId: string;
+  ok: boolean;
+  latencyMs: number;
+  message: string;
+}
+
+export interface ProbeBatchOptions {
+  signal?: AbortSignal;
+  onProgress?: (result: ModelProbeResult, done: number, total: number) => void;
+}
+
+/** 真实发一次极简对话请求，验证单个模型能否实际调用。 */
+export async function probeModel(site: Site, modelId: string): Promise<ModelProbeResult> {
+  const key = pickKey(site);
+  if (!key) {
+    return { modelId, ok: false, latencyMs: 0, message: '这个站点还没有可用的 Key' };
+  }
+
+  const start = Date.now();
+  try {
+    await chat([{ role: 'user', content: '回复一个字：好' }], configOf(site, key, modelId));
+    const latencyMs = Math.max(1, Date.now() - start);
+    return { modelId, ok: true, latencyMs, message: `可用 · ${latencyMs}ms` };
+  } catch (error) {
+    const latencyMs = Math.max(0, Date.now() - start);
+    return {
+      modelId,
+      ok: false,
+      latencyMs,
+      message: humanize(error) || '调用失败',
+    };
+  }
+}
+
+/** 串行逐个探测多个模型的可用性。不修改模型列表或开关状态。 */
+export async function probeModels(
+  site: Site,
+  modelIds: string[],
+  options: ProbeBatchOptions = {},
+): Promise<ModelProbeResult[]> {
+  const results: ModelProbeResult[] = [];
+  const total = modelIds.length;
+  if (total === 0) return results;
+
+  const key = pickKey(site);
+  if (!key) {
+    for (let i = 0; i < total; i += 1) {
+      const result: ModelProbeResult = {
+        modelId: modelIds[i]!,
+        ok: false,
+        latencyMs: 0,
+        message: '这个站点还没有可用的 Key',
+      };
+      results.push(result);
+      options.onProgress?.(result, i + 1, total);
+    }
+    return results;
+  }
+
+  for (let i = 0; i < total; i += 1) {
+    if (options.signal?.aborted) break;
+    const result = await probeModel(site, modelIds[i]!);
+    results.push(result);
+    options.onProgress?.(result, i + 1, total);
+  }
+  return results;
 }
 
 /** 把 API 层的人话错误压成一行，塞进站点的 lastTest */

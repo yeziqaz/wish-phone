@@ -743,6 +743,20 @@
   color: var(--ink-4);
 }
 
+.api-model__probe {
+  font-size: var(--fs-caption);
+  color: var(--ink-4);
+  word-break: break-word;
+}
+
+.api-model__probe.is-ok {
+  color: var(--success);
+}
+
+.api-model__probe.is-bad {
+  color: var(--danger);
+}
+
 /* ---------- 列表底部 ---------- */
 
 .api-models__foot {

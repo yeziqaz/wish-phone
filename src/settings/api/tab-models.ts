@@ -3,7 +3,7 @@ import { putSite } from '../../core/db';
 import type { Capability, Series, Site, SiteModel } from '../../core/api-types';
 import { CAPABILITIES, CAPABILITY_LABEL, SERIES_LABEL, SERIES_ORDER } from '../../core/api-types';
 import { line } from '../../ui/icons';
-import { pullModels } from '../../ai/adapters/openai';
+import { probeModels, pullModels, type ModelProbeResult } from '../../ai/adapters/openai';
 import { inferSubSeries, subSeriesLabel } from '../../core/api-catalog';
 
 /* ==========================================================================
@@ -34,6 +34,19 @@ export function mountModelsTab(
 
   /** 折叠了哪些分组。key 是 `系列/小类`，不在这个集合里就是展开的 */
   const collapsed = new Set<string>();
+
+  /** 逐模型探测结果（仅本次打开有效，不落库） */
+  const probeResults = new Map<string, ModelProbeResult>();
+  let probing = false;
+  let probeAbort: AbortController | null = null;
+  let probeSummary = '';
+  let probeOk = true;
+
+  function probeText(result: ModelProbeResult): string {
+    if (result.ok) return `✓ ${result.latencyMs}ms`;
+    const msg = result.message.length > 42 ? `${result.message.slice(0, 42)}…` : result.message;
+    return `✗ ${msg}`;
+  }
 
   // 系列按钮只显示这个站点实际有的（文档 §6.3）
   // 系列筛选按钮按用户指定的固定顺序排，不是按出现顺序
@@ -97,6 +110,9 @@ export function mountModelsTab(
 
   function rowHTML(model: SiteModel): string {
     const kinds = model.kinds.map((kind) => `<span class="tag">${CAPABILITY_LABEL[kind]}</span>`).join('');
+    const probe = probeResults.get(model.id);
+    const probeCls = probe ? (probe.ok ? ' is-ok' : ' is-bad') : '';
+    const probeMsg = probe ? probeText(probe) : '';
     return `
       <div class="api-model${model.enabled ? '' : ' is-off'}" data-model="${esc(model.id)}">
         <label class="switch api-model__switch">
@@ -110,6 +126,7 @@ export function mountModelsTab(
             <span class="api-model__series">${SERIES_LABEL[model.series]}</span>
             ${model.contextLength ? `<span class="api-model__ctx">${Math.round(model.contextLength / 1000)}K</span>` : ''}
           </span>
+          <span class="api-model__probe${probeCls}" data-probe-state="${esc(model.id)}">${esc(probeMsg)}</span>
         </span>
         <button class="api-key__icon jelly" type="button" data-model-edit aria-label="更多">${line('more', 18)}</button>
       </div>`;
@@ -167,6 +184,15 @@ export function mountModelsTab(
       <div class="api-models__foot">
         <button class="btn jelly" type="button" data-pull>${line('refresh', 16)}重新拉取模型</button>
         <p class="field__note" data-pull-note></p>
+        ${
+          total > 0
+            ? `<button class="btn btn--secondary jelly" type="button" data-probe>${
+                probing ? '停止测试' : '测试模型可用性'
+              }</button>
+               <p class="field__hint">逐个发送真实请求验证已启用模型是否可用，可能消耗额度。</p>
+               <p class="field__note${probeSummary ? (probeOk ? ' is-ok' : ' is-bad') : ''}" data-probe-note>${esc(probeSummary)}</p>`
+            : ''
+        }
         <p class="api-models__count">${
           total === 0 ? '' : `共 ${total} 个，已启用 ${enabledTotal} 个`
         }</p>
@@ -262,6 +288,69 @@ export function mountModelsTab(
           note.className = 'field__note is-ok';
           note.textContent = result.message;
         }
+      })();
+      return;
+    }
+
+    const probe = target.closest<HTMLButtonElement>('[data-probe]');
+    if (probe) {
+      if (probing) {
+        probeAbort?.abort();
+        probe.disabled = true;
+        probe.textContent = '正在停止…';
+        return;
+      }
+      const ids = visible()
+        .filter((model) => model.enabled)
+        .map((model) => model.id);
+      if (ids.length === 0) {
+        const note = host.querySelector<HTMLElement>('[data-probe-note]');
+        if (note) {
+          note.className = 'field__note is-bad';
+          note.textContent = '当前筛选下没有已启用的模型，请先打开至少一个模型开关。';
+        }
+        return;
+      }
+
+      probeResults.clear();
+      probeSummary = '';
+      probeOk = true;
+      probing = true;
+      probeAbort = new AbortController();
+      const signal = probeAbort.signal;
+      render();
+
+      const liveBtn = host.querySelector<HTMLButtonElement>('[data-probe]');
+      if (liveBtn) liveBtn.textContent = `测试中 0/${ids.length}（点此停止）`;
+
+      void (async () => {
+        const results = await probeModels(site, ids, {
+          signal,
+          onProgress: (result, done, total) => {
+            probeResults.set(result.modelId, result);
+            const btn = host.querySelector<HTMLButtonElement>('[data-probe]');
+            if (btn && !signal.aborted) {
+              btn.textContent = `测试中 ${done}/${total}（点此停止）`;
+            }
+            for (const el of host.querySelectorAll<HTMLElement>('[data-probe-state]')) {
+              if (el.dataset.probeState === result.modelId) {
+                el.className = `api-model__probe ${result.ok ? 'is-ok' : 'is-bad'}`;
+                el.textContent = probeText(result);
+                break;
+              }
+            }
+          },
+        });
+
+        const okCount = results.filter((item) => item.ok).length;
+        const failCount = results.length - okCount;
+        probeSummary = signal.aborted
+          ? `已停止：已测 ${results.length}/${ids.length} 个（${okCount} 个可用，${failCount} 个不可用）。`
+          : `${okCount} 个可用，${failCount} 个不可用；已通过真实请求验证。`;
+        probeOk = failCount === 0;
+        probing = false;
+        probeAbort = null;
+        render();
       })();
     }
   });

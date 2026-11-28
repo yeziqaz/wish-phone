@@ -19,8 +19,8 @@ import { mountSiteLogsTab } from './tab-logs';
    步骤 4 只做「配置 Tab」。模型 Tab 是步骤 5，日志/限制 是步骤 8/10，
    都先给一句明确的占位，不做假界面。
 
-   ⚠️ 除了删站点，其它改动都是即时落库、没有「保存」按钮：
-      加一步保存只为防手滑，代价却是每次都多点一下。
+   ⚠️ 其它改动会即时落库；配置 Tab 底部另提供「保存修改」按钮，
+      用来把当前改动覆盖保存到当前站点、不影响即时保存机制。
       删除不可逆，所以它走就地二次确认。
    ========================================================================== */
 
@@ -218,6 +218,14 @@ export async function mountSiteDetail(root: HTMLElement, siteId: string): Promis
       <section class="api-section">
         <h3 class="api-section__title">备注</h3>
         <textarea class="input textarea" data-field="note" rows="4" placeholder="记点注意事项，比如「晚高峰很慢」「周末容易断」">${esc(current.note)}</textarea>
+      </section>
+
+      <section class="api-section">
+        <div class="row-actions">
+          <button class="btn btn--primary jelly" type="button" data-save-site>保存修改</button>
+        </div>
+        <p class="field__hint">修改内容会覆盖保存到当前站点，不会新增一条。</p>
+        <p class="field__note" data-save-note></p>
       </section>
 
       <section class="danger-zone">
@@ -559,6 +567,41 @@ export async function mountSiteDetail(root: HTMLElement, siteId: string): Promis
       '[data-field]',
     );
     if (field) void commitField(field);
+
+    if (target.closest('[data-save-site]')) {
+      const saveNote = bodyEl.querySelector<HTMLElement>('[data-save-note]');
+      const current = site;
+      if (!current) return;
+      const nameEl = bodyEl.querySelector<HTMLInputElement>('[data-field="name"]');
+      const urlEl = bodyEl.querySelector<HTMLInputElement>('[data-field="url"]');
+      const typeEl = bodyEl.querySelector<HTMLSelectElement>('[data-field="siteType"]');
+      const noteEl = bodyEl.querySelector<HTMLTextAreaElement>('[data-field="note"]');
+
+      if (urlEl) {
+        const { url } = normalizeBaseUrl(urlEl.value.trim(), current.protocol);
+        if (!url) {
+          showNote(saveNote, '地址不能空着', false);
+          urlEl.value = current.url;
+          return;
+        }
+        urlEl.value = url;
+      }
+
+      void commit(
+        (value) => {
+          const nextName = nameEl?.value.trim();
+          if (nextName) value.name = nextName;
+          else if (nameEl) nameEl.value = value.name;
+          if (urlEl) {
+            const { url } = normalizeBaseUrl(urlEl.value.trim(), value.protocol);
+            if (url) value.url = url;
+          }
+          if (typeEl) value.siteType = typeEl.value as SiteType;
+          if (noteEl) value.note = noteEl.value;
+        },
+        () => {},
+      ).then(() => showNote(saveNote, '已保存到当前站点', true));
+    }
   });
 
   // 文本框用失焦保存，避免每敲一个字就写一次库
