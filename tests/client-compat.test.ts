@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chat, listModels, normalizeBaseUrl } from '../src/ai/client';
+import { chat, listModels, normalizeBaseUrl, testConnection } from '../src/ai/client';
 import { ApiError, describeFailure } from '../src/ai/errors';
 const config = { baseUrl: 'https://example.invalid/v1', apiKey: ' test-key ', model: 'model-a', temperature: 0.5 };
 function reply(data: unknown): Response {
@@ -94,6 +94,25 @@ test('网络失败不发 no-cors 探测，不断言接口正常', async (t) => {
   assert.equal(requests, 1);
 });
 
+test('查询模型接口失败不自动发送聊天或生成请求', async (t) => {
+  for (const status of [404, 500]) {
+    let requests = 0;
+    t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+      requests++;
+      assert.equal(url, 'https://example.invalid/v1/models');
+      assert.equal(init.method, 'GET');
+      return new Response('err', { status });
+    });
+    await assert.rejects(testConnection(config), (error: unknown) =>
+      error instanceof ApiError && error.info.kind === (status === 404 ? 'notFound' : 'server'));
+    assert.equal(requests, 1);
+    t.mock.restoreAll();
+  }
+});
+test('查询模型接口成功只返回实际列表，不补造配置中的模型', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => reply({ data: [] }));
+  assert.deepEqual(await testConnection(config), { ok: true, models: [] });
+});
 test('错误分类在没有浏览器 navigator 的环境可用', async (t) => {
   t.mock.getter(globalThis, 'navigator', () => undefined);
   assert.equal((await describeFailure(new TypeError('Failed to fetch'))).info.kind, 'network');

@@ -106,7 +106,7 @@ function cardHTML(item: EditorItem, index: number, total: number, showType: bool
       ${
         item.siteId
           ? `<div class="api-card__actions">
-               <button class="btn btn--sm" type="button" data-test>测试连接</button>
+               <button class="btn btn--sm" type="button" data-test>查询模型接口</button>
                <button class="btn btn--sm" type="button" data-pull>拉取模型</button>
              </div>
              <p class="field__note" data-card-note></p>
@@ -369,11 +369,11 @@ export function openSiteEditor(options: EditorOptions): void {
 
       button.textContent = '正在拉取…';
       let pulled = 0;
-      let failed = 0;
+      const failures: string[] = [];
       for (const site of saved) {
         const result = await pullModels(site);
         if (!result.ok) {
-          failed += 1;
+          failures.push(`${site.name}：${result.message}`);
           continue;
         }
         site.models = result.models;
@@ -383,9 +383,9 @@ export function openSiteEditor(options: EditorOptions): void {
 
       close();
       onSaved(
-        failed > 0
-          ? `已保存 ${saved.length} 个站点，其中 ${failed} 个拉取失败`
-          : `已保存 ${saved.length} 个站点，拉到 ${pulled} 个模型`,
+        failures.length > 0
+          ? `已保存 ${saved.length} 个站点，其中 ${failures.length} 个拉取失败。${failures.join('；')}`
+          : `已保存 ${saved.length} 个站点，拉到 ${pulled} 个模型名；尚未验证实际调用。`,
       );
     });
   });

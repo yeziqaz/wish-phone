@@ -41,12 +41,12 @@ const COPY: Record<ApiErrorKind, { title: string; detail: string; hint: string }
   cors: {
     title: '浏览器无法读取接口响应（可能跨域）',
     detail: '浏览器未能读取接口响应，可能是站点未允许跨域访问，也可能是网络、证书或接口地址问题；仅凭这个报错无法确定。',
-    hint: '若相同配置在原生客户端可用、网页不可用，请联系站点确认 CORS 支持。自建接口需允许当前网页来源、OPTIONS 预检及 Authorization、Content-Type 请求头。不要使用公共代理转发 Key。',
+    hint: '若相同配置在原生客户端可用、网页不可用，请联系站点确认 CORS 支持。服务端需放行当前网页来源、OPTIONS 预检及 Authorization、Content-Type 请求头，并在实际响应中返回 Access-Control-Allow-Origin。前端无法解除服务端跨域限制。不要使用公共代理转发 Key。',
   },
   network: {
     title: '接口请求失败',
     detail: '浏览器未能完成接口请求。可能是网络、证书、接口地址或跨域访问限制；无法据此确认接口是否正常。',
-    hint: '检查地址和网络。HTTPS 网页访问 HTTP 接口还可能被混合内容规则拦截，请使用站点提供的 HTTPS 地址；若原生客户端可用而网页不可用，请确认站点的 CORS 支持。',
+    hint: '检查地址和网络。HTTPS 网页访问 HTTP 接口还可能被混合内容规则拦截，请使用站点提供的 HTTPS 地址；若相同配置在原生客户端可用而网页不可用，请联系站点确认 CORS 支持：放行当前网页来源、OPTIONS 预检及 Authorization、Content-Type 请求头，实际响应需带 Access-Control-Allow-Origin。前端无法解除服务端跨域限制，不要使用公共代理转发 Key。',
   },
   auth: {
     title: '密钥不对',

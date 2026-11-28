@@ -16,7 +16,7 @@
  *   所以流式留到有方案时再做，v1 是「非流式 + 本地打字机」。
  */
 import type { ApiConfig, ChatMessage, CompletionResult, ModelInfo } from './types';
-import { ApiError, classify, describeResponse, describeFailure, toApiError } from './errors';
+import { ApiError, classify, describeResponse, describeFailure } from './errors';
 
 /** 超时毫秒。聊天可能比较慢，给 60 秒 */
 const TIMEOUT_MS = 60_000;
@@ -191,31 +191,16 @@ export async function chat(
 }
 
 /**
- * 测试连接：发一个最小请求，看通不通。
- *
- * 用 /models 接口（GET，不需要消耗额度）。
- * 有些服务不支持 /models，那退而用一条最小 chat 请求。
+ * 仅查询模型接口，不发送聊天或生成请求。
+ * 查询成功只说明列表可读取，不保证列出的模型能实际调用。
  */
 export async function testConnection(config: ApiConfig): Promise<{
   ok: true;
   models: ModelInfo[];
 }> {
-  try {
-    const models = await listModels(config);
-    return { ok: true, models };
-  } catch (error) {
-    // /models 不支持？用一条最小 chat 试试
-    if (error instanceof ApiError && (error.info.kind === 'notFound' || error.info.kind === 'server')) {
-      await chat(
-        [{ role: 'user', content: 'Hi' }],
-        { ...config, temperature: 0 },
-      );
-      return { ok: true, models: [{ id: config.model }] };
-    }
-    throw toApiError(error);
-  }
+  const models = await listModels(config);
+  return { ok: true, models };
 }
-
 /* ==========================================================================
    静默 GET（给余额查询用）
    --------------------------------------------------------------------------

@@ -7,7 +7,7 @@ import { avatarHTML } from '../../ui/avatar';
 import { line } from '../../ui/icons';
 import { openSheet } from '../../ui/sheet';
 import { listModels, normalizeBaseUrl } from '../../ai/client';
-import { ApiError } from '../../ai/errors';
+import { toApiError } from '../../ai/errors';
 import { PROTOCOL_LABEL, PROTOCOL_READY, defaultApiPath, fromParsed, guessModelKind } from './shared';
 import { parseProvidersText } from './smart-parse';
 import './providers.css';
@@ -45,8 +45,8 @@ const NATIVE_HINT: Record<ModelKind, string> = {
 };
 
 function describe(error: unknown): string {
-  if (error instanceof ApiError) return `${error.info.title} —— ${error.info.detail}`;
-  return error instanceof Error ? error.message : String(error);
+  const { info } = toApiError(error);
+  return [info.detail || info.title, info.hint].filter(Boolean).join(' ');
 }
 
 function usableKey(provider: Provider): string {
@@ -230,7 +230,7 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
         const filtered = list.filter((item) => guessModelKind(item.id) === kind);
 
         if (filtered.length === 0) {
-          flash = `「${provider.name}」没返回${label}模型。可能这个站子不提供这一类。`;
+          flash = `「${provider.name}」没返回${label}模型。可能这个站子不提供这一类。原有模型列表已保留，未更新。`;
           flashBad = true;
           await paint();
           return;
@@ -269,11 +269,11 @@ export async function mountApiType(root: HTMLElement, rawKind: string): Promise<
         provider.updatedAt = Date.now();
         await putProvider(provider);
 
-        flash = `已添加 ${picked.length} 个模型。去「API 与模型」里选一个作为${label}主模型。`;
+        flash = `已添加 ${picked.length} 个模型名，尚未验证实际调用。去「API 与模型」里选一个作为${label}主模型。`;
         flashBad = false;
         await paint();
       } catch (error) {
-        flash = describe(error);
+        flash = `拉取失败。原有模型列表已保留，未更新。${describe(error)}`;
         flashBad = true;
         await paint();
       }

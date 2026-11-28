@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { mergeModels, pickKey } from '../src/ai/adapters/openai.ts';
+import { mergeModels, pickKey, pullModels, testSite } from '../src/ai/adapters/openai.ts';
 import type { Site, SiteModel } from '../src/core/api-types.ts';
 
 /* ==========================================================================
    拉取模型时的合并规则（设计文档 §6.3）
-   只测纯函数，不联网。
+   纯函数与请求结果处理；请求均用 mock，不联网。
    ========================================================================== */
 
 function model(id: string, extra: Partial<SiteModel> = {}): SiteModel {
@@ -107,4 +107,41 @@ test('挑 Key：跳过停用的和异常的，固定模式认固定那一个', (
 
   const noKey = { keyMode: 'roundrobin', fixedKeyId: '', keys: [] } as unknown as Site;
   assert.equal(pickKey(noKey), '');
+});
+function requestSite(): Site {
+  return {
+    url: 'https://example.invalid/v1', keyMode: 'roundrobin', fixedKeyId: '',
+    keys: [{ id: 'test', value: 'test-key', enabled: true, abnormal: false }],
+    models: [model('existing-model')],
+  } as Site;
+}
+test('拉取网络失败保留旧列表，并显示服务端跨域限制指引', async (t) => {
+  const site = requestSite();
+  t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('Failed to fetch'); });
+  const result = await pullModels(site);
+  assert.equal(result.ok, false);
+  assert.equal(result.models, site.models);
+  assert.match(result.message, /原有模型列表已保留，未更新/);
+  assert.match(result.message, /前端无法解除服务端跨域限制/);
+  assert.match(result.message, /不要使用公共代理转发 Key/);
+});
+test('空列表与无 Key 均保留旧列表，不宣称聊天可用', async (t) => {
+  const site = requestSite();
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: [] })));
+  const empty = await pullModels(site);
+  assert.equal(empty.ok, false);
+  assert.equal(empty.models, site.models);
+  assert.match(empty.message, /空列表/);
+  assert.match(empty.message, /原有模型列表已保留，未更新/);
+  const noKey = await pullModels({ ...site, keys: [] });
+  assert.equal(noKey.ok, false);
+  assert.equal(noKey.models, site.models);
+  assert.match(noKey.message, /原有模型列表已保留，未更新/);
+});
+test('站点查询成功明确只读取模型名，未验证聊天或生成', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ data: [{ id: 'model-a' }] })));
+  const result = await testSite(requestSite());
+  assert.equal(result.ok, true);
+  assert.match(result.message, /返回 1 个模型名/);
+  assert.match(result.message, /尚未验证聊天或生成是否可用/);
 });

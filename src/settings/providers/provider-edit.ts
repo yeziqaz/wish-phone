@@ -243,7 +243,7 @@ function render(root: HTMLElement, p: Provider, quick: boolean): void {
 
           ${quick ? '' : `
           <div class="row-actions">
-            <button class="btn btn--sm jelly" type="button" id="p-test">测试连接</button>
+            <button class="btn btn--sm jelly" type="button" id="p-test">查询模型接口</button>
           </div>
           <p class="field__note" id="p-test-result"></p>`}
         </div>
@@ -935,7 +935,7 @@ function bind(root: HTMLElement, provider: Provider, quick: boolean): void {
           model: provider.models[0]?.id ?? '',
           temperature: 0,
         });
-        result.textContent = `连接正常 ✓ · 可用模型 ${outcome.models.length} 个`;
+        result.textContent = `模型接口可读取 ✓ · 返回 ${outcome.models.length} 个模型名；尚未验证实际调用。`;
         result.className = 'field__note is-ok';
       } catch (error) {
         result.textContent = describe(error);

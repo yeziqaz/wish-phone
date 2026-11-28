@@ -28,10 +28,6 @@ function configOf(site: Site, key: string, model = ''): ApiConfig {
   return { baseUrl: site.url, apiKey: key, model, temperature: 0 };
 }
 
-/** 站点里第一个启用的模型，测试连接时用来兜底 */
-function firstModelId(site: Site): string {
-  return site.models.find((model) => model.enabled)?.id ?? site.models[0]?.id ?? '';
-}
 
 /**
  * 把接口返回的模型列表和站点里已有的合并。
@@ -69,27 +65,27 @@ export interface PullResult {
 /** 拉取模型列表。失败时把原因翻成人话，不抛异常 */
 export async function pullModels(site: Site): Promise<PullResult> {
   const key = pickKey(site);
-  if (!key) return { ok: false, models: site.models, message: '这个站点还没有可用的 Key' };
+  if (!key) return { ok: false, models: site.models, message: '这个站点还没有可用的 Key。原有模型列表已保留，未更新。' };
 
   try {
     const infos = await listModels(configOf(site, key));
     if (infos.length === 0) {
-      return { ok: false, models: site.models, message: '接口连上了，但一个模型都没返回' };
+      return { ok: false, models: site.models, message: '模型接口返回了空列表；未验证聊天是否可用。原有模型列表已保留，未更新。' };
     }
-    return { ok: true, models: mergeModels(site.models, infos), message: `拉到 ${infos.length} 个模型` };
+    return { ok: true, models: mergeModels(site.models, infos), message: `已更新 ${infos.length} 个模型名；尚未验证实际调用是否可用。` };
   } catch (error) {
-    return { ok: false, models: site.models, message: humanize(error) };
+    return { ok: false, models: site.models, message: `拉取失败。原有模型列表已保留，未更新。${humanize(error)}` };
   }
 }
 
-/** 测试连接。不消耗额度：优先打 /models，不支持才退回一条最小对话 */
+/** 仅查询模型接口，不发送聊天或生成请求，不验证模型实际可用性。 */
 export async function testSite(site: Site): Promise<SiteTest> {
   const key = pickKey(site);
   if (!key) return { ok: false, at: Date.now(), message: '这个站点还没有可用的 Key' };
 
   try {
-    await testConnection(configOf(site, key, firstModelId(site)));
-    return { ok: true, at: Date.now(), message: '连接正常' };
+    const result = await testConnection(configOf(site, key));
+    return { ok: true, at: Date.now(), message: `模型接口可读取，返回 ${result.models.length} 个模型名；尚未验证聊天或生成是否可用。` };
   } catch (error) {
     return { ok: false, at: Date.now(), message: humanize(error) };
   }
@@ -98,7 +94,7 @@ export async function testSite(site: Site): Promise<SiteTest> {
 /** 把 API 层的人话错误压成一行，塞进站点的 lastTest */
 function humanize(error: unknown): string {
   const apiError = error instanceof ApiError ? error : toApiError(error);
-  return apiError.info.detail || apiError.info.title;
+  return [apiError.info.detail || apiError.info.title, apiError.info.hint].filter(Boolean).join(' ');
 }
 /* ==========================================================================
    余额查询（设计文档 §9.3）

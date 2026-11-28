@@ -134,7 +134,7 @@ export async function mountSiteDetail(root: HTMLElement, siteId: string): Promis
         }
 
         <div class="row-actions">
-          <button class="btn btn--sm jelly" type="button" data-test>测试连接</button>
+          <button class="btn btn--sm jelly" type="button" data-test>查询模型接口</button>
         </div>
 
         ${

@@ -152,7 +152,7 @@ export function mountModelsTab(
         total === 0
           ? `<div class="empty">
                <p class="empty__title">还没拉过模型</p>
-               <p class="empty__hint">点下面的「重新拉取模型」，把站点支持的模型拉下来。</p>
+               <p class="empty__hint">点下面的「重新拉取模型」，获取站点返回的模型名；实际能否调用需另行验证。</p>
              </div>`
           : list.length === 0
             ? `<div class="empty">
